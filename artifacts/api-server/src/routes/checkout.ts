@@ -216,6 +216,20 @@ router.post("/checkout/session", async (req, res) => {
     }
   }
 
+  // Slot-presence guard — reject before the session is created so a missing
+  // slot (OS schedule API unreachable) can never reach a charge state.
+  if (rawExpressDelivery !== true && !rawDeliverySlot?.trim()) {
+    req.log.warn(
+      { orderId, expressDelivery: rawExpressDelivery, deliverySlot: rawDeliverySlot },
+      "checkout.session: non-express request with missing deliverySlot — rejecting before charge",
+    );
+    return res.status(400).json({
+      ok: false,
+      code: "missing_delivery_slot",
+      message: "A delivery time slot is required. Please go back and select a delivery window.", // i18n-ignore
+    });
+  }
+
   const catalogResult = await resolveCartItems(items, store);
   if (!catalogResult.ok) {
     req.log.warn(
@@ -713,6 +727,21 @@ router.post("/checkout/payment-intent", async (req, res) => {
         message: "The selected delivery time is no longer available. Please pick a new date or time slot.", // i18n-ignore
       });
     }
+  }
+
+  // Slot-presence guard — reject before any PaymentIntent is created so a
+  // missing slot (OS schedule API unreachable at checkout) can never reach a
+  // charge state. Express orders need no slot; all others must carry one.
+  if (expressDelivery !== true && !deliverySlot?.trim()) {
+    req.log.warn(
+      { orderId, expressDelivery, deliverySlot },
+      "checkout.payment-intent: non-express request with missing deliverySlot — rejecting before charge",
+    );
+    return res.status(400).json({
+      ok: false,
+      code: "missing_delivery_slot",
+      message: "A delivery time slot is required. Please go back and select a delivery window.", // i18n-ignore
+    });
   }
 
   const catalogResult = await resolveCartItems(items, store);

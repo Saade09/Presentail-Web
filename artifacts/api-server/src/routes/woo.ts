@@ -1272,6 +1272,40 @@ router.post("/woo/order", async (req, res) => {
   }
   const body = parsed.data;
 
+  // ── Slot-presence guard ────────────────────────────────────────────────
+  // Non-express orders must carry a non-blank, non-whitespace delivery slot.
+  // Express is identified by a positive expressFee (same signal used later in
+  // clientSignalledExpress). Whitespace-only slots are treated the same as
+  // empty ones — trim() is used throughout.
+  //
+  // Two outcomes:
+  //  • Unpaid (no paymentRef): reject immediately — nothing has been charged.
+  //  • Paid (paymentRef present): the PI has already been settled, so blocking
+  //    here would create a charged-but-lost order. Allow the submission but log
+  //    a loud warning so ops can reschedule the window manually. This mirrors
+  //    the "allow_paid" branch in evaluateOrderSlotGuard for expired slots.
+  //    With the /checkout/payment-intent guard in place, this path should
+  //    never trigger for new orders — it is only a safety net for edge cases
+  //    (server-restart recovery, webhook replay, historical pre-guard orders).
+  const isExpressSubmission = body.expressFee > 0;
+  if (!isExpressSubmission && !body.deliverySlot?.trim()) {
+    if (body.paymentRef) {
+      req.log?.warn?.(
+        { orderId: body.orderId, paymentRef: body.paymentRef },
+        "woo.order: non-express PAID order submitted with empty deliverySlot — allowing (rescue path); needs manual rescheduling",
+      );
+    } else {
+      req.log?.warn?.(
+        { orderId: body.orderId },
+        "woo.order: non-express order submitted with empty deliverySlot — rejected",
+      );
+      return res.status(400).json({
+        ok: false,
+        message: "A delivery time slot is required. Please go back and select a delivery window.", // i18n-ignore
+      });
+    }
+  }
+
   // ── Cross-instance duplicate guard ─────────────────────────────────────
   // The browser POST, the Stripe webhook, and the pending-checkout sweeper
   // can all submit the same order (each is a safety net for the others).

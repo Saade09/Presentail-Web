@@ -11,6 +11,7 @@ import DeliveryDetailsField, { flattenPlaceAddress, type CheckoutPlace, type Pla
 import { CARD_MESSAGE_KEY, CARD_TO_KEY, CARD_FROM_KEY, CARD_QR_LINK_KEY, COUPON_STORAGE_KEY, COUPON_DISCOUNT_KEY, ORDER_NOTE_KEY } from "./Cart";
 
 import { buildCardFrom } from "@/lib/cardFrom";
+import { isPlaceOrderDisabled } from "@/lib/checkoutSubmitGuard";
 import {
   FIRST_ORDER_COUPON_CODE,
   isFirstOrderPromoActive,
@@ -2440,7 +2441,12 @@ function CheckoutForm() {
     // state resolves rather than pre-creating a PI with deliverySlot:"".
     // This prevents the server snapshot from recording a blank slot that
     // would cause a 402 mismatch when the order body carries the real slot.
-    if (deliveryMode !== "express" && !deliverySlot && timeSlots.length > 0) {
+    // Guard: if no slot is selected yet (either because slots haven't loaded or
+    // because they loaded empty and the clear effect ran), wait rather than
+    // pre-creating a PI with deliverySlot:"". The `timeSlots.length > 0` clause
+    // was intentionally removed — a missing slot is always invalid for non-express
+    // regardless of whether timeSlots has data.
+    if (deliveryMode !== "express" && !deliverySlot) {
       if (walletReadySig !== null) setWalletReadySig(null);
       return;
     }
@@ -5431,8 +5437,17 @@ function CheckoutForm() {
                       widget renders its own Pay button and drives the payment
                       itself (autoProcessing). */}
                   <div className="flex gap-3 mt-4">
-                    <PaymentSubmitButton paymentMethod={paymentMethod} total={computeCartTotal(displaySubtotal, displayDistrictFee + displayExpressFee + displaySlotFee, displayCouponDiscount)} onClick={handleSubmit} disabled={isProcessing || (!noAddress && !_selectedDistrict)} isProcessing={isProcessing} walletPreparing={walletPreparing} />
+                    <PaymentSubmitButton paymentMethod={paymentMethod} total={computeCartTotal(displaySubtotal, displayDistrictFee + displayExpressFee + displaySlotFee, displayCouponDiscount)} onClick={handleSubmit} disabled={isPlaceOrderDisabled({ isProcessing, noAddress, selectedDistrict: _selectedDistrict, deliveryMode, deliverySlot })} isProcessing={isProcessing} walletPreparing={walletPreparing} />
                   </div>
+
+                  {/* Slot-required nudge: shown when OS slots failed to load or
+                      the shopper hasn't picked a time window yet. Hidden for
+                      express (no slot needed) and when a slot is already set. */}
+                  {deliveryMode !== "express" && !deliverySlot && (
+                    <p className="text-xs text-amber-600 text-center mt-1" data-testid="slot-required-message">
+                      {t("checkout.slotRequired")}
+                    </p>
+                  )}
 
                   {/* Secure payment badge */}
                   <div className="flex items-center justify-center gap-1.5 mt-3 text-xs text-muted-foreground">

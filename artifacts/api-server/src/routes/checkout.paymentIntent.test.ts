@@ -192,6 +192,9 @@ const BASE_BODY = {
   items: [{ wcId: 42, quantity: 1 }],
   currency: "USD",
   deliveryFeeUsd: 0,
+  // deliverySlot is required for non-express orders; provide a valid slot so
+  // the missing-slot guard doesn't reject these tests at the route level.
+  deliverySlot: "10:00 AM – 12:00 PM",
 };
 
 // ---------------------------------------------------------------------------
@@ -413,6 +416,75 @@ describe("POST /checkout/payment-intent — idempotency", () => {
       "pi_old",
       expect.objectContaining({ amount: 1500, currency: "usd" }),
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Missing-slot guard — POST /checkout/payment-intent
+// ---------------------------------------------------------------------------
+// Verifies that the route rejects non-express requests that carry no delivery
+// slot (or a whitespace-only slot) before any PaymentIntent is created.
+// The guard must use a strict `=== true` express check so that truthy
+// non-boolean values (e.g. the string "true") do not bypass it.
+
+describe("POST /checkout/payment-intent — missing-slot guard", () => {
+  it("returns 400 when deliverySlot is empty and expressDelivery is false", async () => {
+    const app = await buildApp();
+    const res = await request(app)
+      .post("/checkout/payment-intent")
+      .send({ ...BASE_BODY, deliverySlot: "", expressDelivery: false, orderId: "LB-SLOT-EMPTY" });
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe("missing_delivery_slot");
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when deliverySlot is whitespace-only", async () => {
+    const app = await buildApp();
+    const res = await request(app)
+      .post("/checkout/payment-intent")
+      .send({ ...BASE_BODY, deliverySlot: "   ", expressDelivery: false, orderId: "LB-SLOT-WS" });
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe("missing_delivery_slot");
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when deliverySlot is omitted (non-express)", async () => {
+    const app = await buildApp();
+    const { deliverySlot: _omit, ...bodyWithoutSlot } = BASE_BODY;
+    const res = await request(app)
+      .post("/checkout/payment-intent")
+      .send({ ...bodyWithoutSlot, expressDelivery: false, orderId: "LB-SLOT-OMITTED" });
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe("missing_delivery_slot");
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when expressDelivery is the string 'true' (truthy but not boolean) and slot is empty", async () => {
+    // A client sending expressDelivery:"true" must NOT bypass the guard —
+    // the check requires expressDelivery === true (strict boolean).
+    const app = await buildApp();
+    const res = await request(app)
+      .post("/checkout/payment-intent")
+      .send({ ...BASE_BODY, deliverySlot: "", expressDelivery: "true", orderId: "LB-SLOT-TRUTHY" });
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe("missing_delivery_slot");
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it("allows a request through when expressDelivery is exactly true (boolean) with empty slot", async () => {
+    createMock.mockResolvedValueOnce({
+      id: "pi_express",
+      client_secret: "pi_express_secret",
+      status: "requires_payment_method",
+      amount: 1000,
+      currency: "usd",
+    });
+    const app = await buildApp();
+    const res = await request(app)
+      .post("/checkout/payment-intent")
+      .send({ ...BASE_BODY, deliverySlot: "", expressDelivery: true, orderId: "LB-SLOT-EXPRESS" });
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
   });
 });
 
@@ -658,7 +730,7 @@ describe("POST /checkout/payment-intent — Gulf store (UAE)", () => {
     const app = await buildApp();
     const res = await request(app)
       .post("/checkout/payment-intent")
-      .send({ orderId: "AE-CURRENCY-MISMATCH", items: [{ wcId: 42, quantity: 1 }], currency: "USD" });
+      .send({ orderId: "AE-CURRENCY-MISMATCH", items: [{ wcId: 42, quantity: 1 }], currency: "USD", deliverySlot: "10:00 AM – 12:00 PM" });
 
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
@@ -683,7 +755,7 @@ describe("POST /checkout/payment-intent — Gulf store (UAE)", () => {
 
     const res = await request(testApp)
       .post("/checkout/payment-intent")
-      .send({ orderId: "AE-STRIPE-FAIL", items: [{ wcId: 42, quantity: 1 }], currency: "AED" });
+      .send({ orderId: "AE-STRIPE-FAIL", items: [{ wcId: 42, quantity: 1 }], currency: "AED", deliverySlot: "10:00 AM – 12:00 PM" });
     expect(res.status).toBe(500);
     expect(res.body.ok).toBe(false);
     expect(res.body.code).toBe("stripe_error");
