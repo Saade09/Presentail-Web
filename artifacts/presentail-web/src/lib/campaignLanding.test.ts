@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { CampaignCatalogProduct } from "./campaignLanding";
 import {
   buildCampaignSupportUrl,
+  computeCountdownMinutes,
   getCampaignMarket,
   isTargetCampaignCity,
   resolveCampaignAvailability,
@@ -79,6 +80,35 @@ describe("CPC flower campaign catalog filtering", () => {
 });
 
 describe("CPC flower campaign delivery messaging state", () => {
+  it("computes countdown minutes in the campaign timezone", () => {
+    expect(
+      computeCountdownMinutes(
+        new Date("2026-08-19T15:48:00.000Z"),
+        "Asia/Beirut",
+        23,
+      ),
+    ).toBe(252);
+    expect(
+      computeCountdownMinutes(
+        new Date("2026-08-19T19:59:00.000Z"),
+        "Asia/Beirut",
+        23,
+      ),
+    ).toBe(1);
+  });
+
+  it("returns zero after cutoff and null for invalid configuration", () => {
+    expect(
+      computeCountdownMinutes(
+        new Date("2026-08-19T20:01:00.000Z"),
+        "Asia/Beirut",
+        23,
+      ),
+    ).toBe(0);
+    expect(computeCountdownMinutes(new Date(), "Invalid/Timezone", 23)).toBeNull();
+    expect(computeCountdownMinutes(new Date(), "Asia/Beirut", 24)).toBeNull();
+  });
+
   it("uses the market timezone when evaluating the live same-day cutoff", () => {
     expect(
       resolveCampaignAvailability({

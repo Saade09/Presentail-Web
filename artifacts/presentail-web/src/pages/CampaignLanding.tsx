@@ -21,9 +21,11 @@ import {
   getCampaignMarket,
   isTargetCampaignCity,
   resolveCampaignAvailability,
+  computeCountdownMinutes,
   selectCampaignCatalogSections,
   type CampaignCatalogProduct,
 } from "@/lib/campaignLanding";
+import { useIpDetectedCountry } from "@/lib/useIpDetectedCountry";
 import {
   CampaignHero,
   CampaignTrustBar,
@@ -32,12 +34,14 @@ import {
   CampaignTrustpilotStrip,
 } from "@/pages/CampaignHero";
 import {
+  GRID_SIZE,
   CampaignGrid,
   CampaignOccasions,
   CampaignBenefitBand,
   CampaignLuxuryBanner,
   CampaignWhyChoose,
   CampaignMoreFlowers,
+  CampaignReviews,
   CampaignFaq,
   CampaignSeoEditorial,
 } from "@/pages/CampaignSections";
@@ -52,6 +56,8 @@ function fireCampaignEvent(
     | "campaign_promo_click"
     | "campaign_view_all_click"
     | "campaign_support_click"
+    | "campaign_first_product_visible"
+    | "campaign_abroad_hero_impression"
     | "campaign_pill_click"
     | "campaign_sticky_cta_impression"
     | "campaign_sticky_cta_click"
@@ -118,15 +124,19 @@ function CampaignLandingRedesign() {
   const { countryCode, cityId, city, deliveryDataStatus, openPicker } = useLocationSelection();
   const { dir, cityName, language, t } = useLocale();
   const { currencyCode } = useDisplayCurrency();
+  const { country: ipCountry, settled: ipSettled } = useIpDetectedCountry();
   const [now, setNow] = useState(() => new Date());
 
   const cityLabel = city ? cityName(city.id, city.name) : "";
   const market = getCampaignMarket(cityId);
+  const isAbroad =
+    ipSettled && ipCountry !== null && ipCountry !== countryCode;
 
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 60_000);
+    const intervalMs = market?.countryCode === "LB" ? 1_000 : 60_000;
+    const timer = window.setInterval(() => setNow(new Date()), intervalMs);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [market?.countryCode]);
 
   // ── First-order promo eligibility ─────────────────────────────────────────
   const [promoEligible, setPromoEligible] = useState(false);
@@ -196,6 +206,51 @@ function CampaignLandingRedesign() {
 
   const heroRef = useRef<HTMLDivElement>(null);
   const firstGridRef = useRef<HTMLDivElement>(null);
+  const firstProductVisibleCities = useRef(new Set<string>());
+  const abroadImpressionFired = useRef(false);
+
+  useEffect(() => {
+    if (
+      firstProductVisibleCities.current.has(cityId ?? "unknown") ||
+      catalogLoading ||
+      catalog.flowers.length === 0 ||
+      !firstGridRef.current ||
+      typeof IntersectionObserver === "undefined"
+    ) {
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (
+          !entry.isIntersecting ||
+          firstProductVisibleCities.current.has(cityId ?? "unknown")
+        ) {
+          return;
+        }
+        firstProductVisibleCities.current.add(cityId ?? "unknown");
+        fireCampaignEvent(
+          "campaign_first_product_visible",
+          JSON.stringify({ cityId, isAbroad }),
+        );
+        observer.disconnect();
+      },
+      { threshold: 0.1 },
+    );
+    observer.observe(firstGridRef.current);
+    return () => observer.disconnect();
+  }, [catalog.flowers.length, catalogLoading, cityId, isAbroad]);
+
+  useEffect(() => {
+    if (
+      !isAbroad ||
+      market?.countryCode !== "LB" ||
+      abroadImpressionFired.current
+    ) {
+      return;
+    }
+    abroadImpressionFired.current = true;
+    fireCampaignEvent("campaign_abroad_hero_impression", cityId ?? undefined);
+  }, [cityId, isAbroad, market?.countryCode]);
 
   const scrollToProducts = () => {
     firstGridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -220,6 +275,27 @@ function CampaignLandingRedesign() {
       : availabilityState === "next-available"
         ? t("campaign.redesign.status.nextAvailable")
         : t("campaign.redesign.status.neutral");
+  const countdownMinutes =
+    market?.countryCode === "LB" &&
+    availabilityState === "same-day" &&
+    city?.sameDayCutoffHour != null
+      ? computeCountdownMinutes(
+          now,
+          market.timeZone,
+          city.sameDayCutoffHour,
+        )
+      : null;
+  const countdownText =
+    countdownMinutes != null && countdownMinutes > 0
+      ? countdownMinutes >= 60
+        ? t("campaign.redesign.countdown.hours", {
+            h: Math.floor(countdownMinutes / 60),
+            m: countdownMinutes % 60,
+          })
+        : t("campaign.redesign.countdown.minutes", {
+            m: countdownMinutes,
+          })
+      : undefined;
   const deliveryText =
     deliveryDataStatus === "live" &&
     city?.operationsConfigVerified === true &&
@@ -238,6 +314,20 @@ function CampaignLandingRedesign() {
     availabilityState === "same-day"
       ? t("campaign.redesign.hero.titleSameDay", { city: cityLabel })
       : t("campaign.redesign.hero.titleNeutral", { city: cityLabel });
+  const heroSubtitle =
+    market?.countryCode === "LB"
+      ? isAbroad
+        ? t("campaign.redesign.hero.subtitleAbroad", { city: cityLabel })
+        : availabilityState === "same-day" && city?.sameDayCutoffHour != null
+          ? t("campaign.redesign.hero.subtitleLbSameDay", {
+              cutoff: formatCutoff(
+                city.sameDayCutoffHour,
+                language,
+                countryCode,
+              ),
+            })
+          : t("campaign.redesign.hero.subtitleLbNeutral")
+      : t("campaign.redesign.hero.subtitle", { city: cityLabel });
   const supportUrl = buildCampaignSupportUrl(
     t("campaign.redesign.hero.supportPrefill", { city: cityLabel }),
   );
@@ -246,13 +336,14 @@ function CampaignLandingRedesign() {
     <div dir={dir} className="min-h-screen bg-[#fffdf8] pb-28 md:pb-0">
       {/* 1. Hero */}
       <CampaignHero
-        cityLabel={cityLabel}
         title={heroTitle}
+        subtitle={heroSubtitle}
         availabilityText={availabilityText}
+        countdownText={countdownText}
         availabilityState={availabilityState}
         cutoffHour={city?.sameDayCutoffHour}
         supportUrl={supportUrl}
-        promoEligible={promoEligible}
+        isAbroad={isAbroad && market?.countryCode === "LB"}
         couponCode={BIENVENUE_DIX_CODE}
         onPromoClick={() => {
           markPendingCampaignCoupon(BIENVENUE_DIX_CODE);
@@ -265,40 +356,12 @@ function CampaignLandingRedesign() {
           scrollToProducts();
         }}
         onSupportClick={() =>
-          fireCampaignEvent("campaign_support_click", cityId ?? undefined)
+          fireCampaignEvent("campaign_support_click", isAbroad ? "abroad" : "local")
         }
         sectionRef={heroRef}
       />
 
-      {/* 2. Delivery-location selector */}
-      <CampaignLocationBar
-        cityLabel={cityLabel}
-        onLocationClick={() => {
-          fireCampaignEvent("delivery_location_change", cityId ?? undefined);
-          openPicker();
-        }}
-      />
-
-      {/* 3. Compact Trustpilot strip */}
-      <CampaignTrustpilotStrip
-        onStripClick={() => fireCampaignEvent("trustpilot_strip_click")}
-      />
-
-      {/* 4. Trust bar (availability / speed / currency) */}
-      <CampaignTrustBar
-        availabilityText={availabilityText}
-        deliveryText={deliveryText}
-        currencyText={currencyText}
-      />
-
-      {/* 5. Occasion shortcuts carousel */}
-      <CampaignOccasions
-        onShortcutClick={(slug) =>
-          fireCampaignEvent("occasion_shortcut_click", slug)
-        }
-      />
-
-      {/* 6. Available-for-delivery-today product grid */}
+      {/* 2. Available-for-delivery-today product grid */}
       <div ref={firstGridRef}>
         <CampaignGrid
           id="campaign-flowers"
@@ -311,22 +374,54 @@ function CampaignLandingRedesign() {
           isLoading={catalogLoading}
           availabilityState={availabilityState}
           currencyCodeOverride={campaignCurrencyCode}
+          compactTop
           onViewAll={() => fireCampaignEvent("view_all_flowers")}
         />
       </div>
 
-      {/* 7. Customer-benefit band */}
+      {/* 3. Occasion shortcuts */}
+      <CampaignOccasions
+        onShortcutClick={(slug) =>
+          fireCampaignEvent("occasion_shortcut_click", slug)
+        }
+      />
+
+      {/* 4. Delivery-location selector */}
+      <CampaignLocationBar
+        cityLabel={cityLabel}
+        onLocationClick={() => {
+          fireCampaignEvent("delivery_location_change", cityId ?? undefined);
+          openPicker();
+        }}
+      />
+
+      {/* 5. Customer-benefit band */}
       <CampaignBenefitBand />
 
-      {/* 8. Luxury collection editorial banner */}
+      {/* 6. Compact Trustpilot strip */}
+      <CampaignTrustpilotStrip
+        onStripClick={() => fireCampaignEvent("trustpilot_strip_click")}
+      />
+
+      {/* 7. Trust bar (availability / speed / currency) */}
+      <CampaignTrustBar
+        availabilityText={availabilityText}
+        deliveryText={deliveryText}
+        currencyText={currencyText}
+      />
+
+      {/* 8. Beirut customer reviews */}
+      {market?.countryCode === "LB" && <CampaignReviews />}
+
+      {/* 9. Luxury collection editorial banner */}
       <CampaignLuxuryBanner
         onCtaClick={() => fireCampaignEvent("luxury_collection_cta_click")}
       />
 
-      {/* 9. Why-customers-choose section */}
+      {/* 10. Why-customers-choose section */}
       <CampaignWhyChoose />
 
-      {/* 10. Full Trustpilot review carousel */}
+      {/* 11. Full Trustpilot review carousel */}
       <section
         className="container mx-auto max-w-content px-page pt-10"
         aria-label={t("campaign.redesign.trustpilotCarousel.ariaLabel")}
@@ -336,7 +431,7 @@ function CampaignLandingRedesign() {
         />
       </section>
 
-      {/* 11. Luxury grid */}
+      {/* 12. Luxury grid */}
       <CampaignGrid
         id="campaign-lux"
         section="luxury"
@@ -350,20 +445,20 @@ function CampaignLandingRedesign() {
         currencyCodeOverride={campaignCurrencyCode}
       />
 
-      {/* 12. "More flowers to love" rail */}
+      {/* 13. "More flowers to love" rail */}
       <CampaignMoreFlowers
-        products={catalog.flowers}
+        products={catalog.flowers.slice(GRID_SIZE)}
         isLoading={catalogLoading}
         currencyCodeOverride={campaignCurrencyCode}
         onViewAll={() => fireCampaignEvent("browse_all_flowers")}
       />
 
-      {/* 13. FAQ accordion — copy is market-aware for Beirut and the UAE */}
+      {/* 14. FAQ accordion — copy is market-aware for Beirut and the UAE */}
       <CampaignFaq
         onExpand={(key) => fireCampaignEvent("faq_expand", key)}
       />
 
-      {/* 14. SEO editorial copy section — copy is market-aware */}
+      {/* 15. SEO editorial copy section — copy is market-aware */}
       <CampaignSeoEditorial />
 
       {/* Mobile sticky CTA */}
@@ -373,6 +468,7 @@ function CampaignLandingRedesign() {
           scrollToProducts();
         }}
         heroRef={heroRef}
+        countdownText={countdownText}
       />
     </div>
   );

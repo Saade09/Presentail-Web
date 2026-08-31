@@ -76,6 +76,10 @@ vi.mock("@/lib/useDisplayCurrency", () => ({
   useDisplayCurrency: () => ({ currencyCode: "USD" }),
 }));
 
+vi.mock("@/lib/useIpDetectedCountry", () => ({
+  useIpDetectedCountry: () => ({ country: "AE", settled: true }),
+}));
+
 vi.mock("@/lib/api", () => ({
   apiFetch: vi.fn().mockResolvedValue({
     ok: true,
@@ -95,11 +99,15 @@ vi.mock("@/lib/gtag", () => ({
 
 vi.mock("@/lib/campaign", () => ({
   CAMPAIGN_SECTION_KEY: "campaign-flower-delivery",
+  BIENVENUE_DIX_CODE: "bienvenueDIX",
   hasOrderedLocally: () => false,
   markFirstOrderPromoShown: vi.fn(),
+  markPendingCampaignCoupon: vi.fn(),
+  setDirectCouponForCheckout: vi.fn(),
 }));
 
 vi.mock("@/pages/CampaignSections", () => ({
+  GRID_SIZE: 8,
   CampaignGrid: ({ section, title }: { section: string; title: string }) => (
     <section data-testid={`campaign-grid-${section}`}>
       <h2>{title}</h2>
@@ -110,6 +118,7 @@ vi.mock("@/pages/CampaignSections", () => ({
   CampaignLuxuryBanner: () => <section data-testid="campaign-section-luxury-banner" />,
   CampaignWhyChoose: () => <section data-testid="campaign-section-why-choose" />,
   CampaignMoreFlowers: () => <section data-testid="campaign-section-more-flowers" />,
+  CampaignReviews: () => <section data-testid="campaign-section-reviews" />,
   CampaignFaq: () => <section data-testid="campaign-section-faq" />,
   CampaignSeoEditorial: () => <section data-testid="campaign-section-seo" />,
 }));
@@ -170,6 +179,7 @@ describe("CampaignLanding UAE route parity", () => {
     expect(screen.getByTestId("campaign-section-more-flowers")).toBeDefined();
     expect(screen.getByTestId("campaign-section-faq")).toBeDefined();
     expect(screen.getByTestId("campaign-section-seo")).toBeDefined();
+    expect(screen.queryByTestId("campaign-section-reviews")).toBeNull();
 
     const sections = screen
       .getAllByTestId(/^campaign-grid-/)
@@ -193,5 +203,14 @@ describe("CampaignLanding UAE route parity", () => {
 
     expect(screen.getByTestId("campaign-landing-legacy")).toBeDefined();
     expect(screen.queryByTestId("text-campaign-headline")).toBeNull();
+  });
+
+  it("keeps the Beirut testimonial section scoped to Lebanon", () => {
+    mocks.cityId = "lb-beirut";
+    mocks.cityName = "Beirut";
+
+    render(<CampaignLanding />);
+
+    expect(screen.getByTestId("campaign-section-reviews")).toBeDefined();
   });
 });

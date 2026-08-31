@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "wouter";
 import { CircleDollarSign, Clock3, ChevronDown, MapPin, Truck, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/contexts/LocaleContext";
-import { useLocationSelection } from "@/contexts/LocationContext";
 import { injectTrustpilotScript } from "@/lib/trustpilot";
 
 const HERO_IMAGE_768 = `${import.meta.env.BASE_URL}campaign/flower-hero-768.webp`;
@@ -11,26 +9,28 @@ const HERO_IMAGE_1440 = `${import.meta.env.BASE_URL}campaign/flower-hero-1440.we
 const HERO_IMAGE_SRCSET = `${HERO_IMAGE_768} 768w, ${HERO_IMAGE_1440} 1440w`;
 
 export function CampaignHero({
-  cityLabel,
   title,
   availabilityText,
+  countdownText,
+  subtitle,
   availabilityState,
   cutoffHour,
   supportUrl,
-  promoEligible,
+  isAbroad,
   couponCode,
   onPromoClick,
   onCtaClick,
   onSupportClick,
   sectionRef,
 }: {
-  cityLabel: string;
   title: string;
   availabilityText: string;
+  countdownText?: string;
+  subtitle: string;
   availabilityState?: "same-day" | "next-available" | "unverified";
   cutoffHour?: number;
   supportUrl: string;
-  promoEligible: boolean;
+  isAbroad?: boolean;
   /** Coupon code shown on the badge — copies to clipboard and auto-applies at checkout. */
   couponCode?: string;
   onPromoClick: () => void;
@@ -51,7 +51,9 @@ export function CampaignHero({
   };
 
   // Only show the availability pill when same-day is confirmed AND cutoff is known.
-  const showPill = availabilityState === "same-day" && cutoffHour != null;
+  const showPill =
+    countdownText != null ||
+    (availabilityState === "same-day" && cutoffHour != null);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -68,7 +70,10 @@ export function CampaignHero({
 
   return (
     <div ref={sectionRef} className="container mx-auto max-w-content px-page pt-3 md:pt-4">
-      <section className="relative isolate min-h-[430px] overflow-hidden rounded-[1.75rem] bg-[#003f46] md:h-[340px] md:min-h-0">
+      <section
+        className="relative isolate min-h-[260px] overflow-hidden rounded-[1.75rem] bg-[#003f46] md:h-[340px] md:min-h-0"
+        data-abroad-hero={isAbroad ? "true" : undefined}
+      >
         <img
           src={HERO_IMAGE_1440}
           srcSet={HERO_IMAGE_SRCSET}
@@ -88,7 +93,7 @@ export function CampaignHero({
               className="mb-3 w-fit rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-semibold tracking-wide backdrop-blur-sm"
               data-testid="text-campaign-availability"
             >
-              {availabilityText}
+              {countdownText ?? availabilityText}
             </p>
           )}
           <h1
@@ -98,7 +103,7 @@ export function CampaignHero({
             {title}
           </h1>
           <p className="mt-3 max-w-lg text-sm leading-relaxed text-white/85 md:text-base">
-            {t("campaign.redesign.hero.subtitle", { city: cityLabel })}
+            {subtitle}
           </p>
 
           {couponCode && (
@@ -123,7 +128,7 @@ export function CampaignHero({
               </div>
               {!copied && (
                 <p className="text-[11px] text-[#f4d9aa]/80">
-                  {t("campaign.hero.promoCouponApply")}
+                  {t("campaign.hero.promoSubtitle")}
                 </p>
               )}
             </div>
@@ -133,7 +138,7 @@ export function CampaignHero({
             <Button
               type="button"
               size="lg"
-              className="h-12 w-full sm:w-auto bg-[#fff8e9] px-7 font-semibold text-[#003f46] hover:bg-white"
+              className="h-10 w-full border border-white/45 bg-white/10 px-7 font-semibold text-white hover:bg-white/20 sm:w-auto"
               onClick={onCtaClick}
               data-testid="button-campaign-hero-cta"
             >
@@ -144,9 +149,12 @@ export function CampaignHero({
               target="_blank"
               rel="noopener noreferrer"
               onClick={onSupportClick}
-              className="text-sm font-medium text-white/70 underline decoration-white/40 underline-offset-4 hover:text-white hover:decoration-white/60 text-center sm:text-start focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-full bg-[#25D366] px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#20bd5a] sm:w-auto focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
               data-testid="link-campaign-support"
             >
+              <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="currentColor" aria-hidden="true">
+                <path d="M20.5 3.5A11.85 11.85 0 0 0 12.07 0C5.52 0 .19 5.33.19 11.88c0 2.1.55 4.15 1.6 5.96L.09 24l6.3-1.65a11.88 11.88 0 0 0 5.68 1.45h.01c6.55 0 11.88-5.33 11.88-11.88 0-3.18-1.24-6.17-3.46-8.42ZM12.08 21.8h-.01a9.9 9.9 0 0 1-5.04-1.38l-.36-.21-3.74.98 1-3.65-.23-.37a9.86 9.86 0 0 1-1.51-5.29C2.19 6.43 6.62 2 12.08 2a9.85 9.85 0 0 1 7 2.9 9.88 9.88 0 0 1 2.9 7c0 5.46-4.44 9.9-9.9 9.9Zm5.43-7.42c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.47-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.14-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.8.37-.27.3-1.04 1.02-1.04 2.49s1.07 2.89 1.22 3.09c.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.63.71.23 1.36.2 1.87.12.57-.09 1.76-.72 2-1.42.25-.7.25-1.3.17-1.42-.07-.12-.27-.2-.57-.35Z" />
+              </svg>
               {t("campaign.redesign.hero.support")}
             </a>
           </div>
@@ -306,9 +314,11 @@ export function CampaignTrustpilotStrip({
 export function CampaignStickyBar({
   onCtaClick,
   heroRef,
+  countdownText,
 }: {
   onCtaClick: () => void;
   heroRef?: React.RefObject<HTMLElement | null>;
+  countdownText?: string;
 }) {
   const { t } = useLocale();
 
@@ -336,6 +346,9 @@ export function CampaignStickyBar({
       data-testid="bar-campaign-sticky"
       aria-hidden={!shown}
     >
+      {countdownText && (
+        <p className="mb-2 text-xs text-neutral-500">{countdownText}</p>
+      )}
       <Button
         className="w-full h-12 text-sm font-semibold"
         onClick={onCtaClick}

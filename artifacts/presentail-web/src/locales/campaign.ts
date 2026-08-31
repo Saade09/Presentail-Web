@@ -56,6 +56,18 @@ export const campaignStrings: Dict = {
     en: "Browse fresh arrangements available for {city}. Delivery dates and times are confirmed at checkout.",
     ar: "تصفّح تنسيقات الزهور الطازجة المتوفرة في {city}. يتم تأكيد تاريخ ووقت التوصيل عند الدفع.",
   },
+  "campaign.redesign.hero.subtitleLbSameDay": {
+    en: "Order by {cutoff} — free delivery on orders over $90 · no address needed, we collect it",
+    ar: "اطلب قبل {cutoff} — توصيل مجاني للطلبات التي تتجاوز 90$ · لا حاجة إلى العنوان، نحن نجمعه",
+  },
+  "campaign.redesign.hero.subtitleLbNeutral": {
+    en: "Free delivery over $90 · no address needed, we collect it · choose your date at checkout",
+    ar: "توصيل مجاني للطلبات التي تتجاوز 90$ · لا حاجة إلى العنوان، نحن نجمعه · اختر التاريخ عند الدفع",
+  },
+  "campaign.redesign.hero.subtitleAbroad": {
+    en: "Sending flowers to {city} from abroad? We collect the address from the recipient — no need to know it. You get a delivery confirmation photo.",
+    ar: "ترسل الزهور إلى {city} من الخارج؟ نجمع العنوان من المستلم — لا حاجة إلى معرفته. وستحصل على صورة لتأكيد التوصيل.",
+  },
   "campaign.redesign.hero.imageAlt": {
     en: "Premium fresh flower arrangement ready for delivery",
     ar: "تنسيق زهور طازجة فاخر جاهز للتوصيل",
@@ -65,8 +77,8 @@ export const campaignStrings: Dict = {
     ar: "تسوّق الزهور المتوفرة اليوم",
   },
   "campaign.redesign.hero.support": {
-    en: "Need help choosing? Chat with a support agent",
-    ar: "تحتاج مساعدة في الاختيار؟ تحدّث مع أحد موظفي الدعم",
+    en: "Chat on WhatsApp",
+    ar: "تحدّث معنا على واتساب",
   },
   "campaign.redesign.hero.supportPrefill": {
     en: "Hi! I need help choosing flowers for delivery in {city}.",
@@ -89,8 +101,16 @@ export const campaignStrings: Dict = {
     ar: "{speed}",
   },
   "campaign.redesign.status.speedNeutral": {
-    en: "Delivery timing confirmed at checkout",
-    ar: "يتم تأكيد مدة التوصيل عند الدفع",
+    en: "Same-day & express options available",
+    ar: "خيارات التوصيل في اليوم نفسه والتوصيل السريع متاحة",
+  },
+  "campaign.redesign.countdown.hours": {
+    en: "Order in {h}h {m}m for delivery today",
+    ar: "اطلب خلال {h} س {m} د للتوصيل اليوم",
+  },
+  "campaign.redesign.countdown.minutes": {
+    en: "Order in {m}m for delivery today",
+    ar: "اطلب خلال {m} د للتوصيل اليوم",
   },
   "campaign.redesign.status.currency": {
     en: "Prices shown in {currency}",
@@ -274,6 +294,24 @@ export const campaignStrings: Dict = {
     en: "5 out of 5 stars",
     ar: "5 من 5 نجوم",
   },
+  "campaign.v2.reviews.abroad.quote": {
+    en: "I was ordering from London and had no clue how to arrange delivery to my sister in Beirut without her knowing. They contacted her directly, got the address, and delivered the same day. Completely seamless from start to finish.",
+    ar: "كنت أطلب من لندن ولم أكن أعرف كيف أرتب التوصيل إلى أختي في بيروت من دون أن تعرف. تواصلوا معها مباشرةً، وحصلوا على العنوان، وسلّموا الطلب في اليوم نفسه. كانت التجربة سلسة تماماً من البداية إلى النهاية.",
+  },
+  "campaign.v2.reviews.abroad.reviewer": { en: "Sarah M.", ar: "سارة م." },
+  "campaign.v2.reviews.abroad.product": { en: "Plum Florals", ar: "زهور بلَم" },
+  "campaign.v2.reviews.speed.quote": {
+    en: "Ordered at noon, flowers were on my mother's doorstep by 3 PM. Looked exactly like the photos — no substitutions, no surprises. Genuinely the fastest flower delivery I've used anywhere.",
+    ar: "طلبت عند الظهر، وكانت الزهور على باب والدتي بحلول الساعة 3 بعد الظهر. بدت تماماً مثل الصور — من دون بدائل أو مفاجآت. إنها بالفعل أسرع خدمة توصيل زهور استخدمتها.",
+  },
+  "campaign.v2.reviews.speed.reviewer": { en: "Rami K.", ar: "رامي ك." },
+  "campaign.v2.reviews.speed.product": { en: "Classic Chocolate Box", ar: "علبة الشوكولاتة الكلاسيكية" },
+  "campaign.v2.reviews.tracking.quote": {
+    en: "Got a photo the moment the delivery landed. My girlfriend had no idea I'd arranged the whole thing from Dubai. The tracking updates made it feel personal even from that far away.",
+    ar: "وصلتني صورة فور إتمام التوصيل. لم تكن صديقتي تعرف أنني رتبت كل شيء من دبي. جعلت تحديثات التتبع التجربة شخصية حتى من تلك المسافة.",
+  },
+  "campaign.v2.reviews.tracking.reviewer": { en: "Omar H.", ar: "عمر ح." },
+  "campaign.v2.reviews.tracking.product": { en: "The Birthday Bundle", ar: "باقة عيد الميلاد" },
 
   // ── Redesign: location bar ────────────────────────────────────────────────
   "campaign.redesign.location.delivering": {
@@ -383,16 +421,16 @@ export const campaignStrings: Dict = {
 
   // ── Redesign: FAQ ─────────────────────────────────────────────────────────
   "campaign.redesign.faq.heading": {
-    en: "Questions about flower delivery in Beirut",
-    ar: "أسئلة حول توصيل الزهور في بيروت",
+    en: "Questions about flower delivery in {city}",
+    ar: "أسئلة حول توصيل الزهور في {city}",
   },
   "campaign.redesign.faq.q1": {
-    en: "When is same-day delivery available in Beirut?",
-    ar: "متى يتوفر التوصيل في اليوم نفسه في بيروت؟",
+    en: "When is same-day delivery available in {city}?",
+    ar: "متى يتوفر التوصيل في اليوم نفسه في {city}؟",
   },
   "campaign.redesign.faq.a1": {
-    en: "Same-day delivery is available in Beirut when you order before the cut-off shown on this page. Orders placed after the cut-off are scheduled for the next available window. The exact cut-off is confirmed at checkout based on the current time.",
-    ar: "يتوفر التوصيل في اليوم نفسه في بيروت إذا طلبت قبل الوقت النهائي المعروض في هذه الصفحة. تُجدوَل الطلبات الواردة بعد الوقت النهائي للنافذة التالية المتاحة. يتم تأكيد الوقت النهائي الدقيق عند الدفع بناءً على الوقت الحالي.",
+    en: "Same-day delivery in {city} is available until 11 PM. The live countdown on this page shows exactly how much time you have left. Orders placed after the cut-off move to the next available delivery window.",
+    ar: "يتوفر التوصيل في اليوم نفسه في {city} حتى الساعة 11 مساءً. يوضح العد التنازلي المباشر في هذه الصفحة الوقت المتبقي لديك بدقة. تنتقل الطلبات المقدمة بعد الوقت النهائي إلى نافذة التوصيل التالية المتاحة.",
   },
   "campaign.redesign.faq.q2": {
     en: "Which areas of Beirut do you deliver to?",
@@ -415,8 +453,8 @@ export const campaignStrings: Dict = {
     ar: "كم تبلغ تكلفة التوصيل في بيروت؟",
   },
   "campaign.redesign.faq.a4": {
-    en: "Delivery fees vary by district and time slot. The exact fee is calculated and displayed at checkout before you confirm your order. Free delivery is available on qualifying orders above a minimum amount.",
-    ar: "تختلف رسوم التوصيل حسب المنطقة والفترة الزمنية. يتم احتساب الرسوم الدقيقة وعرضها عند الدفع قبل تأكيد طلبك. التوصيل المجاني متاح للطلبات المؤهلة التي تتجاوز الحد الأدنى للمبلغ.",
+    en: "Delivery is free on orders over $90. A flat delivery fee applies to orders below this threshold — the exact amount for your area is confirmed at checkout before you place your order.",
+    ar: "التوصيل مجاني للطلبات التي تتجاوز 90$. تُطبّق رسوم توصيل ثابتة على الطلبات دون هذا الحد — ويتم تأكيد المبلغ الدقيق لمنطقتك عند الدفع قبل تقديم طلبك.",
   },
   "campaign.redesign.faq.q5": {
     en: "Can I add a gift card or chocolates to my flower order?",
@@ -429,20 +467,20 @@ export const campaignStrings: Dict = {
 
   // ── Redesign: SEO editorial ───────────────────────────────────────────────
   "campaign.redesign.seo.heading": {
-    en: "Same-day flower delivery in Beirut",
-    ar: "توصيل الزهور في اليوم نفسه في بيروت",
+    en: "Same-day flower delivery in {city}",
+    ar: "توصيل الزهور في اليوم نفسه في {city}",
   },
   "campaign.redesign.seo.p1": {
-    en: "Presentail delivers fresh, hand-arranged flowers across Beirut the same day you order — from Achrafieh and Hamra to Verdun and beyond. Every bouquet is prepared by local florists and dispatched promptly so it arrives at its best.",
-    ar: "تُوصّل بريزانتيل زهوراً طازجة منسّقة يدوياً في أرجاء بيروت في اليوم نفسه الذي تطلب فيه — من الأشرفية والحمرا إلى فردان وما وراءها. كل باقة يُعدّها بائعو الزهور المحليون وتُرسَل بسرعة لتصل في أفضل حال.",
+    en: "Presentail delivers fresh, hand-arranged flowers across {city} the same day you order. Every bouquet is prepared by local florists and dispatched promptly so it arrives at its best.",
+    ar: "تُوصّل بريزانتيل زهوراً طازجة منسّقة يدوياً في أرجاء {city} في اليوم نفسه الذي تطلب فيه. كل باقة يُعدّها بائعو الزهور المحليون وتُرسَل بسرعة لتصل في أفضل حال.",
   },
   "campaign.redesign.seo.p2": {
-    en: "Our service is designed for both local shoppers and those ordering from abroad. You don't need the recipient's address in advance — simply provide their phone number and our team coordinates the rest, making it easy to send a thoughtful surprise from anywhere in the world.",
-    ar: "خدمتنا مصمّمة للمتسوقين المحليين والذين يطلبون من الخارج على حدٍّ سواء. لا تحتاج إلى عنوان المستلم مسبقاً — ما عليك سوى تقديم رقم هاتفه وسيتولّى فريقنا التنسيق، مما يجعل إرسال مفاجأة رائعة من أي مكان في العالم أمراً سهلاً.",
+    en: "Our {city} flower delivery service is designed for both local shoppers and those ordering from abroad. You don't need the recipient's address in advance — simply provide their phone number and our team coordinates the rest, making it easy to send a thoughtful surprise from anywhere in the world.",
+    ar: "خدمة توصيل الزهور في {city} مصمّمة للمتسوقين المحليين والذين يطلبون من الخارج على حدٍّ سواء. لا تحتاج إلى عنوان المستلم مسبقاً — ما عليك سوى تقديم رقم هاتفه وسيتولّى فريقنا التنسيق، مما يجعل إرسال مفاجأة رائعة من أي مكان في العالم أمراً سهلاً.",
   },
   "campaign.redesign.seo.p3": {
-    en: "From classic roses and seasonal bouquets to luxury arrangements for special occasions, the Presentail catalog covers every mood and budget. All products shown are in stock and available for Beirut delivery today.",
-    ar: "من الورود الكلاسيكية والباقات الموسمية إلى التنسيقات الفاخرة للمناسبات الخاصة، يغطّي كتالوج بريزانتيل كل مزاج وميزانية. جميع المنتجات المعروضة متوفرة وجاهزة للتوصيل في بيروت اليوم.",
+    en: "From classic roses and seasonal bouquets to luxury arrangements for special occasions, the Presentail catalog covers every mood and budget. All products shown are in stock and available for delivery in {city} today.",
+    ar: "من الورود الكلاسيكية والباقات الموسمية إلى التنسيقات الفاخرة للمناسبات الخاصة، يغطّي كتالوج بريزانتيل كل مزاج وميزانية. جميع المنتجات المعروضة متوفرة وجاهزة للتوصيل في {city} اليوم.",
   },
 
   // ── Redesign: UAE FAQ and SEO copy ─────────────────────────────────────────
@@ -531,15 +569,20 @@ export const campaignStringsFr: Record<string, string> = {
   "campaign.redesign.hero.titleSameDay": "Livraison de fleurs le jour même à {city}",
   "campaign.redesign.hero.titleNeutral": "Livraison de fleurs à {city}",
   "campaign.redesign.hero.subtitle": "Découvrez les compositions fraîches disponibles à {city}. La date et l'heure de livraison sont confirmées au paiement.",
+  "campaign.redesign.hero.subtitleLbSameDay": "Commandez avant {cutoff} — livraison gratuite dès 90 $ · aucune adresse nécessaire, nous la recueillons",
+  "campaign.redesign.hero.subtitleLbNeutral": "Livraison gratuite dès 90 $ · aucune adresse nécessaire, nous la recueillons · choisissez votre date au paiement",
+  "campaign.redesign.hero.subtitleAbroad": "Vous envoyez des fleurs à {city} depuis l'étranger ? Nous recueillons l'adresse auprès du destinataire — inutile de la connaître. Vous recevez une photo de confirmation de livraison.",
   "campaign.redesign.hero.imageAlt": "Composition florale fraîche et haut de gamme prête à être livrée",
   "campaign.redesign.hero.cta": "Voir les fleurs disponibles aujourd'hui",
-  "campaign.redesign.hero.support": "Besoin d'aide ? Discutez avec un conseiller",
+  "campaign.redesign.hero.support": "Discuter sur WhatsApp",
   "campaign.redesign.hero.supportPrefill": "Bonjour ! J'ai besoin d'aide pour choisir des fleurs à livrer à {city}.",
   "campaign.redesign.status.sameDay": "Commandez avant {cutoff} pour une livraison aujourd'hui",
   "campaign.redesign.status.nextAvailable": "Choisissez le prochain créneau disponible au paiement",
   "campaign.redesign.status.neutral": "Disponibilité de livraison confirmée au paiement",
   "campaign.redesign.status.speed": "{speed}",
-  "campaign.redesign.status.speedNeutral": "Délai de livraison confirmé au paiement",
+  "campaign.redesign.status.speedNeutral": "Options le jour même et express disponibles",
+  "campaign.redesign.countdown.hours": "Commandez dans {h} h {m} min pour une livraison aujourd'hui",
+  "campaign.redesign.countdown.minutes": "Commandez dans {m} min pour une livraison aujourd'hui",
   "campaign.redesign.status.currency": "Prix affichés en {currency}",
   "campaign.redesign.flowers.title": "Fleurs",
   "campaign.redesign.flowers.subtitle": "Compositions fraîches prêtes à être livrées aujourd'hui",
@@ -598,6 +641,15 @@ export const campaignStringsFr: Record<string, string> = {
   "campaign.v2.reviews.readAll": "Lire tous les avis",
   "campaign.v2.reviews.aggregate": "4,8 sur 5 d'après 1 240 avis vérifiés sur Trustpilot",
   "campaign.v2.reviews.fiveStars": "5 étoiles sur 5",
+  "campaign.v2.reviews.abroad.quote": "Je commandais depuis Londres et je ne savais pas comment organiser une livraison à ma sœur à Beyrouth sans qu'elle le sache. L'équipe l'a contactée directement, a recueilli l'adresse et a livré le jour même. Une expérience parfaitement fluide du début à la fin.",
+  "campaign.v2.reviews.abroad.reviewer": "Sarah M.",
+  "campaign.v2.reviews.abroad.product": "Plum Florals",
+  "campaign.v2.reviews.speed.quote": "J'ai commandé à midi et les fleurs étaient devant la porte de ma mère à 15 h. Elles étaient exactement comme sur les photos — aucun remplacement, aucune surprise. C'est vraiment la livraison de fleurs la plus rapide que j'aie utilisée.",
+  "campaign.v2.reviews.speed.reviewer": "Rami K.",
+  "campaign.v2.reviews.speed.product": "Boîte de chocolats classique",
+  "campaign.v2.reviews.tracking.quote": "J'ai reçu une photo dès que la livraison est arrivée. Ma petite amie ne savait pas que j'avais tout organisé depuis Dubaï. Les mises à jour de suivi ont rendu l'expérience personnelle, même à cette distance.",
+  "campaign.v2.reviews.tracking.reviewer": "Omar H.",
+  "campaign.v2.reviews.tracking.product": "Le coffret d'anniversaire",
 
   // ── Redesign: new sections (fr) ───────────────────────────────────────────
   "campaign.redesign.location.delivering": "Livraison vers :",
@@ -624,21 +676,21 @@ export const campaignStringsFr: Record<string, string> = {
   "campaign.redesign.why.support.body": "Notre équipe concierge est disponible sur WhatsApp — du choix de la composition à la coordination de l'adresse de livraison.",
   "campaign.redesign.more.title": "Encore plus de fleurs",
   "campaign.redesign.more.viewAll": "Voir toutes les fleurs",
-  "campaign.redesign.faq.heading": "Questions sur la livraison de fleurs à Beyrouth",
-  "campaign.redesign.faq.q1": "Quand la livraison le jour même est-elle disponible à Beyrouth ?",
-  "campaign.redesign.faq.a1": "La livraison le jour même est disponible à Beyrouth si vous commandez avant l'heure limite affichée sur cette page. Les commandes passées après cette heure sont programmées pour le prochain créneau disponible. L'heure limite exacte est confirmée au paiement selon l'heure actuelle.",
+  "campaign.redesign.faq.heading": "Questions sur la livraison de fleurs à {city}",
+  "campaign.redesign.faq.q1": "Quand la livraison le jour même est-elle disponible à {city} ?",
+  "campaign.redesign.faq.a1": "La livraison le jour même à {city} est disponible jusqu'à 23 h. Le compte à rebours en direct sur cette page indique exactement le temps qu'il vous reste. Les commandes passées après l'heure limite sont reportées au prochain créneau de livraison disponible.",
   "campaign.redesign.faq.q2": "Dans quels quartiers de Beyrouth livrez-vous ?",
   "campaign.redesign.faq.a2": "Nous livrons dans tout Beyrouth et ses environs, y compris Achrafieh, Hamra, Verdun, Mar Mikhael, Gemmayzeh, Badaro, Jnah, Tallet El Khayat et d'autres quartiers. La liste complète des zones couvertes apparaît au paiement lorsque vous saisissez votre adresse de livraison.",
   "campaign.redesign.faq.q3": "Ai-je besoin de l'adresse du destinataire pour passer une commande ?",
   "campaign.redesign.faq.a3": "Non — fournissez simplement le nom et le numéro de téléphone du destinataire. Notre équipe le contactera directement pour recueillir l'adresse de livraison et convenir d'un horaire. C'est particulièrement utile pour envoyer des fleurs en surprise.",
   "campaign.redesign.faq.q4": "Combien coûte la livraison à Beyrouth ?",
-  "campaign.redesign.faq.a4": "Les frais de livraison varient selon le quartier et le créneau horaire. Le montant exact est calculé et affiché au paiement avant de confirmer votre commande. La livraison gratuite est disponible pour les commandes éligibles dépassant un montant minimum.",
+  "campaign.redesign.faq.a4": "La livraison est gratuite pour les commandes de plus de 90 $. Des frais de livraison fixes s'appliquent en dessous de ce seuil — le montant exact pour votre zone est confirmé au paiement avant de passer votre commande.",
   "campaign.redesign.faq.q5": "Puis-je ajouter une carte cadeau ou des chocolats à ma commande de fleurs ?",
   "campaign.redesign.faq.a5": "Oui — vous pouvez ajouter une carte manuscrite personnalisée, des chocolats, un ballon ou d'autres compléments lors du paiement. Nos fleuristes incluent ces extras dans la même livraison.",
-  "campaign.redesign.seo.heading": "Livraison de fleurs le jour même à Beyrouth",
-  "campaign.redesign.seo.p1": "Presentail livre des fleurs fraîches, arrangées à la main dans tout Beyrouth le jour même de votre commande — d'Achrafieh et Hamra à Verdun et au-delà. Chaque bouquet est préparé par des fleuristes locaux et expédié rapidement pour arriver dans les meilleures conditions.",
-  "campaign.redesign.seo.p2": "Notre service est conçu aussi bien pour les acheteurs locaux que pour ceux qui commandent depuis l'étranger. Vous n'avez pas besoin de l'adresse du destinataire à l'avance — fournissez simplement son numéro de téléphone et notre équipe se charge du reste, facilitant l'envoi d'une surprise attentionnée depuis n'importe où dans le monde.",
-  "campaign.redesign.seo.p3": "Des roses classiques et des bouquets de saison aux compositions de luxe pour les occasions spéciales, le catalogue Presentail couvre toutes les envies et tous les budgets. Tous les produits affichés sont en stock et disponibles pour la livraison à Beyrouth aujourd'hui.",
+  "campaign.redesign.seo.heading": "Livraison de fleurs le jour même à {city}",
+  "campaign.redesign.seo.p1": "Presentail livre des fleurs fraîches, arrangées à la main dans tout {city} le jour même de votre commande. Chaque bouquet est préparé par des fleuristes locaux et expédié rapidement pour arriver dans les meilleures conditions.",
+  "campaign.redesign.seo.p2": "Notre service de livraison de fleurs à {city} est conçu aussi bien pour les acheteurs locaux que pour ceux qui commandent depuis l'étranger. Vous n'avez pas besoin de l'adresse du destinataire à l'avance — fournissez simplement son numéro de téléphone et notre équipe se charge du reste, facilitant l'envoi d'une surprise attentionnée depuis n'importe où dans le monde.",
+  "campaign.redesign.seo.p3": "Des roses classiques et des bouquets de saison aux compositions de luxe pour les occasions spéciales, le catalogue Presentail couvre toutes les envies et tous les budgets. Tous les produits affichés sont en stock et disponibles pour une livraison à {city} aujourd'hui.",
   "campaign.redesign.uae.faq.heading": "Questions sur la livraison de fleurs à {city}",
   "campaign.redesign.uae.faq.q1": "Quand la livraison le jour même est-elle disponible à {city} ?",
   "campaign.redesign.uae.faq.a1": "La livraison le jour même à {city} est disponible si vous commandez avant l'heure limite affichée sur cette page. Les heures limites des Émirats suivent l'heure des Émirats (Asie/Dubaï) ; les commandes passées après cette heure passent au prochain créneau disponible, confirmé au paiement.",

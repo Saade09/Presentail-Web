@@ -81,7 +81,7 @@ function CampaignProductCard({
             </div>
           )}
 
-          {availabilityState === "same-day" && (
+          {availabilityState === "same-day" && index < 4 && (
             <div className="absolute end-2 bottom-2 rounded-full bg-white/90 backdrop-blur-sm px-2 py-0.5 text-[10px] font-medium leading-none text-[#00414e]">
               {t("campaign.redesign.arrivesToday")}
             </div>
@@ -108,7 +108,7 @@ function CampaignProductCard({
 
 // ─── CampaignGrid ─────────────────────────────────────────────────────────────
 
-const GRID_SIZE = 8;
+export const GRID_SIZE = 8;
 
 export function CampaignGrid({
   section,
@@ -122,6 +122,7 @@ export function CampaignGrid({
   availabilityState,
   currencyCodeOverride,
   onViewAll,
+  compactTop,
 }: {
   section: "flowers" | "luxury";
   title: string;
@@ -134,6 +135,7 @@ export function CampaignGrid({
   availabilityState?: CampaignAvailabilityState;
   currencyCodeOverride?: string;
   onViewAll?: () => void;
+  compactTop?: boolean;
 }) {
   const { t } = useLocale();
   const displayProducts = products.slice(0, GRID_SIZE);
@@ -141,7 +143,7 @@ export function CampaignGrid({
   return (
     <section
       id={id}
-      className="container mx-auto max-w-content px-page pt-8 scroll-mt-24"
+      className={`container mx-auto max-w-content px-page ${compactTop ? "pt-0" : "pt-8"} scroll-mt-24`}
       aria-labelledby={`${id}-heading`}
     >
       <div className="flex items-end justify-between mb-1.5">
@@ -637,15 +639,15 @@ export function CampaignFaq({
         { key: "q5", q: t("campaign.redesign.uae.faq.q5", cityParams), a: t("campaign.redesign.uae.faq.a5", cityParams) },
       ]
     : [
-        { key: "q1", q: t("campaign.redesign.faq.q1"), a: t("campaign.redesign.faq.a1") },
-        { key: "q2", q: t("campaign.redesign.faq.q2"), a: t("campaign.redesign.faq.a2") },
-        { key: "q3", q: t("campaign.redesign.faq.q3"), a: t("campaign.redesign.faq.a3") },
-        { key: "q4", q: t("campaign.redesign.faq.q4"), a: t("campaign.redesign.faq.a4") },
-        { key: "q5", q: t("campaign.redesign.faq.q5"), a: t("campaign.redesign.faq.a5") },
+        { key: "q1", q: t("campaign.redesign.faq.q1", cityParams), a: t("campaign.redesign.faq.a1", cityParams) },
+        { key: "q2", q: t("campaign.redesign.faq.q2", cityParams), a: t("campaign.redesign.faq.a2", cityParams) },
+        { key: "q3", q: t("campaign.redesign.faq.q3", cityParams), a: t("campaign.redesign.faq.a3", cityParams) },
+        { key: "q4", q: t("campaign.redesign.faq.q4", cityParams), a: t("campaign.redesign.faq.a4", cityParams) },
+        { key: "q5", q: t("campaign.redesign.faq.q5", cityParams), a: t("campaign.redesign.faq.a5", cityParams) },
       ];
   const heading = isUae
     ? t("campaign.redesign.uae.faq.heading", cityParams)
-    : t("campaign.redesign.faq.heading");
+    : t("campaign.redesign.faq.heading", cityParams);
 
   const faqJsonLd = {
     "@context": "https://schema.org",
@@ -701,7 +703,7 @@ export function CampaignSeoEditorial() {
   const cityParams = { city: cityLabel };
   const heading = isUae
     ? t("campaign.redesign.uae.seo.heading", cityParams)
-    : t("campaign.redesign.seo.heading");
+    : t("campaign.redesign.seo.heading", cityParams);
   const paragraphs = isUae
     ? [
         t("campaign.redesign.uae.seo.p1", cityParams),
@@ -709,9 +711,9 @@ export function CampaignSeoEditorial() {
         t("campaign.redesign.uae.seo.p3", cityParams),
       ]
     : [
-        t("campaign.redesign.seo.p1"),
-        t("campaign.redesign.seo.p2"),
-        t("campaign.redesign.seo.p3"),
+        t("campaign.redesign.seo.p1", cityParams),
+        t("campaign.redesign.seo.p2", cityParams),
+        t("campaign.redesign.seo.p3", cityParams),
       ];
 
   return (
@@ -838,27 +840,9 @@ function FiveStars() {
 }
 
 const PLACEHOLDER_REVIEWS = [
-  {
-    key: "abroad",
-    quote:
-      "I was ordering from London and had no clue how to arrange delivery to my sister in Beirut without her knowing. They contacted her directly, got the address, and delivered the same day. Completely seamless from start to finish.",
-    reviewer: "Sarah M.",
-    product: "Plum Florals",
-  },
-  {
-    key: "speed",
-    quote:
-      "Ordered at noon, flowers were on my mother's doorstep by 3 PM. Looked exactly like the photos — no substitutions, no surprises. Genuinely the fastest flower delivery I've used anywhere.",
-    reviewer: "Rami K.",
-    product: "Classic Chocolate Box",
-  },
-  {
-    key: "tracking",
-    quote:
-      "Got a photo the moment the delivery landed. My girlfriend had no idea I'd arranged the whole thing from Dubai. The tracking updates made it feel personal even from that far away.",
-    reviewer: "Omar H.",
-    product: "The Birthday Bundle",
-  },
+  { key: "abroad" },
+  { key: "speed" },
+  { key: "tracking" },
 ] as const;
 
 export function CampaignReviews() {
@@ -895,12 +879,14 @@ export function CampaignReviews() {
           >
             <FiveStars />
             <p className="text-neutral-700 text-sm leading-relaxed flex-1">
-              &ldquo;{r.quote}&rdquo;
+              &ldquo;{t(`campaign.v2.reviews.${r.key}.quote`)}&rdquo;
             </p>
             <div className="text-xs text-neutral-500 leading-snug">
-              <span className="font-semibold text-neutral-700">{r.reviewer}</span>
+              <span className="font-semibold text-neutral-700">
+                {t(`campaign.v2.reviews.${r.key}.reviewer`)}
+              </span>
               {" · "}
-              {r.product}
+              {t(`campaign.v2.reviews.${r.key}.product`)}
             </div>
           </div>
         ))}

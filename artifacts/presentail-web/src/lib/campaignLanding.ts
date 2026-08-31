@@ -172,6 +172,32 @@ function localHourAndMinute(now: Date, timeZone: string): {
   }
 }
 
+/**
+ * Return the number of whole local minutes remaining before today's cutoff.
+ *
+ * The caller is responsible for checking that the campaign is still in its
+ * same-day window. Returning null for invalid timezone/cutoff data keeps the
+ * landing page on its verified fallback copy instead of showing a misleading
+ * timer.
+ */
+export function computeCountdownMinutes(
+  now: Date,
+  timeZone: string,
+  cutoffHour?: number,
+): number | null {
+  if (
+    cutoffHour == null ||
+    !Number.isInteger(cutoffHour) ||
+    cutoffHour < 0 ||
+    cutoffHour > 23
+  ) {
+    return null;
+  }
+  const localTime = localHourAndMinute(now, timeZone);
+  if (!localTime) return null;
+  return Math.max(0, cutoffHour * 60 - (localTime.hour * 60 + localTime.minute));
+}
+
 export type CampaignAvailabilityState =
   | "same-day"
   | "next-available"
