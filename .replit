@@ -207,6 +207,7 @@ PRESENTAIL_OS_API_KEY = "pk_live_5b615215fd129d9408cc8e429eb7aa4b3d461d0d43135d1
 [userenv.production]
 INTERNAL_API_BASE_URL = "https://presentail.com"
 VITE_FRICTIONLESS_CHECKOUT = "true"
+API_REQUIRE_MIGRATION_GATE = "0"
 
 [userenv.development]
 CYG_ROLLOUT = "on"
