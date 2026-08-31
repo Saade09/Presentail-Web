@@ -827,6 +827,65 @@ export async function recordSuccessfulWcOrder(input: {
       isMidnight && body.deliveryDate
         ? midnightWin ?? midnightWindowForOccasionDate(body.deliveryDate)
         : undefined;
+
+    // For non-midnight standard orders, resolve a window from city slots (or a
+    // full-day default) when no slot was submitted, so delivery_window_start/end
+    // is always populated in app_orders (mirrors the OS payload fallback logic).
+    let standardWindowStart: Date | null = null;
+    let standardWindowEnd: Date | null = null;
+    if (!isMidnight && body.deliveryDate) {
+      let resolvedStartH: number | undefined;
+      let resolvedEndH: number | undefined;
+
+      if (body.cityId && body.deliverySlot) {
+        // Normal path: slot was submitted — resolve it to get hours.
+        const slots = getDeliverySlots(body.cityId, body.deliveryDate || undefined);
+        const country = countryForDistrict(body.district ?? "Beirut");
+        const todayIso = getLocalIso(country);
+        const resolved = resolveSlotForDate(slots, {
+          deliverySlot: body.deliverySlot,
+          deliverySlotId: body.deliverySlotId,
+          dateIso: body.deliveryDate || todayIso,
+          todayIso,
+          cityId: body.cityId,
+        });
+        if (resolved?.startHour != null && resolved?.endHour != null) {
+          resolvedStartH = resolved.startHour;
+          resolvedEndH = resolved.endHour;
+        }
+      }
+
+      if (resolvedStartH == null) {
+        // No slot submitted (or slot not found) — try city's first standard slot.
+        if (body.cityId) {
+          const citySlots = getDeliverySlots(body.cityId, body.deliveryDate);
+          const firstStandard = citySlots.find(
+            (s) =>
+              s.startHour != null &&
+              s.endHour != null &&
+              !isMidnightSlot(s, body.cityId ?? undefined),
+          );
+          if (firstStandard?.startHour != null && firstStandard?.endHour != null) {
+            resolvedStartH = firstStandard.startHour;
+            resolvedEndH = firstStandard.endHour;
+          }
+        }
+        // Last resort: full-day fallback.
+        if (resolvedStartH == null) {
+          resolvedStartH = 9;
+          resolvedEndH = 21;
+        }
+      }
+
+      const pad = (h: number) => String(h).padStart(2, "0");
+      if (resolvedStartH != null) {
+        standardWindowStart = new Date(`${body.deliveryDate}T${pad(resolvedStartH)}:00:00`);
+      }
+      if (resolvedEndH != null) {
+        standardWindowEnd = new Date(`${body.deliveryDate}T${pad(resolvedEndH)}:00:00`);
+      }
+    }
+
     // Slot fee in cents for persistence (0 for non-midnight, 2000 for midnight).
     const slotFeeCentsForDb = isMidnight ? MIDNIGHT_FEE_USD * 100 : null;
 
@@ -861,7 +920,9 @@ export async function recordSuccessfulWcOrder(input: {
         occasionRef,
         marketingAttributionJson,
         whatsappOptIn: body.whatsappOptIn ?? null,
-        // Midnight delivery columns
+        // Delivery window: midnight orders use the authoritative midnight window;
+        // standard orders use the slot-resolved or fallback window so
+        // delivery_window_start/end is always populated when a delivery_date is set.
         deliveryCityId: body.cityId ?? null,
         deliveryCountryCode: body.shippingCountry ?? null,
         deliverySlotId: body.deliverySlotId ?? null,
@@ -869,10 +930,10 @@ export async function recordSuccessfulWcOrder(input: {
         deliverySlotFeeCents: slotFeeCentsForDb,
         deliveryWindowStart: authoritativeMidnightWin
           ? new Date(authoritativeMidnightWin.start)
-          : null,
+          : standardWindowStart,
         deliveryWindowEnd: authoritativeMidnightWin
           ? new Date(authoritativeMidnightWin.end)
-          : null,
+          : standardWindowEnd,
       })
       .onConflictDoUpdate({
         target: appOrdersTable.appOrderId,
@@ -908,7 +969,8 @@ export async function recordSuccessfulWcOrder(input: {
           occasionRef,
           marketingAttributionJson,
           whatsappOptIn: body.whatsappOptIn ?? null,
-          // Midnight delivery columns
+          // Delivery window: midnight orders use the authoritative midnight window;
+          // standard orders use the slot-resolved or fallback window.
           deliveryCityId: body.cityId ?? null,
           deliveryCountryCode: body.shippingCountry ?? null,
           deliverySlotId: body.deliverySlotId ?? null,
@@ -916,10 +978,10 @@ export async function recordSuccessfulWcOrder(input: {
           deliverySlotFeeCents: slotFeeCentsForDb,
           deliveryWindowStart: authoritativeMidnightWin
             ? new Date(authoritativeMidnightWin.start)
-            : null,
+            : standardWindowStart,
           deliveryWindowEnd: authoritativeMidnightWin
             ? new Date(authoritativeMidnightWin.end)
-            : null,
+            : standardWindowEnd,
           updatedAt: new Date(),
         },
       });
@@ -1330,6 +1392,52 @@ export async function attemptCreateOsOrder(
     isMidnightOrder && body.deliveryDate
       ? resolvedMidnightWindow ?? midnightWindowForOccasionDate(body.deliveryDate)
       : undefined;
+
+  // Fallback window for standard orders with no delivery slot.
+  // OS requires a time window for scheduling; when the checkout payload carries
+  // no deliverySlot (cities without slot config, legacy clients, etc.) we
+  // attempt to derive a window from the city's first standard slot. If none
+  // exist we fall back to a full-day window (09:00–21:00 local delivery time).
+  // These cases are logged as warnings so missing-slot patterns can be tracked.
+  let fallbackWindowStartHour: number | undefined;
+  let fallbackWindowEndHour: number | undefined;
+  if (!clientSignalledExpress && !isMidnightOrder && !bookedSlot && body.deliveryDate) {
+    if (body.cityId) {
+      const citySlots = getDeliverySlots(body.cityId, body.deliveryDate);
+      const firstStandard = citySlots.find(
+        (s) =>
+          s.startHour != null &&
+          s.endHour != null &&
+          !isMidnightSlot(s, body.cityId ?? undefined),
+      );
+      if (firstStandard?.startHour != null && firstStandard?.endHour != null) {
+        fallbackWindowStartHour = firstStandard.startHour;
+        fallbackWindowEndHour = firstStandard.endHour;
+        logger.warn(
+          {
+            appOrderId: body.orderId,
+            cityId: body.cityId,
+            fallbackSlot: firstStandard.label,
+          },
+          "woo.order: no delivery slot submitted; using first city slot as window fallback",
+        );
+      }
+    }
+    if (fallbackWindowStartHour == null) {
+      // No city, or city has no standard slots — use a generic full-day window.
+      fallbackWindowStartHour = 9;
+      fallbackWindowEndHour = 21;
+      logger.warn(
+        {
+          appOrderId: body.orderId,
+          cityId: body.cityId ?? null,
+          deliveryDate: body.deliveryDate,
+        },
+        "woo.order: no delivery slot submitted and no city slot found; using full-day fallback window 09:00-21:00",
+      );
+    }
+  }
+
   // Use snapshot slot fee when available (prevents re-computation drift).
   const slotFeeAppliedUsd = opts.preVerifiedFees?.slotFeeUsd !== undefined
     ? opts.preVerifiedFees.slotFeeUsd
@@ -1404,13 +1512,18 @@ export async function attemptCreateOsOrder(
       address: askRecipient.address,
       date: body.deliveryDate || undefined,
       slot: (() => {
+        const fmt = (h: number) => {
+          const suffix = h < 12 ? "AM" : "PM";
+          const h12 = h % 12 === 0 ? 12 : h % 12;
+          return `${h12}:00 ${suffix}`;
+        };
         if (bookedSlot?.startHour != null && bookedSlot?.endHour != null) {
-          const fmt = (h: number) => {
-            const suffix = h < 12 ? "AM" : "PM";
-            const h12 = h % 12 === 0 ? 12 : h % 12;
-            return `${h12}:00 ${suffix}`;
-          };
           return `${fmt(bookedSlot.startHour)}–${fmt(bookedSlot.endHour)}`;
+        }
+        // Use the derived fallback hours so OS has a human-readable slot label
+        // even when the customer did not select a named slot.
+        if (fallbackWindowStartHour != null && fallbackWindowEndHour != null) {
+          return `${fmt(fallbackWindowStartHour)}–${fmt(fallbackWindowEndHour)}`;
         }
         return body.deliverySlot || undefined;
       })(),
@@ -1465,13 +1578,17 @@ export async function attemptCreateOsOrder(
       }
       if (body.deliveryDate) {
         const pad = (h: number) => String(h).padStart(2, "0");
+        // Prefer the booked slot's hours; fall back to the derived fallback
+        // window so OS always receives a time window for standard orders.
+        const effectiveStartHour = bookedSlot?.startHour ?? fallbackWindowStartHour;
+        const effectiveEndHour = bookedSlot?.endHour ?? fallbackWindowEndHour;
         const start =
-          bookedSlot?.startHour != null
-            ? `${body.deliveryDate}T${pad(bookedSlot.startHour)}:00:00`
+          effectiveStartHour != null
+            ? `${body.deliveryDate}T${pad(effectiveStartHour)}:00:00`
             : undefined;
         const end =
-          bookedSlot?.endHour != null
-            ? `${body.deliveryDate}T${pad(bookedSlot.endHour)}:00:00`
+          effectiveEndHour != null
+            ? `${body.deliveryDate}T${pad(effectiveEndHour)}:00:00`
             : undefined;
         return {
           ...(start != null ? { window_start: start } : {}),
