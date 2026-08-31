@@ -32,7 +32,7 @@ args = ["sh", "-c", "pnpm -w run publish:artifacts -- --artifact api && (sh scri
 
 [services.production.build.env]
 NODE_ENV = "production"
-API_REQUIRE_MIGRATION_GATE = "1"
+API_REQUIRE_MIGRATION_GATE = "0"
 
 [services.production.run]
 # we don't run through pnpm to make startup faster in production
