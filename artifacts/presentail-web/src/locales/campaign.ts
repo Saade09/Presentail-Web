@@ -20,6 +20,7 @@ export const campaignStrings: Dict = {
     ar: "يُطبّق تلقائياً عند الدفع — بدون رمز خصم",
   },
   "campaign.hero.promoCopied": { en: "Copied!", ar: "تم النسخ!" },
+  "campaign.hero.promoCouponApply": { en: "Apply at checkout", ar: "تطبيق عند الدفع" },
   "campaign.hero.cta": { en: "Shop Best Sellers", ar: "تسوّق الأكثر مبيعاً" },
   "campaign.hero.ctaUnder": { en: "Shop Under {amount}", ar: "تسوّق بأقل من {amount}" },
   "campaign.hero.imageAlt": {

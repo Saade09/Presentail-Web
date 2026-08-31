@@ -98,6 +98,20 @@ export function markPendingCampaignCoupon(code: string): void {
   }
 }
 
+/**
+ * Write the coupon directly into the cart coupon input storage so that
+ * checkout pre-fills and shows it applied immediately on load, without
+ * waiting for the background validation effect to fire.
+ * Uses the same key as Cart.tsx COUPON_STORAGE_KEY = "presentail_coupon_v1".
+ */
+export function setDirectCouponForCheckout(code: string): void {
+  try {
+    localStorage.setItem("presentail_coupon_v1", code);
+  } catch {
+    /* best-effort */
+  }
+}
+
 /** Returns the pending campaign coupon code, or null if none. */
 export function getPendingCampaignCoupon(): string | null {
   try {

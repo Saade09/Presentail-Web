@@ -101,17 +101,18 @@ export function CampaignHero({
             {t("campaign.redesign.hero.subtitle", { city: cityLabel })}
           </p>
 
-          {promoEligible && (
-            <div className="mt-3 flex flex-wrap items-center gap-2" data-testid="banner-first-order-promo">
-              <span className="text-xs font-semibold text-[#f4d9aa]">
-                {t("campaign.hero.promoTitle")}
-              </span>
-              {couponCode && (
+          {couponCode && (
+            /* Always visible — not gated on promoEligible so returning visitors see it too */
+            <div className="mt-4 flex flex-col gap-1" data-testid="banner-first-order-promo">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-semibold text-[#f4d9aa]">
+                  {t("campaign.hero.promoTitle")}
+                </span>
                 <button
                   type="button"
                   onClick={handleCouponBadgeClick}
-                  className="flex items-center gap-1.5 rounded-full border border-[#f4d9aa]/40 bg-[#f4d9aa]/10 px-2.5 py-0.5 text-xs font-mono font-semibold text-[#f4d9aa] hover:bg-[#f4d9aa]/20 transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
-                  aria-label={copied ? t("campaign.hero.promoCopied") : `${t("campaign.hero.promoTitle")} — ${couponCode}`}
+                  className="flex items-center gap-1.5 rounded-full border border-[#f4d9aa]/60 bg-[#f4d9aa]/15 px-2.5 py-0.5 font-mono text-xs font-bold text-[#f4d9aa] transition-colors hover:bg-[#f4d9aa]/25 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+                  aria-label={copied ? t("campaign.hero.promoCopied") : `${t("campaign.hero.promoTitle")} — ${couponCode} — ${t("campaign.hero.promoCouponApply")}`}
                 >
                   {copied
                     ? <Check className="h-3 w-3 shrink-0" aria-hidden="true" />
@@ -119,6 +120,11 @@ export function CampaignHero({
                   }
                   {copied ? t("campaign.hero.promoCopied") : couponCode /* i18n-ignore */}
                 </button>
+              </div>
+              {!copied && (
+                <p className="text-[11px] text-[#f4d9aa]/80">
+                  {t("campaign.hero.promoCouponApply")}
+                </p>
               )}
             </div>
           )}

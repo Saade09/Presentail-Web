@@ -13,6 +13,7 @@ import {
   hasOrderedLocally,
   markFirstOrderPromoShown,
   markPendingCampaignCoupon,
+  setDirectCouponForCheckout,
 } from "@/lib/campaign";
 import {
   buildCampaignSupportUrl,
@@ -255,6 +256,7 @@ function CampaignLandingRedesign() {
         couponCode={BIENVENUE_DIX_CODE}
         onPromoClick={() => {
           markPendingCampaignCoupon(BIENVENUE_DIX_CODE);
+          setDirectCouponForCheckout(BIENVENUE_DIX_CODE);
           markFirstOrderPromoShown();
           fireCampaignEvent("campaign_promo_click");
         }}
