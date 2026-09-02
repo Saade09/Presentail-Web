@@ -101,12 +101,20 @@ export function fireAdsPurchaseConversion({
   value,
   currency,
   countryCode,
-}: AdsPurchaseConversionParams): void {
-  if (typeof window === "undefined" || typeof window.gtag !== "function") return;
-  const market = countryCode
-    ? getAdsMarketConfig()[countryCode.toUpperCase()]
+}: AdsPurchaseConversionParams): boolean {
+  if (typeof window === "undefined" || typeof window.gtag !== "function") return false;
+  const normalizedCountryCode = countryCode?.trim().toUpperCase();
+  const market = normalizedCountryCode
+    ? getAdsMarketConfig()[normalizedCountryCode]
     : undefined;
-  if (!market) return;
+  if (!market) {
+    console.warn("[ads-conversion] market lookup MISS", {
+      rawCountry: countryCode,
+      orderRef: transactionId,
+      path: window.location?.pathname,
+    });
+    return false;
+  }
   const campaignKey = readCampaignIdentity();
   window.gtag("event", "conversion", {
     send_to: `${market.accountId}/${market.label}`,
@@ -115,4 +123,5 @@ export function fireAdsPurchaseConversion({
     currency,
     ...(campaignKey ? { campaign_key: campaignKey } : {}),
   });
+  return true;
 }
