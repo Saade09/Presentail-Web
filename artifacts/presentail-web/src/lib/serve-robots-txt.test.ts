@@ -90,6 +90,50 @@ function get(
   });
 }
 
+type RobotsRecord = {
+  agents: string[];
+  directives: string[];
+};
+
+function parseAgentRecords(body: string): RobotsRecord[] {
+  const records: RobotsRecord[] = [];
+  let current: RobotsRecord | null = null;
+  let sealed = false;
+
+  for (const rawLine of body.split(/\r?\n/)) {
+    const line = rawLine.split("#")[0].trim();
+    if (!line) continue;
+
+    if (/^User-agent:/i.test(line)) {
+      const agent = line.slice(line.indexOf(":") + 1).trim();
+      if (!current || sealed) {
+        current = { agents: [agent], directives: [] };
+        records.push(current);
+        sealed = false;
+      } else {
+        current.agents.push(agent);
+      }
+      continue;
+    }
+
+    if (/^Sitemap:/i.test(line)) continue;
+    if (current) {
+      current.directives.push(line);
+      sealed = true;
+    }
+  }
+
+  return records;
+}
+
+function recordFor(body: string, agent: string): RobotsRecord {
+  const record = parseAgentRecords(body).find((candidate) =>
+    candidate.agents.includes(agent),
+  );
+  if (!record) throw new Error(`Missing User-agent: ${agent} record`);
+  return record;
+}
+
 let serverPort: number;
 let serverProc: ChildProcess;
 
@@ -187,6 +231,107 @@ describe("serve.mjs — /robots.txt legacy WordPress Disallow entries", () => {
       expect(body).toContain(line);
     });
   }
+});
+
+// ---------------------------------------------------------------------------
+// Response content — scoped crawler records
+// ---------------------------------------------------------------------------
+
+describe("serve.mjs — /robots.txt crawler-agent record scoping", () => {
+  const PRIVATE_DISALLOWS = [
+    "Disallow: /cart",
+    "Disallow: /checkout",
+    "Disallow: /auth",
+    "Disallow: /account",
+    "Disallow: /admin",
+    "Disallow: /api/",
+    "Disallow: /order-confirmed",
+    "Disallow: /sign-in",
+    "Disallow: /sign-up",
+    "Disallow: /reset-password",
+    "Disallow: /favorites",
+    "Disallow: /personal-information",
+    "Disallow: /*/cart",
+    "Disallow: /*/checkout",
+    "Disallow: /*/auth",
+    "Disallow: /*/account",
+    "Disallow: /*/sign-in",
+    "Disallow: /*/sign-up",
+    "Disallow: /*/reset-password",
+    "Disallow: /*/favorites",
+    "Disallow: /*/order-confirmed",
+    "Disallow: /*/personal-information",
+  ];
+  const API_EXCEPTION_ALLOWS = [
+    "Allow: /api/img/proxy",
+    "Allow: /api/og-image/",
+  ];
+  const WP_DISALLOWS = [
+    "Disallow: /wp-admin/",
+    "Disallow: /wp-json/",
+    "Disallow: /wp-content/",
+    "Disallow: /wp-includes/",
+    "Disallow: /wp-login.php",
+    "Disallow: /author/",
+  ];
+  const WILDCARD_PARAMETER_DISALLOWS = [
+    "Disallow: /*?_cr=",
+    "Disallow: /*?utm_source=",
+    "Disallow: /*?utm_medium=",
+    "Disallow: /*?utm_campaign=",
+    "Disallow: /*?utm_content=",
+    "Disallow: /*?utm_term=",
+    "Disallow: /*?utm_id=",
+    "Disallow: /*?gclid=",
+    "Disallow: /*?gbraid=",
+    "Disallow: /*?wbraid=",
+    "Disallow: /*?orderby=",
+    "Disallow: /*?min_price=",
+    "Disallow: /*?max_price=",
+    "Disallow: /*?filter_",
+    "Disallow: /*?sort=",
+    "Disallow: /*?currency=",
+    "Disallow: /*?wmc-currency=",
+    "Disallow: /*?delivery=",
+    "Disallow: /*?availability=",
+    "Disallow: /*?price_min=",
+    "Disallow: /*?price_max=",
+    "Disallow: /*?page=",
+    "Disallow: /*?ref=",
+    "Disallow: /*?from=",
+    "Disallow: /*?scroll=",
+  ];
+
+  it("keeps private, API-exception, locale-private, and legacy rules in Googlebot's record", async () => {
+    const { body } = await get(serverPort, "/robots.txt");
+    const googlebot = recordFor(body, "Googlebot");
+
+    expect(googlebot.directives).toContain("Allow: /");
+    for (const directive of [...API_EXCEPTION_ALLOWS, ...PRIVATE_DISALLOWS, ...WP_DISALLOWS]) {
+      expect(googlebot.directives).toContain(directive);
+    }
+  });
+
+  it("does not scope wildcard query-parameter or faceted-navigation blocks to Googlebot", async () => {
+    const { body } = await get(serverPort, "/robots.txt");
+    const googlebot = recordFor(body, "Googlebot");
+    const wildcard = recordFor(body, "*");
+
+    for (const directive of WILDCARD_PARAMETER_DISALLOWS) {
+      expect(wildcard.directives).toContain(directive);
+      expect(googlebot.directives).not.toContain(directive);
+    }
+  });
+
+  it("gives Googlebot-Image exactly one directive: Allow: /", async () => {
+    const { body } = await get(serverPort, "/robots.txt");
+    expect(recordFor(body, "Googlebot-Image").directives).toEqual(["Allow: /"]);
+  });
+
+  it("gives Applebot-Extended a non-empty Allow directive", async () => {
+    const { body } = await get(serverPort, "/robots.txt");
+    expect(recordFor(body, "Applebot-Extended").directives).toEqual(["Allow: /"]);
+  });
 });
 
 // ---------------------------------------------------------------------------

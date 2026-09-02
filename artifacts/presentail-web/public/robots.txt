@@ -62,6 +62,46 @@ Disallow: /*?ref=
 Disallow: /*?from=
 Disallow: /*?scroll=
 
+# Googlebot may crawl product pages and images, but should still avoid
+# private, transactional, API, and legacy WordPress paths.
+User-agent: Googlebot
+Allow: /
+Allow: /api/img/proxy
+Allow: /api/og-image/
+Disallow: /cart
+Disallow: /checkout
+Disallow: /auth
+Disallow: /account
+Disallow: /admin
+Disallow: /api/
+Disallow: /order-confirmed
+Disallow: /sign-in
+Disallow: /sign-up
+Disallow: /reset-password
+Disallow: /favorites
+Disallow: /personal-information
+Disallow: /*/cart
+Disallow: /*/checkout
+Disallow: /*/auth
+Disallow: /*/account
+Disallow: /*/sign-in
+Disallow: /*/sign-up
+Disallow: /*/reset-password
+Disallow: /*/favorites
+Disallow: /*/order-confirmed
+Disallow: /*/personal-information
+
+# Legacy WordPress paths — now return 410 Gone; block to recover crawl budget
+Disallow: /wp-admin/
+Disallow: /wp-json/
+Disallow: /wp-content/
+Disallow: /wp-includes/
+Disallow: /wp-login.php
+Disallow: /author/
+
+User-agent: Googlebot-Image
+Allow: /
+
 Sitemap: https://presentail.com/sitemap.xml
 
 # AI crawler guidance — machine-readable content index (llmstxt.org)
