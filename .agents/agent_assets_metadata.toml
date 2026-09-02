@@ -209,138 +209,161 @@ id = "aAOtzP0PF-XLjuj8tfWfH"
 uri = "file://attached_assets/play-store/feature-graphic-1024x500.png"
 type = "image"
 title = "Feature graphic (1024×500) — required"
+logical_id = "66ce8ef4-7e58-4572-991a-249c5078ced8"
 
 [[outputs]]
 id = "IXU3L2Q-VYroleMa2PRMZ"
 uri = "file://attached_assets/play-store/screenshot-1-home.png"
 type = "image"
 title = "Screenshot 1 — Home"
+logical_id = "62ee26d1-f61e-42ac-8b93-caec0d370a5a"
 
 [[outputs]]
 id = "r29wFVGx59058oqmy9rPP"
 uri = "file://attached_assets/play-store/screenshot-2-product.png"
 type = "image"
 title = "Screenshot 2 — Product detail"
+logical_id = "10d89203-48cb-4c76-868b-d953761c91d4"
 
 [[outputs]]
 id = "dQHfM3GXCNJM_Kb-gQeMI"
 uri = "file://attached_assets/play-store/screenshot-3-checkout.png"
 type = "image"
 title = "Screenshot 3 — Card message & checkout"
+logical_id = "934f7a47-da68-47b9-bdae-9fac9a2e2f57"
 
 [[outputs]]
 id = "uFGmC9jHtLGOpha4F6Iz_"
 uri = "file://attached_assets/play-store/v2/feature-graphic-1024x500.png"
 type = "image"
 title = "Feature graphic (1024×500)"
+logical_id = "704352c3-4e44-42cd-829c-3671102195e9"
 
 [[outputs]]
 id = "02S6HuTvWYmKhV6_cDX_H"
 uri = "file://attached_assets/play-store/v2/tablet7-1.png"
 type = "image"
 title = "7-inch tablet 1 — Home"
+logical_id = "a8c14a68-dd84-4b5c-b913-e6b333442ed2"
 
 [[outputs]]
 id = "QA0R9QKqECSbfFgABEg6g"
 uri = "file://attached_assets/play-store/v2/tablet7-2.png"
 type = "image"
 title = "7-inch tablet 2 — Bestsellers"
+logical_id = "edb4a666-c358-414a-bfde-16b7f6ca2508"
 
 [[outputs]]
 id = "EIaUQnHGk0A0KmRoygD-S"
 uri = "file://attached_assets/play-store/v2/tablet7-3.png"
 type = "image"
 title = "7-inch tablet 3 — Collections"
+logical_id = "8e2a922c-98a9-4029-ae63-5fed8ba508cc"
 
 [[outputs]]
 id = "-mvi6QhpYsKtEHmUNWUOb"
 uri = "file://attached_assets/play-store/v2/tablet10-1.png"
 type = "image"
 title = "10-inch tablet 1 — Home"
+logical_id = "9046d482-c9bc-478f-b800-042d10b69a1e"
 
 [[outputs]]
 id = "Z7KntO9-bijO6sNm9sgdm"
 uri = "file://attached_assets/play-store/v2/tablet10-2.png"
 type = "image"
 title = "10-inch tablet 2 — Bestsellers"
+logical_id = "c1a98b45-5a9e-4a6b-81d4-5e10391233cc"
 
 [[outputs]]
 id = "6OwSZ99d1hr0L_--fGblj"
 uri = "file://attached_assets/play-store/v2/tablet10-3.png"
 type = "image"
 title = "10-inch tablet 3 — Collections"
+logical_id = "14eae5c3-2734-42ee-b3b5-dcfea2f9d12d"
 
 [[outputs]]
 id = "BaLTkNDjb90gmOR30YFMQ"
 uri = "file://attached_assets/play-store/v2/tablet7-4.png"
 type = "image"
 title = "7-inch tablet 4 — Product detail"
+logical_id = "c18efd74-5e61-44ba-8189-697e93468875"
 
 [[outputs]]
 id = "4LrAutm57Jo6uffPt6wAt"
 uri = "file://attached_assets/play-store/v2/tablet7-5.png"
 type = "image"
 title = "7-inch tablet 5 — Card message"
+logical_id = "ed2684a2-ff10-493b-9deb-b4ad19379fef"
 
 [[outputs]]
 id = "mlnujmCwcTLQoVEXdXOFJ"
 uri = "file://attached_assets/play-store/v2/tablet10-4.png"
 type = "image"
 title = "10-inch tablet 4 — Product detail"
+logical_id = "e98c16f7-43bc-4a17-acb4-68bedf87e577"
 
 [[outputs]]
 id = "iPcXfM2x2VUULwh_SVR19"
 uri = "file://attached_assets/play-store/v2/tablet10-5.png"
 type = "image"
 title = "10-inch tablet 5 — Card message"
+logical_id = "acd5cacc-5662-4083-960d-4a2c26bc1201"
 
 [[outputs]]
 id = "VZbu05fBy9sfU-DrC6_DR"
 uri = "file://attached_assets/image_search/express_1.jpg"
 type = "image"
 title = "express_1.jpg"
+logical_id = "837b79ca-20fe-4590-89ce-92b22096e81c"
 
 [[outputs]]
 id = "PF6GjukkX03bq7CP9WcCO"
 uri = "file://attached_assets/image_search/express_2.jpg"
 type = "image"
 title = "express_2.jpg"
+logical_id = "8a9dc94b-0981-4454-bcbe-d74fae7bcc02"
 
 [[outputs]]
 id = "BwIvC_iX35YELJCtMpKZx"
 uri = "file://attached_assets/image_search/wedding_1.webp"
 type = "image"
 title = "wedding_1.webp"
+logical_id = "053a12a8-5769-40d9-82be-501fff8a5f52"
 
 [[outputs]]
 id = "0838DAZ7z3eNU2ds7xvy-"
 uri = "file://attached_assets/image_search/wedding_2.jpg"
 type = "image"
 title = "wedding_2.jpg"
+logical_id = "50b16a50-e7bc-4ab2-beb2-8c22cb7d5410"
 
 [[outputs]]
 id = "FI4QPuP0fxgoo3h9Ri8DY"
 uri = "file://attached_assets/card-stationery.png"
 type = "image"
 title = "Card stationery background (for OS printing)"
+logical_id = "a455e12d-1048-4ae7-9722-62b84c9ac848"
 
 [[outputs]]
 id = "Qpn-1wR7PqOCwAM68OA3w"
 uri = "file://artifacts/presentail-web/public/opengraph.jpg"
 type = "image"
 title = "Presentail OG Share Image (opengraph.jpg)"
+logical_id = "44d50c50-7226-4937-9713-f93600b37571"
 
 [[outputs]]
 id = "0iJebr5JcEypP6uu4k-dM"
 uri = "file://brand-og-preview.jpg"
 type = "image"
 title = "Generic card (no brand in cache)"
+logical_id = "c566f354-6318-422d-ac15-516de8e98db3"
 
 [[outputs]]
 id = "rZm9i3lnFw3raH9v6jLsN"
 uri = "file://brand-og-hallab.jpg"
 type = "image"
 title = "Hallab 1881 — real brand card"
+logical_id = "867a1a79-0536-4312-a325-e169010451c6"
 
 [[outputs]]
 id = "c6miY7p4MfaTG7eBppVg3"
@@ -348,6 +371,7 @@ uri = "file://artifacts/presentail-web/screenshots/checkout-paid-standard.png"
 type = "image"
 title = "Desktop checkout — paid standard delivery"
 description = "Redesigned Delivery Details: new Order Summary hierarchy, delivery confirmation panel, compact sender card."
+logical_id = "54c20fcb-29c1-4786-b626-14812bfbc341"
 
 [[outputs]]
 id = "bz4b2BH2dsyx44G_6ysYV"
@@ -355,6 +379,7 @@ uri = "file://artifacts/presentail-web/screenshots/checkout-paid-express.png"
 type = "image"
 title = "Desktop checkout — paid express"
 description = "Express upgrade row with 90-minute sub-line and quote-anchored 'Arrives by' promise panel."
+logical_id = "f6d0abd8-cfe1-4f22-8051-31133d5d3b3c"
 
 [[outputs]]
 id = "vAOnFtbJhewXYrJSYaq5N"
@@ -362,6 +387,7 @@ uri = "file://artifacts/presentail-web/screenshots/checkout-free-standard.png"
 type = "image"
 title = "Desktop checkout — free standard delivery"
 description = "Free delivery shows strikethrough fee + dark-teal 'Free'; promo card removed."
+logical_id = "ca1c8e7f-fd6b-4f84-a18d-8817705e44e4"
 
 [[outputs]]
 id = "TbvPr1-o-V_Ev3NH2E_-o"
@@ -369,3 +395,4 @@ uri = "file://artifacts/presentail-web/screenshots/checkout-free-express.png"
 type = "image"
 title = "Desktop checkout — free standard + express"
 description = "Free standard delivery combined with the express upgrade."
+logical_id = "2b2e4c68-0162-4cde-930c-303946e825c3"

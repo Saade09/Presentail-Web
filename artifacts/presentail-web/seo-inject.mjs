@@ -185,6 +185,7 @@ import {
   OCCASIONS_FAQ_COPY,
   CONTACT_FAQ_COPY,
 } from "./src/lib/seo-shop-faqs.mjs";
+import { CATEGORY_TRANSLATIONS, OCCASION_TRANSLATIONS } from "./src/lib/taxonomyTranslations.mjs";
 
 import { CITY_SEO } from "./src/data/city-seo.mjs";
 
@@ -4775,6 +4776,17 @@ function buildShopEntityHead({
   ogImageUrl,
 }) {
   const rawName = typeof entity.name === "string" ? entity.name.trim() : "";
+  // For ar/fr pages, replace the English OS entity name with the locale-specific
+  // taxonomy label so {name} interpolation in headings, FAQs, and intros is translated.
+  const _parsedForLabel = parseLocalePath(pathname);
+  const _entitySlugMatch = entityKind === "occasion"
+    ? (_parsedForLabel.rest ?? "").match(/^\/occasion\/([^/?#]+)/)
+    : (_parsedForLabel.rest ?? "").match(/^\/category\/([^/?#]+)/);
+  const _entitySlug = _entitySlugMatch ? decodeURIComponent(_entitySlugMatch[1]) : null;
+  const _taxMap = entityKind === "occasion" ? OCCASION_TRANSLATIONS : CATEGORY_TRANSLATIONS;
+  const displayName = (lang && lang !== "en" && _entitySlug && _taxMap[_entitySlug]?.[lang])
+    ? _taxMap[_entitySlug][lang]
+    : rawName;
   // Curated per-occasion SEO content (title/description/H1/sections/FAQs).
   // Only defined for specific country/city/slug combinations and EN locale;
   // everything else keeps the template-based copy below.
@@ -4809,19 +4821,19 @@ function buildShopEntityHead({
     entityKind === "occasion"
       ? buildOccasionSeo({
           lang,
-          occasionName: rawName,
+          occasionName: displayName,
           city: cityLabel || "",
           country: countryLabel || "",
           productCount,
         })
       : buildCategorySeo({
           lang,
-          categoryName: rawName,
+          categoryName: displayName,
           city: cityLabel || "",
           country: countryLabel || "",
           productCount,
         });
-  const title = curated ? curated.title : (rawName ? seo.title : "Presentail");
+  const title = curated ? curated.title : (displayName ? seo.title : "Presentail");
   const rawDesc = entity.description ? stripHtml(entity.description) : "";
   const description = curated
     ? curated.metaDescription
@@ -4870,14 +4882,14 @@ function buildShopEntityHead({
   // Occasion detail pages include an intermediate "Occasions" crumb so the
   // full trail is Home > City > Occasions > OccasionName, matching the
   // equivalent breadcrumb the category pages show for their listing page.
-  if (entityKind === "occasion" && rawName) {
+  if (entityKind === "occasion" && displayName) {
     crumbItems.push({ name: "Occasions", url: `${locBase}/occasions` });
   }
-  crumbItems.push({ name: rawName || altText });
+  crumbItems.push({ name: displayName || altText });
   const graphNodes = [buildBreadcrumbListSchema(crumbItems)];
   // ItemList — first (≤10) products (name + URL + image) on the listing page.
   if (Array.isArray(items) && items.length > 0) {
-    graphNodes.push(buildItemListSchema(items, rawName || altText, locBase));
+    graphNodes.push(buildItemListSchema(items, displayName || altText, locBase));
   }
   // CollectionPage + Service nodes for curated city-category AND curated occasion pages.
   // These carry hand-written unique content so they deserve richer structured
@@ -4934,7 +4946,7 @@ function buildShopEntityHead({
         })),
       }),
     );
-  } else if (rawName && productCount > 0) {
+  } else if (displayName && productCount > 0) {
     const faqCopyMap =
       entityKind === "occasion" ? OCCASION_FAQ_COPY : CATEGORY_FAQ_COPY;
     const pickLangFaq = (/** @type {string} */ l) => {
@@ -4942,7 +4954,7 @@ function buildShopEntityHead({
       return "en";
     };
     const faqItems = faqCopyMap[pickLangFaq(lang)] ?? faqCopyMap.en;
-    const params = { name: rawName, city: cityLabel || "" };
+    const params = { name: displayName, city: cityLabel || "" };
     entityBodyFaqItems = faqItems.slice(0, 3).map(({ q, a }) => ({
       q: formatTemplate(q, params),
       a: formatTemplate(a, params),
@@ -4984,12 +4996,12 @@ function buildShopEntityHead({
       : FLOWER_CATEGORY_SLUGS_SERVER.has(catSlug ?? "")
         ? CATEGORY_INTRO_FLOWER_COPY[bodyLang]
         : CATEGORY_INTRO_NONFLOWER_COPY[bodyLang];
-  const entityParams = { name: rawName, city: cityLabel || "" };
+  const entityParams = { name: displayName, city: cityLabel || "" };
   const seoHeading = headingTpl ? formatTemplate(headingTpl, entityParams) : "";
   const seoIntro = introTpl ? formatTemplate(introTpl, entityParams) : "";
   const rawEntityDesc = entity.description ? stripHtml(entity.description) : "";
   const resolvedH1 = curated?.h1 ?? seo.h1;
-  const safeEntityTitle = escapeHtml(resolvedH1 || rawName);
+  const safeEntityTitle = escapeHtml(resolvedH1 || displayName);
   const safeEntityDesc = escapeHtml(clampDescription(rawEntityDesc) || description);
   const safeSeoHeading = escapeHtml(seoHeading);
   const safeSeoIntro = escapeHtml(seoIntro);

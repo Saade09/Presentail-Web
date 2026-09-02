@@ -45,65 +45,115 @@ export const shopStrings: Dict = {
   "shop.productsHeading": { en: "Products", ar: "المنتجات" },
 
   // eslint-disable-next-line presentail/no-orphan-translation-key
-  "shop.cat.handBouquets": { en: "Hand Bouquets", ar: "باقات يدوية" },
+  "shop.cat.handBouquets": { en: "Hand Bouquets", ar: "بوكيه ورد" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
-  "shop.cat.flowerBoxes": { en: "Flower Boxes", ar: "صناديق الزهور" },
+  "shop.cat.flowerBoxes": { en: "Flower Boxes", ar: "بوكس ورد" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.cat.plants": { en: "Plants", ar: "نباتات" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
-  "shop.cat.cakes": { en: "Cakes", ar: "كيك" },
+  "shop.cat.cakes": { en: "Cakes", ar: "كاتو" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
-  "shop.cat.chocolate": { en: "Chocolate", ar: "شوكولاتة" },
+  "shop.cat.chocolate": { en: "Chocolate", ar: "شوكولا" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
-  "shop.cat.bundles": { en: "Bundles", ar: "باقات مجمّعة" },
+  "shop.cat.bundles": { en: "Bundles", ar: "عروض الهدايا" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.cat.baskets": { en: "Gift Baskets", ar: "سلال هدايا" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
-  "shop.cat.flowerBaskets": { en: "Flower Baskets", ar: "سلال الزهور" },
+  "shop.cat.flowerBaskets": { en: "Flower Baskets", ar: "سلال ورد" },
+  // Additional categories — referenced via the CATEGORIES array in Shop.tsx.
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.cat.flowers": { en: "Flowers", ar: "ورد" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.cat.roses": { en: "Roses", ar: "ورد جوري" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.cat.balloons": { en: "Balloons", ar: "بالونات" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.cat.preservedFlowers": { en: "Preserved Flowers", ar: "ورد محفوظ" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.cat.flowerVases": { en: "Flower Vases", ar: "ورد بفازة" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.cat.driedFlowers": { en: "Dried Flowers", ar: "ورد مجفف" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.cat.tulips": { en: "Tulips", ar: "توليب" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.cat.tulipBouquets": { en: "Tulip Bouquets", ar: "بوكيه توليب" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.cat.tableArrangements": { en: "Table Arrangements", ar: "تنسيقات طاولة" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.cat.luxArrangements": { en: "Lux Arrangements", ar: "تنسيقات ورد فخمة" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.cat.luxury": { en: "Luxury", ar: "هدايا فخمة" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.cat.candles": { en: "Candles", ar: "شموع" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.cat.stuffedAnimals": { en: "Stuffed Animals", ar: "دباديب" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.cat.balloonArrangements": { en: "Balloon Arrangements", ar: "تنسيقات بالونات" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.cat.birthdayBundles": { en: "Birthday Bundles", ar: "عروض عيد ميلاد" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.cat.religiousGifts": { en: "Religious Gifts", ar: "هدايا دينية" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.cat.electronics": { en: "Electronics", ar: "إلكترونيات" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.cat.redFlowers": { en: "Red Flowers", ar: "ورد أحمر" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.cat.pinkFlowers": { en: "Pink Flowers", ar: "ورد زهري" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.cat.yellowFlowers": { en: "Yellow Flowers", ar: "ورد أصفر" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.cat.friend": { en: "Gifts for Friends", ar: "هدايا للصديق" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.cat.colleague": { en: "Gifts for Colleagues", ar: "هدايا للزميل" },
+  // fathers-day and im-sorry each appear as both category and occasion with different labels.
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.cat.fathersDay": { en: "Father's Day Gifts", ar: "هدايا عيد الأب" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.cat.imSorry": { en: "I'm Sorry Gifts", ar: "هدايا اعتذار" },
 
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.birthday": { en: "Birthday", ar: "عيد ميلاد" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
-  "shop.occ.loveRomance": { en: "Love & Romance", ar: "الحب والرومانسية" },
+  "shop.occ.loveRomance": { en: "Love & Romance", ar: "حب ورومانسية" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
-  "shop.occ.housewarming": { en: "Housewarming", ar: "تدشين المنزل" },
+  "shop.occ.housewarming": { en: "Housewarming", ar: "بيت جديد" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
-  "shop.occ.anniversary": { en: "Anniversary", ar: "ذكرى سنوية" },
+  "shop.occ.anniversary": { en: "Anniversary", ar: "ذكرى الزواج" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.newJob": { en: "New Job", ar: "وظيفة جديدة" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
-  "shop.occ.promotion": { en: "Job Promotion", ar: "ترقية وظيفية" },
+  "shop.occ.promotion": { en: "Job Promotion", ar: "ترقية" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.graduation": { en: "Graduation", ar: "تخرج" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
-  "shop.occ.congratulations": { en: "Congratulations", ar: "تهانٍ" },
+  "shop.occ.congratulations": { en: "Congratulations", ar: "مبروك" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.thankYou": { en: "Thank You", ar: "شكراً" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
-  "shop.occ.getWellSoon": { en: "Get Well Soon", ar: "الشفاء العاجل" },
+  "shop.occ.getWellSoon": { en: "Get Well Soon", ar: "سلامتك" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.newborn": { en: "New Born", ar: "مولود جديد" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
-  "shop.occ.eid": { en: "Eid Mubarak", ar: "عيد مبارك" },
+  "shop.occ.eid": { en: "Eid Mubarak", ar: "العيد" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.ramadan": { en: "Ramadan", ar: "رمضان" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
-  "shop.occ.wedding": { en: "Wedding", ar: "زفاف" },
+  "shop.occ.wedding": { en: "Wedding", ar: "عرس" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
-  "shop.occ.thinkingOfYou": { en: "Thinking of You", ar: "أفكر فيك" },
+  "shop.occ.thinkingOfYou": { en: "Thinking of You", ar: "بفكر فيك" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.farewell": { en: "Farewell", ar: "وداع" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
-  "shop.occ.condolences": { en: "Condolences", ar: "تعازي" },
+  "shop.occ.condolences": { en: "Condolences", ar: "عزاء" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   // OS occasion slug is "funeral"; label kept as "Condolences" for UX appropriateness.
-  "shop.occ.funeral": { en: "Condolences", ar: "تعازي" },
+  "shop.occ.funeral": { en: "Condolences", ar: "عزاء" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.colleague": { en: "Colleague", ar: "زميل" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.friend": { en: "Friend", ar: "صديق" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
-  "shop.occ.imSorry": { en: "I'm Sorry", ar: "آسف" },
+  "shop.occ.imSorry": { en: "I'm Sorry", ar: "اعتذار" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.children": { en: "Children", ar: "أطفال" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
@@ -111,13 +161,17 @@ export const shopStrings: Dict = {
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.mothersDay": { en: "Mother's Day", ar: "عيد الأم" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
-  "shop.occ.womensDay": { en: "Women's Day", ar: "يوم المرأة" },
+  "shop.occ.womensDay": { en: "Women's Day", ar: "عيد المرأة" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.fathersDay": { en: "Father's Day", ar: "عيد الأب" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.christmas": { en: "Christmas", ar: "الكريسماس" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.katbKitab": { en: "Katb Kitab", ar: "كتب كتاب" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.occ.siblings": { en: "Siblings", ar: "هدايا للإخوة" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key
+  "shop.occ.summer": { en: "Summer", ar: "الصيف" },
 
   "shop.plants.indoorSection": { en: "Indoor Plants", ar: "نباتات داخلية" },
   "shop.plants.outdoorSection": { en: "Outdoor Plants", ar: "نباتات خارجية" },
@@ -571,14 +625,38 @@ export const shopStringsFr: Record<string, string> = {
   "shop.productCount": "{count} Produits",
   "shop.productsHeading": "Produits",
 
-  "shop.cat.handBouquets": "Bouquets à la main",
+  "shop.cat.handBouquets": "Bouquets de fleurs",
   "shop.cat.flowerBoxes": "Boîtes de fleurs",
   "shop.cat.plants": "Plantes",
   "shop.cat.cakes": "Gâteaux",
-  "shop.cat.chocolate": "Chocolat",
-  "shop.cat.bundles": "Coffrets",
+  "shop.cat.chocolate": "Chocolats",
+  "shop.cat.bundles": "Coffrets cadeaux",
   "shop.cat.baskets": "Paniers cadeaux",
   "shop.cat.flowerBaskets": "Paniers de fleurs",
+  "shop.cat.flowers": "Fleurs",
+  "shop.cat.roses": "Roses",
+  "shop.cat.balloons": "Ballons",
+  "shop.cat.preservedFlowers": "Fleurs éternelles",
+  "shop.cat.flowerVases": "Vases de fleurs",
+  "shop.cat.driedFlowers": "Fleurs séchées",
+  "shop.cat.tulips": "Tulipes",
+  "shop.cat.tulipBouquets": "Bouquets de tulipes",
+  "shop.cat.tableArrangements": "Compositions de table",
+  "shop.cat.luxArrangements": "Compositions de luxe",
+  "shop.cat.luxury": "Cadeaux de luxe",
+  "shop.cat.candles": "Bougies",
+  "shop.cat.stuffedAnimals": "Peluches",
+  "shop.cat.balloonArrangements": "Compositions de ballons",
+  "shop.cat.birthdayBundles": "Coffrets anniversaire",
+  "shop.cat.religiousGifts": "Cadeaux religieux",
+  "shop.cat.electronics": "Électronique",
+  "shop.cat.redFlowers": "Fleurs rouges",
+  "shop.cat.pinkFlowers": "Fleurs roses",
+  "shop.cat.yellowFlowers": "Fleurs jaunes",
+  "shop.cat.friend": "Cadeaux pour ami",
+  "shop.cat.colleague": "Cadeaux pour collègue",
+  "shop.cat.fathersDay": "Cadeaux fête des pères",
+  "shop.cat.imSorry": "Cadeaux d'excuses",
 
   "shop.occ.birthday": "Anniversaire",
   "shop.occ.loveRomance": "Amour & Romance",
@@ -586,12 +664,12 @@ export const shopStringsFr: Record<string, string> = {
   "shop.occ.anniversary": "Anniversaire de mariage",
   "shop.occ.newJob": "Nouvel emploi",
   "shop.occ.promotion": "Promotion",
-  "shop.occ.graduation": "Remise des diplômes",
+  "shop.occ.graduation": "Remise de diplôme",
   "shop.occ.congratulations": "Félicitations",
   "shop.occ.thankYou": "Merci",
   "shop.occ.getWellSoon": "Prompt rétablissement",
   "shop.occ.newborn": "Nouveau-né",
-  "shop.occ.eid": "Aïd Moubarak",
+  "shop.occ.eid": "Aïd",
   "shop.occ.ramadan": "Ramadan",
   "shop.occ.wedding": "Mariage",
   "shop.occ.thinkingOfYou": "Je pense à toi",
@@ -600,14 +678,16 @@ export const shopStringsFr: Record<string, string> = {
   "shop.occ.funeral": "Condoléances",
   "shop.occ.colleague": "Collègue",
   "shop.occ.friend": "Ami(e)",
-  "shop.occ.imSorry": "Je suis désolé(e)",
+  "shop.occ.imSorry": "Excuses",
   "shop.occ.children": "Enfants",
   "shop.occ.valentine": "Saint-Valentin",
-  "shop.occ.mothersDay": "Fête des Mères",
-  "shop.occ.womensDay": "Journée de la Femme",
-  "shop.occ.fathersDay": "Fête des Pères",
+  "shop.occ.mothersDay": "Fête des mères",
+  "shop.occ.womensDay": "Journée de la femme",
+  "shop.occ.fathersDay": "Fête des pères",
   "shop.occ.christmas": "Noël",
   "shop.occ.katbKitab": "Katb Kitab",
+  "shop.occ.siblings": "Frères et sœurs",
+  "shop.occ.summer": "Été",
 
   "shop.plants.indoorSection": "Plantes d'intérieur",
   "shop.plants.outdoorSection": "Plantes d'extérieur",

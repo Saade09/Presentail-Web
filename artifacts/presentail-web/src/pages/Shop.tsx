@@ -76,6 +76,31 @@ const CATEGORIES = [
   { slug: "chocolate", labelKey: "shop.cat.chocolate" },
   { slug: "bundles", labelKey: "shop.cat.bundles" },
   { slug: "gift-baskets", labelKey: "shop.cat.baskets" },
+  { slug: "flowers", labelKey: "shop.cat.flowers" },
+  { slug: "roses", labelKey: "shop.cat.roses" },
+  { slug: "balloons", labelKey: "shop.cat.balloons" },
+  { slug: "preserved-flowers", labelKey: "shop.cat.preservedFlowers" },
+  { slug: "flower-vases", labelKey: "shop.cat.flowerVases" },
+  { slug: "dried-flowers", labelKey: "shop.cat.driedFlowers" },
+  { slug: "tulips", labelKey: "shop.cat.tulips" },
+  { slug: "tulips-bouquets", labelKey: "shop.cat.tulipBouquets" },
+  { slug: "table-arrangements", labelKey: "shop.cat.tableArrangements" },
+  { slug: "lux-arrangements", labelKey: "shop.cat.luxArrangements" },
+  { slug: "luxury", labelKey: "shop.cat.luxury" },
+  { slug: "candles", labelKey: "shop.cat.candles" },
+  { slug: "stuffed-animals", labelKey: "shop.cat.stuffedAnimals" },
+  { slug: "balloon-arrangements", labelKey: "shop.cat.balloonArrangements" },
+  { slug: "birthday-bundles", labelKey: "shop.cat.birthdayBundles" },
+  { slug: "religious-gifts", labelKey: "shop.cat.religiousGifts" },
+  { slug: "electronics", labelKey: "shop.cat.electronics" },
+  { slug: "red", labelKey: "shop.cat.redFlowers" },
+  { slug: "pink", labelKey: "shop.cat.pinkFlowers" },
+  { slug: "yellow", labelKey: "shop.cat.yellowFlowers" },
+  { slug: "friend", labelKey: "shop.cat.friend" },
+  { slug: "colleague", labelKey: "shop.cat.colleague" },
+  // fathers-day and im-sorry also appear as occasions — category labelKeys are distinct.
+  { slug: "fathers-day", labelKey: "shop.cat.fathersDay" },
+  { slug: "im-sorry", labelKey: "shop.cat.imSorry" },
 ];
 
 const OCCASIONS = [
@@ -102,6 +127,8 @@ const OCCASIONS = [
   { slug: "fathers-day", labelKey: "shop.occ.fathersDay" },
   { slug: "christmas", labelKey: "shop.occ.christmas" },
   { slug: "katb-kitab", labelKey: "shop.occ.katbKitab" },
+  { slug: "siblings", labelKey: "shop.occ.siblings" },
+  { slug: "summer", labelKey: "shop.occ.summer" },
 ];
 
 // Possessive occasion slugs lose their apostrophe when split on hyphens.
