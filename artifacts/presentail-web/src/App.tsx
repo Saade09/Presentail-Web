@@ -48,6 +48,7 @@ import {
 } from "@/contexts/LocationContext";
 import {
   parseLocalePath,
+  parseLocaleOnlyCheckoutPath,
   buildLocalePath,
   cityIdToSlug,
   countryCodeToSlug,
@@ -466,9 +467,13 @@ function BlogShell() {
 function CityFallbackRedirect({
   lang,
   country,
+  rest,
+  preserveSearch = false,
 }: {
   lang: Lang;
   country: CountrySlug;
+  rest?: string;
+  preserveSearch?: boolean;
 }) {
   const { countries, isLoadingCountries, cityId } = useLocationSelection();
   if (isLoadingCountries && countries.length === 0) {
@@ -488,8 +493,14 @@ function CityFallbackRedirect({
   if (!citySlug) {
     return <Redirect to="/" replace />;
   }
-  const target = buildLocalePath({ lang, country, city: citySlug });
-  return <Redirect to={target} replace />;
+  const target = buildLocalePath({ lang, country, city: citySlug, rest });
+  const search = preserveSearch && typeof window !== "undefined"
+    ? window.location.search
+    : "";
+  const hash = preserveSearch && typeof window !== "undefined"
+    ? window.location.hash
+    : "";
+  return <Redirect to={`${target}${search}${hash}`} replace />;
 }
 
 function UnprefixedRedirect() {
@@ -528,6 +539,10 @@ function RootRedirectFromLanding() {
 function RootRouter() {
   const [path] = useLocation();
   const parsed = parseLocalePath(path);
+  const localeOnlyCheckout = parseLocaleOnlyCheckoutPath(
+    path,
+    typeof window !== "undefined" ? window.location.search : "",
+  );
 
   if (path === "/" || path === "") {
     return <RootRedirectFromLanding />;
@@ -566,6 +581,20 @@ function RootRouter() {
       <CityFallbackRedirect
         lang={lang}
         country={lang === "el" ? "cy" : "lb"}
+      />
+    );
+  }
+
+  // GMC supports a locale-only Cyprus checkout template. Handle this before
+  // the generic locale parser treats "checkout" as an invalid city, and keep
+  // the product plus attribution query intact during city normalization.
+  if (localeOnlyCheckout) {
+    return (
+      <CityFallbackRedirect
+        lang={localeOnlyCheckout.lang}
+        country={localeOnlyCheckout.country}
+        rest="/checkout"
+        preserveSearch
       />
     );
   }

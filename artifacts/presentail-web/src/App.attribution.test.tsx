@@ -89,6 +89,7 @@ vi.mock("wouter", () => {
 // locale-route — parseLocalePath always matches the checkout URL so RootRouter
 // renders ShopShell with the locale prefix present.
 vi.mock("@/lib/locale-route", () => ({
+  parseLocaleOnlyCheckoutPath: vi.fn(() => null),
   parseLocalePath: vi.fn(() => ({
     hasLocalePrefix: true,
     lang: "en",

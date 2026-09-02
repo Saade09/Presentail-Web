@@ -89,6 +89,28 @@ export function parseLocalePath(pathname: string): ParsedLocale {
   return { hasLocalePrefix: true, lang, country, city, rest };
 }
 
+/**
+ * Recognize a checkout route that intentionally omits the city segment, such
+ * as the GMC Cyprus template `/en-cy/checkout`.
+ */
+export function parseLocaleOnlyCheckoutPath(
+  pathname: string,
+  search = "",
+): { lang: Lang; country: CountrySlug } | null {
+  const match = pathname.match(/^\/([a-z]{2})-([a-z]{2})\/checkout\/?$/);
+  if (
+    !match ||
+    !isSupportedLang(match[1]) ||
+    match[2] !== "cy"
+  ) {
+    return null;
+  }
+  const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+  const hasItemId = [...params.keys()].some((key) => key.toLowerCase() === "item_id");
+  if (!hasItemId) return null;
+  return { lang: match[1] as Lang, country: match[2] as CountrySlug };
+}
+
 export function buildLocalePath(p: {
   lang: Lang;
   country: CountrySlug;

@@ -42,6 +42,7 @@ import {
   WindowedKeyRateLimiter,
   buildProductLifecycle410Event,
 } from "./server-analytics-policy.mjs";
+import { resolveGmcLocaleOnlyCheckoutRedirect } from "./gmc-checkout-route.mjs";
 
 // seo-inject.mjs and sidecar-cache.mjs are loaded via guarded dynamic import
 // below so a missing or corrupt file produces a structured Slack alert rather
@@ -1448,6 +1449,24 @@ const server = http.createServer(async (req, res) => {
 
     if (isRetiredCategoryPath(pathname)) {
       writeRetiredCategoryGone(res);
+      return;
+    }
+
+    // Google Merchant Center Cyprus links intentionally omit the city. Route
+    // those links to the canonical city checkout before the locale tuple guard
+    // mistakes "checkout" for a city and returns 404. This is deliberately
+    // narrow and preserves the complete query string for attribution capture.
+    const gmcCheckoutRedirect = resolveGmcLocaleOnlyCheckoutRedirect(
+      pathname,
+      url.search,
+      BASE_PATH,
+    );
+    if (gmcCheckoutRedirect) {
+      res.writeHead(302, {
+        location: gmcCheckoutRedirect,
+        "cache-control": "no-store",
+      });
+      res.end();
       return;
     }
 

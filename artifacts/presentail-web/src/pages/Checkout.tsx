@@ -69,6 +69,15 @@ import { joinRecipientName } from "@/lib/recipientName";
 import { OrderSummaryPanel } from "@/components/checkout/OrderSummaryPanel";
 import { trackEvent, trackWebEvent, umamiTrack } from "@/lib/analytics";
 import { fireGtagEvent } from "@/lib/gtag";
+import { captureAttribution } from "@/lib/attribution";
+import {
+  getCaseInsensitiveParam,
+  getGmcCartMutation,
+  normalizeGmcQuantity,
+  removeGmcParams,
+  resolveGmcCheckoutLink,
+} from "@/lib/gmcCheckoutDeepLink";
+import { parseLocalePath } from "@/lib/locale-route";
 import { trackFbEvent } from "@/lib/fbPixel";
 import { useNow } from "@/lib/useNow";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -5657,8 +5666,151 @@ function CheckoutForm() {
     </div>
   );
 }
+/**
+ * Handles Google Merchant Center Buy-on-site links without changing the
+ * checkout itself. This component is intentionally outside CheckoutForm so
+ * the catalog lookup can complete before the normal empty-cart branch renders.
+ */
+function GmcCheckoutLinkCoordinator({
+  onSettled,
+}: {
+  onSettled: () => void;
+}) {
+  const [path, navigate] = useLocation();
+  const { items, isHydrated, addItem } = useCart();
+  const { countries, isLoadingCountries, setLocation } = useLocationSelection();
+  const { t } = useLocale();
+  const { toast } = useToast();
+  const handledRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !isHydrated || isLoadingCountries) return;
+    // This component runs inside a city-scoped Wouter router, where `path` is
+    // only `/checkout`. Read the browser pathname to retain locale/city scope.
+    const parsedPath = parseLocalePath(window.location.pathname);
+    if (
+      !parsedPath.hasLocalePrefix ||
+      parsedPath.rest !== "/checkout" ||
+      !parsedPath.country
+    ) {
+      return;
+    }
+
+    const url = new URL(window.location.href);
+    const itemId = getCaseInsensitiveParam(url.searchParams, "item_id")?.trim();
+    if (!itemId) {
+      onSettled();
+      return;
+    }
+    const invocationKey = `${url.pathname}${url.search}`;
+    if (handledRef.current === invocationKey) return;
+
+    // Country-only Cyprus links are valid Merchant templates. Normalize them
+    // through the existing location setter before resolving, while retaining
+    // all query parameters (including item_id and attribution) in the URL.
+    if (!parsedPath.city) {
+      const country = countries.find(
+        (candidate) => candidate.code.toLowerCase() === parsedPath.country,
+      );
+      const city = country?.cities.find((candidate) => candidate.isActive !== false);
+      if (!country || !city) return;
+      setLocation(country.code, city.id);
+      return;
+    }
+    const routeCountry = parsedPath.country;
+    const routeCity = parsedPath.city;
+
+    handledRef.current = invocationKey;
+    const quantity = normalizeGmcQuantity(
+      getCaseInsensitiveParam(url.searchParams, "quantity"),
+    );
+    // AttributionTracker normally captures this first, but capture again at
+    // the coordinator boundary so an async product resolution can never race
+    // URL cleanup.
+    captureAttribution(window.location.href, document.referrer);
+
+    void resolveGmcCheckoutLink({
+      itemId,
+      quantity,
+      countryCode: routeCountry.toUpperCase(),
+      cityId: `${routeCountry}-${routeCity}`,
+    }).then((result) => {
+      if (result.outcome === "disabled") {
+        // Kill-switch semantics are inert: leave the original URL untouched
+        // and let the ordinary checkout proceed exactly as before.
+        onSettled();
+        return;
+      }
+
+      const cleanUrl = new URL(window.location.href);
+      removeGmcParams(cleanUrl);
+      window.history.replaceState(window.history.state, "", cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
+
+      if (result.outcome === "resolved" && result.product) {
+        const existing = items.find((item) => item.product.id === result.product!.id);
+        const mutation = getGmcCartMutation(existing?.quantity, quantity);
+        if (mutation.kind === "add") {
+          addItem(result.product, mutation.quantity, undefined, { source: "gmc_checkout_link" });
+        }
+        onSettled();
+        return;
+      }
+
+      if (result.outcome === "personalization_required" && result.product) {
+        toast({
+          title: t("checkout.currentlyUnavailable"),
+          description: t("checkout.toast.failGeneric"),
+        });
+        navigate(`/product/${encodeURIComponent(result.product.id)}${cleanUrl.search}${cleanUrl.hash}`);
+        onSettled();
+        return;
+      }
+
+      toast({
+        title: t("checkout.currentlyUnavailable"),
+        description: t("checkout.toast.failGeneric"),
+      });
+      navigate(`/shop${cleanUrl.search}${cleanUrl.hash}`);
+      onSettled();
+    }).catch(() => {
+      // An API/network failure must never turn a normal checkout visit into a
+      // broken route. Remove only the deep-link parameters and stay put.
+      const cleanUrl = new URL(window.location.href);
+      removeGmcParams(cleanUrl);
+      window.history.replaceState(window.history.state, "", cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
+      onSettled();
+    });
+  }, [
+    addItem,
+    countries,
+    isHydrated,
+    isLoadingCountries,
+    items,
+    path,
+    navigate,
+    onSettled,
+    setLocation,
+    t,
+    toast,
+  ]);
+
+  return null;
+}
+
 // Stripe state and the LazyStripeSection dynamic import are now fully
 // managed inside CheckoutForm — no Elements wrapper needed here.
 export default function Checkout() {
-  return <CheckoutForm />;
+  const [gmcPending, setGmcPending] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const params = new URLSearchParams(window.location.search);
+    return Boolean(getCaseInsensitiveParam(params, "item_id")?.trim());
+  });
+  const handleGmcSettled = useCallback(() => setGmcPending(false), []);
+
+  return (
+    <>
+      <GmcCheckoutLinkCoordinator onSettled={handleGmcSettled} />
+      {gmcPending ? <CheckoutSkeleton /> : <CheckoutForm />}
+    </>
+  );
 }

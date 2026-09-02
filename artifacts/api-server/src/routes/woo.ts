@@ -431,7 +431,7 @@ function isHiddenCategory(slug: string): boolean {
   return HIDDEN_CATEGORY_SLUGS.has(slug);
 }
 
-function isVisibleProduct(p: WcProduct): boolean {
+export function isVisibleProduct(p: WcProduct): boolean {
   // Treat anything that isn't explicitly in stock as hidden so out-of-
   // stock products can never surface in any listing — direct product
   // links and shared links also rely on this gate via /woo/product.
@@ -447,7 +447,7 @@ function isVisibleProduct(p: WcProduct): boolean {
   return slugs.length === 0 || hasVisibleCategory;
 }
 
-function isDeliverable(p: WcProduct, filter: DeliveryFilter): boolean {
+export function isDeliverable(p: WcProduct, filter: DeliveryFilter): boolean {
   const countries = readMetaList(p?.meta_data, "_deliverable_countries", "deliverable_countries");
   if (countries && filter.countryCode) {
     const wanted = filter.countryCode.toUpperCase();
