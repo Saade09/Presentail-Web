@@ -186,6 +186,18 @@ afterAll(() => {
 // ---------------------------------------------------------------------------
 
 describe("serve.mjs — shop query-param redirects", () => {
+  it.each([
+    "/category/tulips",
+    "/category/tulips-bouquets/",
+    "/en-lb/beirut/category/tulips",
+    "/ar-ae/dubai/category/tulips-bouquets",
+    "/fr-cy/nicosia/category/tulips/page/2",
+  ])("returns 410 for retired category path %s", async (pathname) => {
+    const { status, location } = await get(serverPort, pathname);
+    expect(status).toBe(410);
+    expect(location).toBeUndefined();
+  });
+
   it("redirects ?category= to /category/<slug> with 301", async () => {
     const { status, location } = await get(
       serverPort,
@@ -264,13 +276,13 @@ describe("serve.mjs — shop query-param redirects", () => {
     expect(location).toBeUndefined();
   });
 
-  it("redirects /shop/ (trailing slash) the same way", async () => {
+  it("returns 410 for a retired category in /shop/ query format", async () => {
     const { status, location } = await get(
       serverPort,
       "/en-lb/beirut/shop/?category=tulips",
     );
-    expect(status).toBe(301);
-    expect(location).toBe("/en-lb/beirut/category/tulips");
+    expect(status).toBe(410);
+    expect(location).toBeUndefined();
   });
 
   it("prefers ?category= over ?occasion= when both are present", async () => {

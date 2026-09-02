@@ -13,6 +13,11 @@ export const CATEGORY_SLUG_REMAP: Record<string, string> = {
   "summer-collection": "summer",
 };
 
+export const RETIRED_CATEGORY_SLUGS = new Set<string>([
+  "tulips",
+  "tulips-bouquets",
+]);
+
 /**
  * Maps category slugs to their display group on the homepage.
  * Slugs not present in this map default to "gifts".
@@ -108,6 +113,7 @@ export const CATEGORY_STATIC_IMAGES: Record<string, string> = {
  * permanently suppress a category from navigation.
  */
 export const CATEGORY_NAV_BLOCKLIST = new Set<string>([
+  ...RETIRED_CATEGORY_SLUGS,
   "gift-cards",
   // Parent category pages already have a "View All" footer link in the mega
   // menu — suppress them from appearing as a duplicate tile in the grid.
@@ -133,7 +139,6 @@ export const CATEGORY_NAV_BLOCKLIST = new Set<string>([
   "candles",
   "luxury",
   "roses",
-  "tulips",
 ]);
 
 /**

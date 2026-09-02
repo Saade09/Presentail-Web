@@ -29,6 +29,10 @@ export const SITEMAP_CITIES = {
   cy: ["larnaca", "limassol", "nicosia", "paphos"],
 };
 export const SITEMAP_LANGS = ["en", "ar", "fr", "el"];
+export const RETIRED_CATEGORY_SLUGS = new Set([
+  "tulips",
+  "tulips-bouquets",
+]);
 // Blog content exists in EN/AR/FR only — the Greek child sitemap carries no
 // blog URLs and blog hreflang clusters never reference /el/blog.
 export const SITEMAP_BLOG_LANGS = ["en", "ar", "fr"];
@@ -364,6 +368,7 @@ export function buildSitemapXml({
     const cityCategories = categoriesByCountry?.[country] ?? categories;
     for (const category of cityCategories) {
       if (!category?.id) continue;
+      if (RETIRED_CATEGORY_SLUGS.has(category.id)) continue;
       const encoded = encodeURIComponent(category.id);
       // parentProductCount intentionally omitted — see occasion section above
       // for the same reasoning: ratio vs. global catalog total incorrectly
@@ -428,6 +433,7 @@ export function buildSitemapXml({
         const cityKey = `${country}/${city}`;
         const curatedSlugMap = CATEGORY_SEO_CONTENT.en?.[cityKey] ?? {};
         for (const categorySlug of Object.keys(curatedSlugMap)) {
+          if (RETIRED_CATEGORY_SLUGS.has(categorySlug)) continue;
           const encoded = encodeURIComponent(categorySlug);
           // Priority 0.7 matches hub-city curated category pages.
           // No pagination — curated pages are single-page listings.

@@ -82,8 +82,6 @@ const CATEGORIES = [
   { slug: "preserved-flowers", labelKey: "shop.cat.preservedFlowers" },
   { slug: "flower-vases", labelKey: "shop.cat.flowerVases" },
   { slug: "dried-flowers", labelKey: "shop.cat.driedFlowers" },
-  { slug: "tulips", labelKey: "shop.cat.tulips" },
-  { slug: "tulips-bouquets", labelKey: "shop.cat.tulipBouquets" },
   { slug: "table-arrangements", labelKey: "shop.cat.tableArrangements" },
   { slug: "lux-arrangements", labelKey: "shop.cat.luxArrangements" },
   { slug: "luxury", labelKey: "shop.cat.luxury" },

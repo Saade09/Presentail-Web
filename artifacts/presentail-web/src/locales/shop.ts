@@ -74,10 +74,6 @@ export const shopStrings: Dict = {
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.cat.driedFlowers": { en: "Dried Flowers", ar: "ورد مجفف" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
-  "shop.cat.tulips": { en: "Tulips", ar: "توليب" },
-  // eslint-disable-next-line presentail/no-orphan-translation-key
-  "shop.cat.tulipBouquets": { en: "Tulip Bouquets", ar: "بوكيه توليب" },
-  // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.cat.tableArrangements": { en: "Table Arrangements", ar: "تنسيقات طاولة" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.cat.luxArrangements": { en: "Lux Arrangements", ar: "تنسيقات ورد فخمة" },
@@ -639,8 +635,6 @@ export const shopStringsFr: Record<string, string> = {
   "shop.cat.preservedFlowers": "Fleurs éternelles",
   "shop.cat.flowerVases": "Vases de fleurs",
   "shop.cat.driedFlowers": "Fleurs séchées",
-  "shop.cat.tulips": "Tulipes",
-  "shop.cat.tulipBouquets": "Bouquets de tulipes",
   "shop.cat.tableArrangements": "Compositions de table",
   "shop.cat.luxArrangements": "Compositions de luxe",
   "shop.cat.luxury": "Cadeaux de luxe",

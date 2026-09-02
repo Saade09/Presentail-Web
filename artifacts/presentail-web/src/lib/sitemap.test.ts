@@ -849,6 +849,27 @@ describe("buildSitemapXml — top-level route type coverage", () => {
     expect(xmlFull).toContain("/category/bouquets");
   });
 
+  it("excludes retired tulip category URLs", () => {
+    const xml = buildSitemapXml({
+      origin: ORIGIN,
+      basePath: "/",
+      products: [],
+      brands: [],
+      occasions: [],
+      categories: [
+        { id: "bouquets", count: 12 },
+        { id: "tulips", count: 12 },
+        { id: "tulips-bouquets", count: 12 },
+      ],
+      blogPosts: {},
+      totalProductCount: 30,
+    });
+
+    expect(xml).toContain("/category/bouquets");
+    expect(xml).not.toContain("/category/tulips");
+    expect(xml).not.toContain("/category/tulips-bouquets");
+  });
+
   it("includes blog article URLs", () => {
     expect(xmlFull).toContain("/blog/top-10-flowers");
   });

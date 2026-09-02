@@ -14,6 +14,7 @@ import {
   SITEMAP_CITIES,
   SITEMAP_LANGS,
   SITEMAP_CANONICAL_CITIES,
+  RETIRED_CATEGORY_SLUGS,
   escXml,
   generateSitemap,
   buildSitemapXml,
@@ -485,6 +486,26 @@ if (process.env.DATABASE_URL) {
  */
 function isTransactionalPage(pathname) {
   return /(?:^|\/)(?:checkout|cart|order-confirmed)(?:\/|$)/.test(pathname);
+}
+
+function isRetiredCategorySlug(slug) {
+  return RETIRED_CATEGORY_SLUGS.has(String(slug ?? "").toLowerCase());
+}
+
+function isRetiredCategoryPath(pathname) {
+  const match = String(pathname).match(
+    /^\/(?:[a-z]{2}-[a-z]{2}\/[^/]+\/)?category\/([^/]+)(?:\/page\/\d+)?\/?$/i,
+  );
+  return Boolean(match && isRetiredCategorySlug(match[1]));
+}
+
+function writeRetiredCategoryGone(res) {
+  res.writeHead(410, {
+    "content-type": "text/plain; charset=utf-8",
+    "cache-control": "public, max-age=31536000, immutable",
+    "x-robots-tag": "noindex",
+  });
+  res.end("Gone");
 }
 
 /**
@@ -1425,6 +1446,11 @@ const server = http.createServer(async (req, res) => {
       pathname = pathname.slice(BASE_PATH.length) || "/";
     }
 
+    if (isRetiredCategoryPath(pathname)) {
+      writeRetiredCategoryGone(res);
+      return;
+    }
+
     // A locale path can be accidentally passed to a nested Wouter router. That
     // produced paths such as /en/en-lb/beirut/shop and /en-lb/en-lb/beirut/shop:
     // the first segment is a duplicate router base, not part of the canonical
@@ -1722,6 +1748,10 @@ const server = http.createServer(async (req, res) => {
       const categorySlug = url.searchParams.get("category");
       const occasionSlug = url.searchParams.get("occasion");
       if (categorySlug) {
+        if (isRetiredCategorySlug(categorySlug)) {
+          writeRetiredCategoryGone(res);
+          return;
+        }
         res.writeHead(301, { location: `${BASE_PATH}${localeCity}/category/${encodeURIComponent(categorySlug)}` });
         res.end();
         return;

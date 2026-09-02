@@ -126,7 +126,7 @@ export const PRODUCT_FIXTURES = [
       priceValue: 45,
       wcId: 2002,
       inStock: false,
-      categories: ["tulips"],
+      categories: ["flowers"],
     },
   },
 ];

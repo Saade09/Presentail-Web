@@ -26,8 +26,6 @@ export const CATEGORY_TRANSLATIONS = {
   "flower-baskets":       { en: "Flower Baskets",       ar: "سلال ورد",               fr: "Paniers de fleurs" },
   "flower-vases":         { en: "Flower Vases",         ar: "ورد بفازة",              fr: "Vases de fleurs" },
   "dried-flowers":        { en: "Dried Flowers",        ar: "ورد مجفف",               fr: "Fleurs séchées" },
-  "tulips":               { en: "Tulips",               ar: "توليب",                  fr: "Tulipes" },
-  "tulips-bouquets":      { en: "Tulip Bouquets",       ar: "بوكيه توليب",            fr: "Bouquets de tulipes" },
   "table-arrangements":   { en: "Table Arrangements",   ar: "تنسيقات طاولة",          fr: "Compositions de table" },
   "lux-arrangements":     { en: "Lux Arrangements",     ar: "تنسيقات ورد فخمة",       fr: "Compositions de luxe" },
   "luxury":               { en: "Luxury",               ar: "هدايا فخمة",             fr: "Cadeaux de luxe" },

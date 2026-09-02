@@ -4,7 +4,7 @@ import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { buildCollectionImageAlt } from "@/lib/imageAlt";
 import { apiFetch } from "@/lib/api";
-import { CATEGORY_SLUG_REMAP } from "@/lib/categoryGroups";
+import { CATEGORY_SLUG_REMAP, RETIRED_CATEGORY_SLUGS } from "@/lib/categoryGroups";
 import { cityHref } from "@/lib/cityHref";
 import { ShimmerImage } from "@/components/ShimmerImage";
 import { buildCategoryHeroSrcset, CATEGORY_CARD_HERO_SIZES } from "@/lib/imageUtils";
@@ -46,7 +46,9 @@ export function CategoriesGrid() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const items = (data?.items ?? []).filter((i) => i.isActive);
+  const items = (data?.items ?? []).filter(
+    (i) => i.isActive && !RETIRED_CATEGORY_SLUGS.has(i.slug),
+  );
 
   if (items.length === 0) return null;
 

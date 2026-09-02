@@ -32,6 +32,10 @@ Disallow: /wp-content/
 Disallow: /wp-includes/
 Disallow: /wp-login.php
 Disallow: /author/
+Disallow: /category/tulips
+Disallow: /category/tulips-bouquets
+Disallow: /*/category/tulips
+Disallow: /*/category/tulips-bouquets
 
 # URL parameter variants — prevent duplicate-content indexing
 Disallow: /*?_cr=
@@ -94,6 +98,10 @@ Disallow: /wp-content/
 Disallow: /wp-includes/
 Disallow: /wp-login.php
 Disallow: /author/
+Disallow: /category/tulips
+Disallow: /category/tulips-bouquets
+Disallow: /*/category/tulips
+Disallow: /*/category/tulips-bouquets
 
 User-agent: Googlebot-Image
 Allow: /

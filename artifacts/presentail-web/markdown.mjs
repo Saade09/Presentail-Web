@@ -16,6 +16,7 @@ import {
   SITEMAP_CITIES,
   SITEMAP_LANGS,
   SITEMAP_CANONICAL_CITIES,
+  RETIRED_CATEGORY_SLUGS,
 } from "./sitemap.mjs";
 import {
   CITY_NAMES,
@@ -208,7 +209,9 @@ async function getCatalogData(fetchJson, apiBaseUrl) {
       products: productsData?.products ?? [],
       brands: brandsData?.brands ?? [],
       occasions: catalogData?.occasions ?? [],
-      categories: catalogData?.categories ?? [],
+      categories: (catalogData?.categories ?? []).filter(
+        (category) => !RETIRED_CATEGORY_SLUGS.has(category?.id),
+      ),
     };
     _catalogCacheTsMs = nowMs;
   } catch {
