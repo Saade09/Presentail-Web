@@ -62,17 +62,15 @@ Disallow: /*?ref=
 Disallow: /*?from=
 Disallow: /*?scroll=
 
-# Googlebot may crawl product pages and images, but should still avoid
-# private, transactional, API, and legacy WordPress paths.
 User-agent: Googlebot
 Allow: /
-Allow: /api/img/proxy
-Allow: /api/og-image/
 Disallow: /cart
 Disallow: /checkout
 Disallow: /auth
 Disallow: /account
 Disallow: /admin
+Allow: /api/img/proxy
+Allow: /api/og-image/
 Disallow: /api/
 Disallow: /order-confirmed
 Disallow: /sign-in
@@ -90,8 +88,6 @@ Disallow: /*/reset-password
 Disallow: /*/favorites
 Disallow: /*/order-confirmed
 Disallow: /*/personal-information
-
-# Legacy WordPress paths — now return 410 Gone; block to recover crawl budget
 Disallow: /wp-admin/
 Disallow: /wp-json/
 Disallow: /wp-content/
