@@ -78,6 +78,18 @@ async function fillCheckoutForm(page: import("@playwright/test").Page) {
   await page.getByText(/continue to payment/i).click();
 }
 
+async function fillSignedInCheckoutForm(page: import("@playwright/test").Page) {
+  await page.getByText(/continue to delivery/i).click();
+
+  const nameInputs = page.locator("input").filter({ hasNot: page.locator("[type=email]") });
+  await nameInputs.nth(0).fill(RECIPIENT_FIRST);
+  await nameInputs.nth(1).fill(RECIPIENT_LAST);
+  await page.locator("input[inputmode='tel'], input[type='tel']").first().fill(RECIPIENT_PHONE);
+  await page.getByText(/don't know.*address|i don't know/i).first().click();
+
+  await page.getByText(/continue to payment/i).click();
+}
+
 test.describe("Checkout flow — driving /checkout", () => {
   test.beforeEach(async ({ page, context }) => {
     // Probe the dev server. If it's not up, skip the suite cleanly.
@@ -172,6 +184,87 @@ test.describe("Checkout flow — driving /checkout", () => {
     await expect(
       page.getByText(/contact|support|hello@presentail/i).first(),
     ).toBeVisible();
+  });
+
+  test("blocks a valid delivery email changed to malformed before payment", async ({
+    page,
+    context,
+  }) => {
+    await context.addInitScript(() => {
+      (window as any).__PRESENTAIL_TEST_WALLET_SUPPORTED__ = true;
+    });
+
+    const paymentRequests: string[] = [];
+    page.on("request", (request) => {
+      if (/\/api\/checkout\/(fees|payment-intent|session)/.test(request.url())) {
+        paymentRequests.push(request.url());
+      }
+    });
+    page.on("dialog", (dialog) => void dialog.dismiss());
+
+    await page.goto("/checkout");
+    await fillCheckoutForm(page);
+
+    const receiptEmail = page.locator("input[type='email'], input[inputmode='email']").last();
+    await receiptEmail.fill("user@domain");
+    await page.getByRole("button", { name: "Pay with Apple Pay" }).click();
+
+    await expect(page.getByText(/please enter a valid email address/i)).toBeVisible();
+    await expect(receiptEmail).toBeFocused();
+    expect(paymentRequests).toEqual([]);
+    expect(page.url()).toContain("/checkout");
+  });
+
+  test("blocks a malformed receipt email for a signed-in wallet shopper", async ({
+    page,
+    context,
+  }) => {
+    await context.addInitScript(({ senderFirst, senderLast, cartKey, productId }) => {
+      localStorage.setItem("presentail.auth.token", "e2e-auth-token");
+      localStorage.setItem(
+        "presentail.auth.user",
+        JSON.stringify({
+          id: 4812,
+          email: "user@domain",
+          firstName: senderFirst,
+          lastName: senderLast,
+          phone: "+961 3 111111",
+        }),
+      );
+      localStorage.setItem(cartKey, JSON.stringify([{ productId, qty: 1 }]));
+      (window as any).__PRESENTAIL_TEST_WALLET_SUPPORTED__ = true;
+    }, {
+      senderFirst: SENDER_FIRST,
+      senderLast: SENDER_LAST,
+      cartKey: CART_STORAGE_KEY,
+      productId: SEED_PRODUCT_ID,
+    });
+    await context.route(/\/api\/checkout\/payment-methods(\?.*)?$/, (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ methods: [] }) }),
+    );
+    await context.route(/\/api\/loyalty\/me(\?.*)?$/, (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ loyalty: null }) }),
+    );
+
+    const paymentRequests: string[] = [];
+    page.on("request", (request) => {
+      if (/\/api\/checkout\/(fees|payment-intent|session)/.test(request.url())) {
+        paymentRequests.push(request.url());
+      }
+    });
+    page.on("dialog", (dialog) => void dialog.dismiss());
+
+    await page.goto("/checkout");
+    await fillSignedInCheckoutForm(page);
+
+    const receiptEmail = page.locator("input[type='email'], input[inputmode='email']").last();
+    await expect(receiptEmail).toHaveValue("user@domain");
+    await page.getByRole("button", { name: "Pay with Apple Pay" }).click();
+
+    await expect(page.getByText(/please enter a valid email address/i)).toBeVisible();
+    await expect(receiptEmail).toBeFocused();
+    expect(paymentRequests).toEqual([]);
+    expect(page.url()).toContain("/checkout");
   });
 });
 

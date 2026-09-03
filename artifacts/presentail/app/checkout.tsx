@@ -118,6 +118,13 @@ import { getDeviceId } from "@/services/notifications";
 import { CheckoutPlaceField } from "@/components/CheckoutPlaceField";
 import { flattenPlaceAddress, type CheckoutPlace } from "@/lib/addressBookPlaces";
 
+// Keep the client-side check aligned with the backend Zod email schema and the
+// web checkout so malformed addresses such as "user@domain" are caught before
+// the shopper reaches payment.
+function isValidEmailFormat(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+}
+
 export {
   isPayMethodSupported,
   defaultPayMethodFor,
@@ -742,6 +749,7 @@ function CheckoutScreen() {
 
   const [paying, setPaying] = useState(false);
   const [cardError, setCardError] = useState<string | null>(null);
+  const [paymentEmailError, setPaymentEmailError] = useState<string | null>(null);
 
   // ── Saved card / save-card state ────────────────────────────────────────
   const [saveCard, setSaveCard] = useState(false);
@@ -907,6 +915,8 @@ function CheckoutScreen() {
     }
   };
 
+  const senderEmailValid = !senderEmailRequired || isValidEmailFormat(senderEmail);
+
   const stepValid = (s: Step) => {
     if (s === 0) return true;
     if (s === 1) {
@@ -929,7 +939,7 @@ function CheckoutScreen() {
         ) &&
         (!senderNameRequired || (senderFirst.trim() && senderLast.trim())) &&
         (!senderPhoneRequired || senderWhatsapp.trim()) &&
-        (!senderEmailRequired || senderEmail.trim())
+        senderEmailValid
       );
     }
     if (s === 2) return !!payMethod;
@@ -949,7 +959,7 @@ function CheckoutScreen() {
     if (senderNameRequired && !senderFirst.trim()) missing.push(t.checkoutMfSenderFirst);
     if (senderNameRequired && !senderLast.trim()) missing.push(t.checkoutMfSenderLast);
     if (senderPhoneRequired && !senderWhatsapp.trim()) missing.push(t.checkoutMfSenderWhatsapp);
-    if (senderEmailRequired && !senderEmail.trim()) missing.push(t.checkoutMfSenderEmail);
+    if (senderEmailRequired && !isValidEmailFormat(senderEmail)) missing.push(t.checkoutMfSenderEmail);
     return missing;
   };
 
@@ -1243,6 +1253,13 @@ function CheckoutScreen() {
 
   const placeOrder = async () => {
     if (paying) return;
+    if (!isValidEmailFormat(senderEmail)) {
+      const message = t.authInvalidEmail;
+      setPaymentEmailError(message);
+      Alert.alert(t.checkoutPleaseCompleteTitle, message, [{ text: "OK" }]);
+      return;
+    }
+    setPaymentEmailError(null);
     setCardError(null);
     setPaying(true);
     try {
@@ -2318,7 +2335,11 @@ function CheckoutScreen() {
                 setPayMethod(m);
               }}
               email={senderEmail}
-              setEmail={setSenderEmail}
+              setEmail={(value: string) => {
+                setSenderEmail(value);
+                if (paymentEmailError) setPaymentEmailError(null);
+              }}
+              emailError={paymentEmailError}
               country={effectiveCountry}
               cardError={cardError}
               setCardError={setCardError}
@@ -2424,7 +2445,7 @@ function Label({ children, colors, required }: any) {
   );
 }
 
-function Field({ colors, label, value, onChangeText, onBlur, placeholder, keyboardType, autoCapitalize, autoCorrect, multiline, required, prefix, helper, maxLength, characterCount, error, fieldRef, returnKeyType, onSubmitEditing, inputRef, accessibilityLabel }: any) {
+function Field({ colors, label, value, onChangeText, onBlur, placeholder, keyboardType, autoCapitalize, autoCorrect, multiline, required, prefix, helper, maxLength, characterCount, error, errorMessage, fieldRef, returnKeyType, onSubmitEditing, inputRef, accessibilityLabel }: any) {
   return (
     <View ref={fieldRef} style={{ gap: 4 }}>
       {label ? <Label colors={colors} required={required}>{label}</Label> : null}
@@ -2468,6 +2489,11 @@ function Field({ colors, label, value, onChangeText, onBlur, placeholder, keyboa
           }}
         />
       </View>
+      {errorMessage ? (
+        <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: "#ef4444", marginTop: 4 }}>
+          {errorMessage}
+        </AppText>
+      ) : null}
       {helper ? (
         <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground, marginTop: 4 }}>{helper}</AppText>
       ) : null}
@@ -3088,7 +3114,7 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
         scrollToRef(senderNamesRef);
       } else if (!hideSenderPhone && !senderWhatsapp.trim()) {
         scrollToRef(senderPhoneRef);
-      } else if (!hideSenderEmail && !senderEmail.trim()) {
+      } else if (!hideSenderEmail && !isValidEmailFormat(senderEmail)) {
         scrollToRef(senderEmailRef);
       }
     },
@@ -3585,7 +3611,7 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
           </View>
         ) : null}
         {!hideSenderEmail ? (
-          <Field colors={colors} label={t.emailLabel} value={senderEmail} onChangeText={setSenderEmail} placeholder="" required keyboardType="email-address" error={showFieldErrors && !senderEmail.trim()} fieldRef={senderEmailRef}
+          <Field colors={colors} label={t.emailLabel} value={senderEmail} onChangeText={setSenderEmail} placeholder="" required keyboardType="email-address" error={showFieldErrors && !isValidEmailFormat(senderEmail)} fieldRef={senderEmailRef}
             inputRef={senderEmailInputRef}
             returnKeyType="done" />
         ) : null}
@@ -3858,13 +3884,14 @@ function SecurityNote({ colors }: { colors: any }) {
   );
 }
 
-function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMethod, email, setEmail, country, cardError, setCardError, scrollViewRef, walletSupported, isAuthenticated, saveCard, setSaveCard, savedPaymentMethods, selectedSavedCardId, setSelectedSavedCardId, onRemoveSavedCard }: any) {
+function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMethod, email, setEmail, emailError, country, cardError, setCardError, scrollViewRef, walletSupported, isAuthenticated, saveCard, setSaveCard, savedPaymentMethods, selectedSavedCardId, setSelectedSavedCardId, onRemoveSavedCard }: any) {
   const { currencyCode } = useCurrency();
   const t = useT();
   const { isRTL } = useLanguage();
   const [noteOpen, setNoteOpen] = useState(false);
   const cardErrorViewRef = useRef<View>(null);
   const cardFieldRef = useRef<CardFieldInput.Methods>(null);
+  const emailInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     if (!cardError || !cardErrorViewRef.current || !scrollViewRef?.current) return;
@@ -3881,6 +3908,14 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
     }, 50);
     return () => clearTimeout(timer);
   }, [cardError, scrollViewRef]);
+
+  useEffect(() => {
+    if (!emailError) return;
+    const timer = setTimeout(() => {
+      emailInputRef.current?.focus();
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [emailError]);
 
   // Only methods that are actually selectable for the active
   // currency + country are rendered — incompatible methods are simply
@@ -3984,7 +4019,7 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
         >
           {payMethod === "apple_pay" ? (
             <View style={{ gap: 12 }}>
-              <Field colors={colors} label={t.emailForReceipt} value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" returnKeyType="done" />
+              <Field colors={colors} label={t.emailForReceipt} value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" returnKeyType="done" error={!!emailError} errorMessage={emailError} inputRef={emailInputRef} />
               <SecurityNote colors={colors} />
             </View>
           ) : null}
@@ -4000,7 +4035,7 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
         >
           {payMethod === "google_pay" ? (
             <View style={{ gap: 12 }}>
-              <Field colors={colors} label={t.emailForReceipt} value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" returnKeyType="done" />
+              <Field colors={colors} label={t.emailForReceipt} value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" returnKeyType="done" error={!!emailError} errorMessage={emailError} inputRef={emailInputRef} />
               <SecurityNote colors={colors} />
             </View>
           ) : null}
@@ -4169,7 +4204,7 @@ function PaymentStep({ colors, orderNotes, setOrderNotes, payMethod, setPayMetho
                       </AppText>
                     </View>
                   ) : null}
-                  <Field colors={colors} label={t.emailForReceipt} value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" returnKeyType="done" />
+                  <Field colors={colors} label={t.emailForReceipt} value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" returnKeyType="done" error={!!emailError} errorMessage={emailError} inputRef={emailInputRef} />
                   <SecurityNote colors={colors} />
                 </View>
               ) : null}
