@@ -43,8 +43,12 @@ const SOCIAL = {
 
 type ColumnHeadingProps = { children: React.ReactNode };
 function ColumnHeading({ children }: ColumnHeadingProps) {
+  // Intentionally a <p>, not an <h2>: these are UI labels (Social Media,
+  // Currency Switcher, Language, Delivery area) that do not represent content
+  // sections. Using heading elements here pollutes the page heading outline
+  // and misleads assistive technologies.
   return (
-    <h2 className="font-serif text-base text-white mb-3">{children}</h2>
+    <p className="font-serif text-base text-white mb-3">{children}</p>
   );
 }
 
@@ -53,8 +57,9 @@ function CollapsibleSection({ heading, children }: CollapsibleSectionProps) {
   const [open, setOpen] = useState(false);
   return (
     <div>
-      {/* Mobile toggle button — hidden on md+ */}
-      <h2 className="md:hidden mb-2">
+      {/* Mobile toggle button — hidden on md+. Wrapped in a div (not h2)
+          because navigation accordion controls are not content section headings. */}
+      <div className="md:hidden mb-2">
         <button
           type="button"
           onClick={() => setOpen((prev) => !prev)}
@@ -67,10 +72,10 @@ function CollapsibleSection({ heading, children }: CollapsibleSectionProps) {
             aria-hidden="true"
           />
         </button>
-      </h2>
+      </div>
 
-      {/* Desktop heading — always visible, hidden on mobile */}
-      <h2 className="hidden md:block font-serif text-base text-white mb-3">{heading}</h2>
+      {/* Desktop label — p, not h2: footer nav group labels are not content section headings. */}
+      <p className="hidden md:block font-serif text-base text-white mb-3">{heading}</p>
 
       {/* Content — collapsed on mobile by default, always open on md+ */}
       <div

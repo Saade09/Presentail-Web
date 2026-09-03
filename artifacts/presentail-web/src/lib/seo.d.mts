@@ -41,6 +41,7 @@ export const ROUTE_H1: Record<Lang, Record<string, string>>;
 export const ENTITY_DESCRIPTIONS: EntityTemplateMap;
 export const ENTITY_DESCRIPTIONS_NO_CITY: EntityTemplateMap;
 export const STATIC_PAGE_GROUP: { A: Set<string>; B: Set<string> };
+export const OG_LOCALE_COUNTRY: Record<string, Record<string, string>>;
 export const NONINDEX_ROUTE_KEYS: Set<string>;
 export function isGroupAStaticPage(routeKey: string): boolean;
 

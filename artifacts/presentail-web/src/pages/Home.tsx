@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
+import { countryCodeToSlug, cityIdToSlug } from "@/lib/locale-route";
 import { getCityHomeSeoOverride } from "@/lib/seo";
 import { CITY_SEO } from "@/data/city-seo.mjs";
 import { useHomepageBanners } from "@/lib/banners";
@@ -83,7 +84,7 @@ function readSsrProducts(): Product[] | null {
 
 export default function Home() {
   const { country, city, cityId } = useLocationSelection();
-  const { t, cityName, language } = useLocale();
+  const { t, cityName, language, countryName } = useLocale();
   const isMobile = useIsMobile();
   const countryCode = country?.code ?? undefined;
   const isCyprus = countryCode === "CY";
@@ -202,6 +203,30 @@ export default function Home() {
           {cityIntroText}
         </p>
       )}
+      {/* Visible breadcrumb — mirrors the BreadcrumbList JSON-LD injected by
+          the server so users and crawlers see the same trail: Home › Country › City.
+          Plain <a> tags bypass the city-scoped wouter router so the hrefs work
+          as absolute paths regardless of which nested shell renders this page. */}
+      {country && cityLabel && (
+        <nav
+          aria-label={t("home.breadcrumb.nav")}
+          className="px-4 md:px-0 pt-2 pb-1 text-xs text-muted-foreground flex items-center gap-1 flex-wrap"
+        >
+          <a href="/" className="hover:text-primary transition-colors">
+            {t("home.breadcrumb.home")}
+          </a>
+          <span aria-hidden="true" className="opacity-50">›</span>
+          <a
+            href={`/${language}-${countryCodeToSlug(country.code)}`}
+            className="hover:text-primary transition-colors"
+          >
+            {countryName(country.code, country.name)}
+          </a>
+          <span aria-hidden="true" className="opacity-50">›</span>
+          <span className="text-foreground">{cityLabel}</span>
+        </nav>
+      )}
+
       {/* Banner sits flush against the container edges — same alignment as the product grid */}
       <div data-testid="hero-section">
         <HeroBannerCarousel banners={banners ?? []} isLoading={isLoading} autoPlay intervalMs={5000} />
@@ -349,6 +374,36 @@ export default function Home() {
             <li key={point}>{point}</li>
           ))}
         </ul>
+      </section>
+    )}
+
+    {/* Sibling-city internal links: lets search engines discover the full
+        network of city landing pages within the same country, and gives
+        shoppers an easy way to switch to a nearby city. Plain <a> tags bypass
+        the city-scoped wouter router so hrefs work as absolute paths. */}
+    {country && country.cities.filter((c) => c.id !== cityId).length > 0 && (
+      <section className="container mx-auto px-4 pb-4 max-w-content">
+        <p className="text-sm text-muted-foreground">
+          <span className="font-medium">{t("home.siblingCities.heading")}: </span>
+          {country.cities
+            .filter((c) => c.id !== cityId)
+            .map((c, idx, arr) => {
+              const citySlug = cityIdToSlug(c.id);
+              const countrySlug = countryCodeToSlug(country.code);
+              const href = `/${language}-${countrySlug}/${citySlug}`;
+              return (
+                <span key={c.id}>
+                  <a
+                    href={href}
+                    className="text-primary hover:underline underline-offset-2 transition-colors"
+                  >
+                    {cityName(c.id, c.name)}
+                  </a>
+                  {idx < arr.length - 1 ? ", " : ""}
+                </span>
+              );
+            })}
+        </p>
       </section>
     )}
 

@@ -11,6 +11,7 @@ import {
   CITY_NAMES,
   getCityHomeSeoOverride,
   NONINDEX_ROUTE_KEYS,
+  OG_LOCALE_COUNTRY,
 } from "@/lib/seo";
 import { buildHreflangSet, HUB_CITY } from "@/lib/hreflang";
 
@@ -192,10 +193,12 @@ export function SeoHead() {
         twitterTitle = title;
         twitterDescription = description;
       } else {
-        ogTitle = t("seo.home.ogTitle", params);
-        ogDescription = t("seo.home.ogDescription", params);
-        twitterTitle = t("seo.home.twitterTitle", params);
-        twitterDescription = t("seo.home.twitterDescription", params);
+        // Mirror the server-side change: align og:title with the HTML <title>
+        // so share cards and SERP snippets always show the same copy.
+        ogTitle = title;
+        ogDescription = description;
+        twitterTitle = title;
+        twitterDescription = description;
       }
     } else if (hasGenericShareCopy) {
       ogTitle = t(`seo.${routeKey}.ogTitle`, params);
@@ -243,7 +246,17 @@ export function SeoHead() {
     );
     setMeta(
       'meta[property="og:locale"]',
-      { property: "og:locale", content: OG_LOCALE[language] },
+      {
+        property: "og:locale",
+        // Use a country-specific locale tag (e.g. en_LB, ar_AE) when the URL
+        // contains a country slug so social crawlers understand which market
+        // variant this page targets. Falls back to the language-level default
+        // (en_US, ar_AE, fr_FR, el_GR) for non-city routes.
+        content:
+          (parsed.country &&
+            OG_LOCALE_COUNTRY[language as keyof typeof OG_LOCALE_COUNTRY]?.[parsed.country]) ||
+          OG_LOCALE[language],
+      },
       head,
     );
     setMeta(

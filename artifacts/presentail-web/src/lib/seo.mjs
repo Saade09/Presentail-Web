@@ -17,11 +17,16 @@ export const SUPPORTED_LANGS = ["en", "ar", "fr", "el"];
 
 export const OG_LOCALE = { en: "en_US", ar: "ar_AE", fr: "fr_FR", el: "el_GR" };
 
+// Per-country og:locale values. Each entry maps the country slug to the
+// correct BCP 47-style locale tag so social crawlers understand which market
+// and language variant the page targets (e.g. en_LB for English Lebanon,
+// ar_AE for Arabic UAE). These must match the hreflang declarations emitted
+// on the same page.
 export const OG_LOCALE_COUNTRY = {
-  en: { ae: "en_US", lb: "en_US", cy: "en_CY" },
+  en: { ae: "en_AE", lb: "en_LB", cy: "en_CY" },
   ar: { ae: "ar_AE", lb: "ar_LB", cy: "ar_CY" },
-  fr: { ae: "fr_FR", lb: "fr_FR", cy: "fr_FR" },
-  el: { ae: "el_GR", lb: "el_GR", cy: "el_CY" },
+  fr: { ae: "fr_AE", lb: "fr_LB", cy: "fr_CY" },
+  el: { ae: "el_AE", lb: "el_LB", cy: "el_CY" },
 };
 
 // Public social profiles, surfaced as Organization `sameAs` links in JSON-LD.

@@ -139,9 +139,12 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   }, [urlLang, stored]);
 
   useEffect(() => {
-    document.documentElement.lang = language;
+    // lang is set by DocumentMeta (App.tsx) which has country context and
+    // can emit the full locale code (e.g. "en-LB") to match hreflang. This
+    // effect only manages text direction so the document reflects RTL/LTR
+    // immediately when the language changes, before DocumentMeta re-runs.
     document.documentElement.dir = dir;
-  }, [language, dir]);
+  }, [dir]);
 
   // Sync across tabs.
   useEffect(() => {

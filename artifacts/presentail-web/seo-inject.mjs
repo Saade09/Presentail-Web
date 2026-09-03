@@ -736,12 +736,15 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
       twitterTitle = title;
       twitterDescription = description;
     } else {
-      const ogLang = HOME_OG[lang] ?? HOME_OG.en;
-      const twLang = HOME_TWITTER[lang] ?? HOME_TWITTER.en;
-      ogTitle = format(ogLang.title, params);
-      ogDescription = format(ogLang.description, params);
-      twitterTitle = format(twLang.title, params);
-      twitterDescription = format(twLang.description, params);
+      // Align og:title / twitter:title with the HTML <title> so the SERP
+      // snippet and the social share card always show the same copy.
+      // Previously the OG copy was a shorter, separate string (HOME_OG)
+      // which caused the two surfaces to diverge (e.g. "Flowers & Gifts in
+      // Beirut" vs "Flower & Gift Delivery in Beirut").
+      ogTitle = title;
+      ogDescription = description;
+      twitterTitle = title;
+      twitterDescription = description;
     }
   } else if (hasGenericShareCopy) {
     const ogLang = GENERIC_OG[routeKey][lang] ?? GENERIC_OG[routeKey].en;
@@ -1229,8 +1232,16 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
     campaignLanding: campaignLandingCopy,
   });
 
+  // Compute the full BCP 47 locale tag for the <html lang="..."> attribute.
+  // City pages use "{lang}-{COUNTRY}" (e.g. "en-LB", "ar-AE") so the
+  // declared language matches the hreflang annotations on the same page.
+  // Non-city routes (landing, blog shell, etc.) keep the short code ("en").
+  const htmlLang = (hasValidCity && parsed.country)
+    ? `${lang}-${parsed.country.toUpperCase()}`
+    : lang;
+
   return {
-    lang,
+    lang: htmlLang,
     dir,
     title,
     headSnippet: lines.join("\n    "),

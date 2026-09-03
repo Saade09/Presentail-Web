@@ -639,10 +639,17 @@ function RootRouter() {
 
 function DocumentMeta() {
   const { language, dir } = useLocale();
+  const { country } = useLocationSelection();
   useEffect(() => {
-    document.documentElement.lang = language;
+    // Use the full BCP 47 locale tag for city pages (e.g. "en-LB") so the
+    // <html lang> attribute matches the hreflang declarations on the page.
+    // Non-city routes (landing, blog shell, etc.) keep the short language code.
+    const countryCode = country?.code;
+    document.documentElement.lang = countryCode
+      ? `${language}-${countryCode.toUpperCase()}`
+      : language;
     document.documentElement.dir = dir;
-  }, [language, dir]);
+  }, [language, dir, country]);
   return null;
 }
 
