@@ -265,7 +265,7 @@ export const checkoutStrings: Dict = {
   "checkout.error.emirate": { en: "Select a delivery emirate to continue.", ar: "اختر إمارة التوصيل للمتابعة." },
   "checkout.error.address": { en: "Enter the delivery address to continue.", ar: "أدخل عنوان التوصيل للمتابعة." },
   "checkout.error.senderFirstName": { en: "Enter your first name to continue.", ar: "أدخل اسمك الأول للمتابعة." },
-  "checkout.error.senderEmail": { en: "Enter your email address to continue.", ar: "أدخل بريدك الإلكتروني للمتابعة." },
+  "checkout.error.senderEmail": { en: "Enter a valid email address to continue.", ar: "أدخل عنوان بريد إلكتروني صالحاً للمتابعة." },
   "checkout.qrPrintedOnCard": { en: "This QR code will be printed on your gift card", ar: "سيُطبع رمز QR هذا على بطاقة الهدية" },
 
   "checkout.cta.continueToPayment": { en: "Continue to Payment", ar: "المتابعة إلى الدفع" },
@@ -588,7 +588,7 @@ export const checkoutStringsFr: Record<string, string> = {
   "checkout.error.emirate": "Sélectionnez un émirat de livraison pour continuer.",
   "checkout.error.address": "Saisissez l'adresse de livraison pour continuer.",
   "checkout.error.senderFirstName": "Saisissez votre prénom pour continuer.",
-  "checkout.error.senderEmail": "Saisissez votre adresse e-mail pour continuer.",
+  "checkout.error.senderEmail": "Saisissez une adresse e-mail valide pour continuer.",
   "checkout.qrPrintedOnCard": "Ce QR code sera imprimé sur votre carte cadeau",
 
   "checkout.cta.continueToPayment": "Continuer vers le paiement",
@@ -901,7 +901,7 @@ export const checkoutStringsEl: Record<string, string> = {
   "checkout.error.emirate": "Επιλέξτε εμιράτο παράδοσης για να συνεχίσετε.",
   "checkout.error.address": "Εισαγάγετε τη διεύθυνση παράδοσης για να συνεχίσετε.",
   "checkout.error.senderFirstName": "Εισαγάγετε το όνομά σας για να συνεχίσετε.",
-  "checkout.error.senderEmail": "Εισαγάγετε τη διεύθυνση email σας για να συνεχίσετε.",
+  "checkout.error.senderEmail": "Εισαγάγετε μια έγκυρη διεύθυνση email για να συνεχίσετε.",
   "checkout.qrPrintedOnCard": "Αυτός ο κωδικός QR θα εκτυπωθεί στη δωροκάρτα σας",
 
   "checkout.cta.continueToPayment": "Συνέχεια στην πληρωμή",

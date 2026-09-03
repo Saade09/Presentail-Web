@@ -167,6 +167,14 @@ function orderConfirmedReturnUrl(status: "success" | "failed", extraQuery = ""):
   return `${origin}${base}${localePrefix}/order-confirmed?status=${status}${extraQuery}`;
 }
 
+// Validates that an email address has the minimum structure required by the
+// backend Zod schema (z.string().email()). Matches the same basic pattern used
+// elsewhere in the codebase and prevents obviously-malformed emails (e.g.
+// "user@domain" with no TLD) from reaching the order endpoint.
+function isValidEmailFormat(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+}
+
 function toTitleCase(s: string): string {
   return s.replace(/\S+/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
 }
@@ -4332,7 +4340,7 @@ function CheckoutForm() {
   // ("Where inside AUBMC?") becomes the required part of the address.
   const placeDetailError = submitAttempted && !noAddress && !!selectedPlace && !placeInternalDetail.trim();
   const senderFirstNameError = submitAttempted && !isSignedIn && !sender.firstName;
-  const senderEmailError = submitAttempted && !isSignedIn && !sender.email;
+  const senderEmailError = submitAttempted && !isSignedIn && (!sender.email || !isValidEmailFormat(sender.email));
 
   // Red-border + red focus ring treatment for an invalid control, applied
   // alongside aria-invalid when the field's inline error is showing.
@@ -4415,7 +4423,7 @@ function CheckoutForm() {
       focusInvalid(senderFirstNameRef.current);
       return "sender_first_name";
     }
-    if (!isSignedIn && !sender.email) {
+    if (!isSignedIn && (!sender.email || !isValidEmailFormat(sender.email))) {
       focusInvalid(senderEmailRef.current);
       return "sender_email";
     }
