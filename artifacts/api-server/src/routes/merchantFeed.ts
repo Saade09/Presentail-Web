@@ -374,6 +374,22 @@ feedsRouter.get(
   (req: Request, res: Response) => {
     const marketFile = String(req.params["marketFile"] ?? "");
     const market = marketFile.replace(/\.xml$/i, "").toLowerCase();
+
+    // The UAE Merchant Center account is fed exclusively by OS-managed API
+    // data sources. This legacy XML endpoint is intentionally retired so it
+    // cannot be registered later as a competing source of truth.
+    if (market === "ae") {
+      res
+        .status(410)
+        .set({
+          "Cache-Control": "public, max-age=86400",
+          "X-Feed-Retired": "true",
+        })
+        .type("text/plain")
+        .send("Gone: the UAE Merchant feed is managed by Presentail OS API data sources.");
+      return;
+    }
+
     const config = MARKET_CONFIG[market];
     if (!config) {
       res
