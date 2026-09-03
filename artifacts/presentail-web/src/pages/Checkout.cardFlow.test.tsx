@@ -796,6 +796,105 @@ describe("Checkout — wallet tile visibility", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Step-1 sender email validation
+//
+// Guest checkout must reject malformed email addresses before advancing to
+// payment. This protects non-Stripe methods, which otherwise only surface the
+// malformed payload after the order request reaches the backend.
+// ---------------------------------------------------------------------------
+
+describe("Checkout — sender email validation", () => {
+  const EMAIL_ERROR = "Enter a valid email address to continue.";
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseIsMobile.mockReturnValue(false);
+    window.history.replaceState(null, "", "/checkout?guest=1");
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: vi.fn(),
+    });
+  });
+
+  afterEach(() => {
+    window.history.replaceState(null, "", "/checkout");
+    const prototype = HTMLElement.prototype as unknown as { scrollIntoView?: unknown };
+    delete prototype.scrollIntoView;
+  });
+
+  async function fillRequiredGuestFields(
+    user: ReturnType<typeof userEvent.setup>,
+    email: string,
+  ) {
+    // Skip the address fields so this test isolates sender-email validation.
+    await user.click(await screen.findByTestId("check-no-address"));
+    await user.type(screen.getByTestId("input-recipient-name"), "John");
+    await user.type(screen.getByTestId("input-recipient-phone"), "+12125550000");
+    await user.type(screen.getByTestId("input-sender-first-name"), "Jane");
+    if (email) {
+      await user.type(screen.getByTestId("input-sender-email"), email);
+    }
+    await user.type(screen.getByTestId("input-sender-phone"), "+12125551111");
+  }
+
+  it.each([
+    ["an empty email", ""],
+    ["an email without a TLD", "user@domain"],
+  ])("shows an inline error and stays on step 1 for %s", async (_label, email) => {
+    const user = userEvent.setup();
+    renderWithProviders(<Checkout />, {
+      locale: {
+        t: (key) => key === "checkout.error.senderEmail" ? EMAIL_ERROR : key,
+      },
+      auth: {
+        user: null,
+        token: null,
+        isLoading: false,
+      },
+      cart: {
+        items: [FAKE_ITEM],
+        subtotal: 50,
+        itemCount: 1,
+        isHydrated: true,
+      },
+    });
+
+    await fillRequiredGuestFields(user, email);
+    await user.click(screen.getByTestId("button-continue-to-payment"));
+
+    expect(screen.getByTestId("error-sender-email").textContent).toBe(EMAIL_ERROR);
+    expect(screen.queryByTestId("button-submit-payment")).toBeNull();
+  });
+
+  it("advances to payment for a well-formed email", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<Checkout />, {
+      locale: {
+        t: (key) => key === "checkout.error.senderEmail" ? EMAIL_ERROR : key,
+      },
+      auth: {
+        user: null,
+        token: null,
+        isLoading: false,
+      },
+      cart: {
+        items: [FAKE_ITEM],
+        subtotal: 50,
+        itemCount: 1,
+        isHydrated: true,
+      },
+    });
+
+    await fillRequiredGuestFields(user, "user@example.com");
+
+    await user.click(screen.getByTestId("button-continue-to-payment"));
+
+    expect(await screen.findByTestId("button-submit-payment")).toBeTruthy();
+    expect(screen.queryByTestId("error-sender-email")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Wallet (Apple Pay / Google Pay) native-sheet flow tests
 //
 // These cover the walletViaNativeSheet=true branch of handleSubmit — the path
