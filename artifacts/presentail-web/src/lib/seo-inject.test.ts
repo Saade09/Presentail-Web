@@ -9817,6 +9817,53 @@ describe("pre-hydration fallback critical CSS", () => {
     expect(SEO_FALLBACK_CRITICAL_CSS).not.toContain("p{display:none");
   });
 
+  it("keeps resolved product title, image, price, description, and details visible in raw HTML", async () => {
+    mockFetchOnce({
+      ok: true,
+      product: {
+        name: "Visible Merchant Rose",
+        description: "A visible product description for crawler checks.",
+        image: { uri: "https://cdn.test/merchant-rose.jpg" },
+        priceValue: 42,
+        inStock: true,
+      },
+    });
+    const out = await injectSeoTagsAsync(
+      ROOT_HTML,
+      "/en-lb/beirut/product/visible-merchant-rose",
+      OPTS,
+    );
+    const fallback = out.match(/<div data-seo-fallback>([\s\S]*?)<\/div><\/div>/)?.[1] ?? "";
+    expect(fallback).toContain("<h1>Visible Merchant Rose</h1>");
+    expect(fallback).toMatch(/<img src="https:\/\/presentail\.test\/api\/og-image\/product\/visible-merchant-rose[^"]*"/);
+    expect(fallback).toContain("From $42.00 USD — In Stock");
+    expect(fallback).toContain("A visible product description for crawler checks.");
+    expect(fallback).toContain("<h2>Product Details</h2>");
+    expect(fallback).not.toContain('style="display:none"');
+    expect(fallback).not.toContain('<h1 class="sr-only">');
+    const productJsonLd = [...out.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)]
+      .map(([, json]) => JSON.parse(json))
+      .flatMap((graph) => graph["@graph"] ?? [graph])
+      .find((node) => node["@type"] === "Product");
+    expect(productJsonLd).toBeTruthy();
+    expect(productJsonLd.name).toBe("Visible Merchant Rose");
+  });
+
+  it.each([
+    ["/en-lb/beirut", "city home"],
+    ["/en-lb/beirut/shop", "shop"],
+    ["/en-lb/beirut/brand/missing-brand", "brand"],
+    ["/en-lb/beirut/category/missing-category", "category"],
+    ["/en-lb/beirut/occasion/missing-occasion", "occasion"],
+  ])("does not inline-hide the primary %s fallback content (%s)", async (path) => {
+    failFetch();
+    const out = await injectSeoTagsAsync(ROOT_HTML, path, OPTS);
+    const fallback = out.match(/<div data-seo-fallback>([\s\S]*?)<\/div><\/div>/)?.[1] ?? "";
+    expect(fallback).toMatch(/<h1>/);
+    expect(fallback).not.toContain('style="display:none"');
+    expect(fallback).not.toContain('<h1 class="sr-only">');
+  });
+
   it("does not inject the style block when there is no #root fallback markup", async () => {
     failFetch();
     const out = await injectSeoTagsAsync(

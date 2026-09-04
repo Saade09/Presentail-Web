@@ -7,6 +7,8 @@ Disallow: /account
 Disallow: /admin
 Allow: /api/img/proxy
 Allow: /api/og-image/
+Allow: /api/woo/product-pricing/
+Allow: /api/catalog/
 Disallow: /api/
 Disallow: /order-confirmed
 Disallow: /sign-in
@@ -75,6 +77,8 @@ Disallow: /account
 Disallow: /admin
 Allow: /api/img/proxy
 Allow: /api/og-image/
+Allow: /api/woo/product-pricing/
+Allow: /api/catalog/
 Disallow: /api/
 Disallow: /order-confirmed
 Disallow: /sign-in

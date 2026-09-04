@@ -265,6 +265,8 @@ describe("serve.mjs — /robots.txt crawler-agent record scoping", () => {
   const API_EXCEPTION_ALLOWS = [
     "Allow: /api/img/proxy",
     "Allow: /api/og-image/",
+    "Allow: /api/woo/product-pricing/",
+    "Allow: /api/catalog/",
   ];
   const WP_DISALLOWS = [
     "Disallow: /wp-admin/",
@@ -309,6 +311,18 @@ describe("serve.mjs — /robots.txt crawler-agent record scoping", () => {
     expect(googlebot.directives).toContain("Allow: /");
     for (const directive of [...API_EXCEPTION_ALLOWS, ...PRIVATE_DISALLOWS, ...WP_DISALLOWS]) {
       expect(googlebot.directives).toContain(directive);
+    }
+  });
+
+  it("allows only the two crawler-safe catalog API prefixes in both applicable records", async () => {
+    const { body } = await get(serverPort, "/robots.txt");
+    for (const agent of ["*", "Googlebot"]) {
+      const directives = recordFor(body, agent).directives;
+      expect(directives).toContain("Allow: /api/woo/product-pricing/");
+      expect(directives).toContain("Allow: /api/catalog/");
+      expect(directives).toContain("Disallow: /api/");
+      expect(directives).not.toContain("Allow: /api/woo/");
+      expect(directives).not.toContain("Allow: /api/analytics/");
     }
   });
 

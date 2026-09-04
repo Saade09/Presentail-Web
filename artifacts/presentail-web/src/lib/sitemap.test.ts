@@ -162,6 +162,22 @@ describe("buildSitemapXml — per-locale generation", () => {
     }
   });
 
+  it("strips query strings and fragments from product slugs at the generation boundary", () => {
+    const xml = buildSitemapXml({
+      origin: ORIGIN,
+      basePath: "/",
+      locale: "en",
+      products: [
+        { slug: "/red-roses?utm_source=merchant&gclid=blocked#details" },
+      ],
+    });
+    expect(xml).toContain(`${ORIGIN}/en-lb/beirut/product/red-roses</loc>`);
+    expect(xml).not.toContain("utm_");
+    expect(xml).not.toContain("gclid");
+    expect(xml).not.toContain("%3F");
+    expect(xml).not.toContain("%23");
+  });
+
   it("the blog index appears in the en/ar/fr locale sitemaps as a lang-only canonical URL", () => {
     // Blog content exists in EN/AR/FR only — the Greek child sitemap carries
     // no blog URLs (SITEMAP_BLOG_LANGS excludes "el").

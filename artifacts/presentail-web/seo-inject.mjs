@@ -1990,7 +1990,7 @@ function buildProductBodyHtml(product, { title, description, localeBase, imageUr
     }
   }
 
-  return `<h1 class="sr-only">${safeTitle}</h1><div style="display:none">${imgHtml}${brandHtml}${availabilityHtml}${cityDeliveryHtml}${detailsHeading}${safeDesc ? `<p>${safeDesc}</p>` : ""}${deliveryNote}${nav}</div>${noscriptNav}`;
+  return `<h1>${safeTitle}</h1><div>${imgHtml}${brandHtml}${availabilityHtml}${cityDeliveryHtml}${detailsHeading}${safeDesc ? `<p>${safeDesc}</p>` : ""}${deliveryNote}${nav}</div>${noscriptNav}`;
 }
 
 function buildSimpleEntityBodyHtml(entity, { title, description, localeBase }) {
@@ -2001,9 +2001,7 @@ function buildSimpleEntityBodyHtml(entity, { title, description, localeBase }) {
   const nav = localeBase
     ? `<nav><a href="${localeBase}/">Home</a> › <a href="${localeBase}/shop">Shop</a></nav>` // i18n-ignore — breadcrumb labels
     : "";
-  // The sr-only h1 lives OUTSIDE the display:none wrapper so Googlebot indexes
-  // it without the cloaking risk that display:none carries.
-  return `<h1 class="sr-only">${safeTitle}</h1><div style="display:none">${safeDesc ? `<p>${safeDesc}</p>` : ""}${nav}</div>`;
+  return `<h1>${safeTitle}</h1><div>${safeDesc ? `<p>${safeDesc}</p>` : ""}${nav}</div>`;
 }
 
 /**
@@ -4638,20 +4636,16 @@ export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin,
       brandProductsHtml += `<ul>${productLinks.join("")}</ul>`;
     }
   }
-  // The sr-only h1 lives OUTSIDE the display:none wrapper so Google indexes it
-  // alongside the page. sr-only hides it visually while keeping it in the
-  // accessibility tree and the crawlable DOM. React replaces all children of
-  // #root on hydration, so JS users see the normal SPA h1 without any flash.
-  // Tripoli brand pages: crawlable contextual link back to the city landing
-  // page. sr-only (not display:none) so Google indexes it; anchor text
-  // deliberately varied vs. the occasion-page and /shop back-links.
+  // React replaces the complete fallback on hydration. Until then, every
+  // primary brand heading and supporting detail remains visible to no-JS
+  // clients; the shared data-seo-js rule is the only hiding mechanism.
   const parsedBrandLoc = parseLocalePath(pathname);
   const tripoliBrandLinkHtml =
     parsedBrandLoc.country === "lb" &&
     parsedBrandLoc.city === "tripoli" &&
     lang === "en" &&
     requestLocBase
-      ? `<div class="sr-only"><p>Discover our full <a href="${requestLocBase}/">Tripoli flower delivery</a> service.</p></div>` // i18n-ignore — crawler-facing EN copy
+      ? `<div><p>Discover our full <a href="${requestLocBase}/">Tripoli flower delivery</a> service.</p></div>` // i18n-ignore — crawler-facing EN copy
       : "";
   // Batroun brand pages: crawlable contextual link back to the city landing
   // page. Anchor text deliberately varied vs. the Tripoli brand and Batroun
@@ -4662,13 +4656,13 @@ export function buildBrandHead({ brand, imageDimensions, lang, basePath, origin,
     parsedBrandLoc.city === "batroun" &&
     lang === "en" &&
     requestLocBase
-      ? `<div class="sr-only"><p>Discover our full range of <a href="${requestLocBase}/">Batroun flowers and gifts</a>.</p></div>` // i18n-ignore — crawler-facing EN copy
+      ? `<div><p>Discover our full range of <a href="${requestLocBase}/">Batroun flowers and gifts</a>.</p></div>` // i18n-ignore — crawler-facing EN copy
       : "";
   const bodyHtml = (
-    `<h1 class="sr-only">${safeBrandTitle}</h1>` +
+    `<h1>${safeBrandTitle}</h1>` +
     tripoliBrandLinkHtml +
     batrounBrandLinkHtml +
-    `<div style="display:none">` +
+    `<div>` +
     (safeBrandDesc ? `<p>${safeBrandDesc}</p>` : "") +
     (safeBrandHeading ? `<h2>${safeBrandHeading}</h2>` : "") +
     (safeBrandIntro ? `<p>${safeBrandIntro}</p>` : "") +
@@ -5112,10 +5106,9 @@ function buildShopEntityHead({
       curatedFaqHtml;
   }
   // Tripoli occasion pages: crawlable contextual link back to the city
-  // landing page (/en-lb/tripoli). Lives in the sr-only region (indexed by
-  // Google, unlike display:none) so it strengthens the landing page's inbound
-  // internal-link graph without altering the visible React UI. Anchor text
-  // intentionally differs from the /shop back-link and brand-page anchors.
+  // landing page (/en-lb/tripoli). It remains visible in the no-JS fallback
+  // and strengthens the landing page's inbound internal-link graph. Anchor
+  // text intentionally differs from the /shop and brand-page back-links.
   const parsedEntityLoc = parseLocalePath(pathname);
   const tripoliOccasionLinkHtml =
     entityKind === "occasion" &&
@@ -5138,17 +5131,17 @@ function buildShopEntityHead({
   const bodyHtml = curated
     ? (
       curatedBodyHtml +
-      (entityProductsHtml ? `<div class="sr-only">${entityProductsHtml}</div>` : "") +
-      (tripoliOccasionLinkHtml ? `<div class="sr-only">${tripoliOccasionLinkHtml}</div>` : "") +
-      (batrounOccasionLinkHtml ? `<div class="sr-only">${batrounOccasionLinkHtml}</div>` : "") +
-      (entityNav ? `<div style="display:none">${entityNav}</div>` : "")
+      (entityProductsHtml ? `<div>${entityProductsHtml}</div>` : "") +
+      (tripoliOccasionLinkHtml ? `<div>${tripoliOccasionLinkHtml}</div>` : "") +
+      (batrounOccasionLinkHtml ? `<div>${batrounOccasionLinkHtml}</div>` : "") +
+      (entityNav ? `<div>${entityNav}</div>` : "")
     )
     : (
-      `<h1 class="sr-only">${safeEntityTitle}</h1>` +
-      (entityProductsHtml ? `<div class="sr-only">${entityProductsHtml}</div>` : "") +
-      (tripoliOccasionLinkHtml ? `<div class="sr-only">${tripoliOccasionLinkHtml}</div>` : "") +
-      (batrounOccasionLinkHtml ? `<div class="sr-only">${batrounOccasionLinkHtml}</div>` : "") +
-      `<div style="display:none">` +
+      `<h1>${safeEntityTitle}</h1>` +
+      (entityProductsHtml ? `<div>${entityProductsHtml}</div>` : "") +
+      (tripoliOccasionLinkHtml ? `<div>${tripoliOccasionLinkHtml}</div>` : "") +
+      (batrounOccasionLinkHtml ? `<div>${batrounOccasionLinkHtml}</div>` : "") +
+      `<div>` +
       (safeEntityDesc ? `<p>${safeEntityDesc}</p>` : "") +
       (safeSeoHeading ? `<h2>${safeSeoHeading}</h2>` : "") +
       (safeSeoIntro ? `<p>${safeSeoIntro}</p>` : "") +

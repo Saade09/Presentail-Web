@@ -63,6 +63,13 @@ export function escXml(s) {
     .replace(/'/g, "&apos;");
 }
 
+export function canonicalProductSlug(rawSlug) {
+  return String(rawSlug ?? "")
+    .split(/[?#]/, 1)[0]
+    .replace(/^\/+|\/+$/g, "")
+    .trim();
+}
+
 /**
  * Build the sitemap XML from already-fetched catalog data. Pure and
  * synchronous so it can be unit-tested with mock data.
@@ -259,7 +266,8 @@ export function buildSitemapXml({
     if (skipCountryForLang(country)) continue;
     const cityProducts = productsByCountry?.[country] ?? products;
     for (const product of cityProducts) {
-      if (!product?.slug) continue;
+      const canonicalSlug = canonicalProductSlug(product?.slug);
+      if (!canonicalSlug) continue;
       const availState = getProductAvailabilityState(product);
       if (availState === PRODUCT_AVAILABILITY_STATE.DISCONTINUED) continue;
       const priority =
@@ -267,7 +275,7 @@ export function buildSitemapXml({
         availState === PRODUCT_AVAILABILITY_STATE.SEASONAL_UNAVAILABLE
           ? "0.4"
           : "0.8";
-      const encoded = encodeURIComponent(product.slug);
+      const encoded = encodeURIComponent(canonicalSlug);
       const imageBlock =
         product.imageUrl && product.name
           ? buildImageBlock(

@@ -63,6 +63,13 @@ const GMC_CATEGORY_DEFAULT = 5841; // Gift Baskets & Sets
 
 const SITE_ORIGIN = "https://presentail.com";
 
+export function canonicalProductSlug(rawSlug: string): string {
+  return String(rawSlug ?? "")
+    .split(/[?#]/, 1)[0]
+    .replace(/^\/+|\/+$/g, "")
+    .trim();
+}
+
 function escXml(str: string): string {
   return str
     .replace(/&/g, "&amp;")
@@ -139,7 +146,7 @@ function ensureAbsoluteHttps(url: string): string {
   return url.replace(/^http:/, "https:");
 }
 
-function buildFeedData(
+export function buildFeedData(
   market: string,
   countryCode: string,
   localePrefix: string,
@@ -151,7 +158,11 @@ function buildFeedData(
   const exclusions: ExclusionEntry[] = [];
 
   for (const product of products) {
-    const slug = product.id; // product.id IS the slug per OS types
+    const slug = canonicalProductSlug(product.id); // product.id IS the slug per OS types
+    if (!slug) {
+      exclusions.push({ slug: String(product.id ?? ""), reason: "missing canonical slug" });
+      continue;
+    }
 
     if (!product.name?.trim()) {
       exclusions.push({ slug, reason: "missing title" });
@@ -278,7 +289,7 @@ function buildFeedData(
   return { items, exclusions };
 }
 
-function buildRssFeed(items: FeedItem[], market: string): string {
+export function buildRssFeed(items: FeedItem[], market: string): string {
   const timestamp = new Date().toUTCString();
   const lines: string[] = [];
   lines.push('<?xml version="1.0" encoding="UTF-8"?>');
