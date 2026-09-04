@@ -145,7 +145,7 @@ export const OCCASION_SEO_CONTENT = {
             { label: "Father's Day gifts in Aley", href: "/en-lb/aley/occasion/fathers-day", absolute: true },
             { label: "Father's Day gifts in Chouf", href: "/en-lb/chouf/occasion/fathers-day", absolute: true },
             { label: "Father's Day gifts in Nabatieh", href: "/en-lb/nabatieh/occasion/fathers-day", absolute: true },
-            { label: "Father's Day gifts in Batroun", href: "/en-lb/batroun/occasion/fathers-day", absolute: true },
+            // Batroun omitted — child occasion pages are currently noindex.
             { label: "Father's Day gifts in Koura", href: "/en-lb/koura/occasion/fathers-day", absolute: true },
             { label: "Father's Day gifts in Baalbeck", href: "/en-lb/baalbeck/occasion/fathers-day", absolute: true },
             { label: "Father's Day gifts in West Bekaa", href: "/en-lb/west-bekaa/occasion/fathers-day", absolute: true },

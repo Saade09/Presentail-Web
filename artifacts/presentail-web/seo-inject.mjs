@@ -5827,7 +5827,9 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
     telemetry,
   };
   const headOpts = {
-    lang: generic.lang,
+    // Entity copy maps and curated-content lookups use the base language code,
+    // while generic.lang is the BCP 47 value intended for <html lang>.
+    lang: parsed.lang ?? generic.lang,
     basePath: rest.basePath ?? "",
     origin: rest.origin ?? "",
     pathname: seoPathname,

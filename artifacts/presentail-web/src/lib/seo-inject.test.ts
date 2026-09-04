@@ -1661,22 +1661,20 @@ describe("buildSeoHead — route-dependent og:/twitter: share copy", () => {
     );
   });
 
-  it("EN locale home (/en-lb/beirut) uses the dedicated home OG/Twitter copy with {city} resolved", () => {
+  it("EN locale home (/en-lb/beirut) keeps OG/Twitter copy aligned with the page metadata", () => {
     const { headSnippet, title } = buildSeoHead("/en-lb/beirut", ORIGIN_OPTS);
-    // The page <title> keeps the longer template…
     expect(title).toBe("Flower & Gift Delivery in Beirut | Presentail");
-    // …while og:/twitter: use the dedicated shorter home copy.
     expect(getMeta(headSnippet, 'property="og:title"')).toBe(
-      "Flowers &amp; Gifts in Beirut | Presentail",
+      "Flower &amp; Gift Delivery in Beirut | Presentail",
     );
     expect(getMeta(headSnippet, 'property="og:description"')).toBe(
-      "Send flowers, cakes and gifts in Beirut with same-day delivery from Presentail.",
+      "Send flowers, cakes, balloons, plants, chocolates and gifts online in Beirut. Express same-day delivery available with Presentail.",
     );
     expect(getMeta(headSnippet, 'name="twitter:title"')).toBe(
-      "Flowers &amp; Gifts in Beirut | Presentail",
+      "Flower &amp; Gift Delivery in Beirut | Presentail",
     );
     expect(getMeta(headSnippet, 'name="twitter:description"')).toBe(
-      "Send flowers and gifts in Beirut — same-day delivery by Presentail.",
+      "Send flowers, cakes, balloons, plants, chocolates and gifts online in Beirut. Express same-day delivery available with Presentail.",
     );
   });
 
@@ -1711,29 +1709,26 @@ describe("buildSeoHead — route-dependent og:/twitter: share copy", () => {
     expect(getMeta(headSnippet, 'property="og:locale"')).toBe("ar_CY");
   });
 
-  it("EN Lebanon route (/en-lb/beirut/shop) emits og:locale = en_US", () => {
+  it("EN Lebanon route (/en-lb/beirut/shop) emits og:locale = en_LB", () => {
     const { headSnippet } = buildSeoHead("/en-lb/beirut/shop", ORIGIN_OPTS);
-    expect(getMeta(headSnippet, 'property="og:locale"')).toBe("en_US");
+    expect(getMeta(headSnippet, 'property="og:locale"')).toBe("en_LB");
   });
 
-  it("FR Lebanon route (/fr-lb/beirut/shop) emits og:locale = fr_FR", () => {
+  it("FR Lebanon route (/fr-lb/beirut/shop) emits og:locale = fr_LB", () => {
     const { headSnippet } = buildSeoHead("/fr-lb/beirut/shop", ORIGIN_OPTS);
-    expect(getMeta(headSnippet, 'property="og:locale"')).toBe("fr_FR");
+    expect(getMeta(headSnippet, 'property="og:locale"')).toBe("fr_LB");
   });
 
-  it("FR locale home (/fr-lb/beirut) uses the French home copy with the French city name", () => {
-    const { headSnippet } = buildSeoHead("/fr-lb/beirut", ORIGIN_OPTS);
-    expect(getMeta(headSnippet, 'property="og:title"')).toBe(
-      "Fleurs et cadeaux à Beyrouth | Presentail",
-    );
+  it("FR locale home (/fr-lb/beirut) keeps OG/Twitter copy aligned with the localized page metadata", () => {
+    const { headSnippet, title } = buildSeoHead("/fr-lb/beirut", ORIGIN_OPTS);
+    const escapedTitle = title.replace(/&/g, "&amp;");
+    expect(getMeta(headSnippet, 'property="og:title"')).toBe(escapedTitle);
     expect(getMeta(headSnippet, 'property="og:description"')).toBe(
-      "Envoyez fleurs, gâteaux et cadeaux à Beyrouth avec la livraison le jour même par Presentail.",
+      "Envoyez fleurs, gâteaux, ballons, plantes, chocolats et cadeaux en ligne à Beyrouth. Livraison express le jour même disponible avec Presentail.",
     );
-    expect(getMeta(headSnippet, 'name="twitter:title"')).toBe(
-      "Fleurs et cadeaux à Beyrouth | Presentail",
-    );
+    expect(getMeta(headSnippet, 'name="twitter:title"')).toBe(escapedTitle);
     expect(getMeta(headSnippet, 'name="twitter:description"')).toBe(
-      "Envoyez fleurs et cadeaux à Beyrouth — livraison le jour même par Presentail.",
+      "Envoyez fleurs, gâteaux, ballons, plantes, chocolats et cadeaux en ligne à Beyrouth. Livraison express le jour même disponible avec Presentail.",
     );
   });
 
@@ -6022,7 +6017,15 @@ describe("JSON-LD — FAQPage on category and occasion listing pages", () => {
     expect(faq).toBeTruthy();
     // Dubai anniversary is a curated occasion page: the legacy query-param
     // route canonicalises to the same page, so it emits the curated FAQ set.
-    expect(faq.mainEntity).toHaveLength(5);
+    const { getOccasionSeoContent } = await import("../data/occasionSeoContent.mjs");
+    const curated = getOccasionSeoContent({
+      country: "ae",
+      city: "dubai",
+      slug: "anniversary",
+      lang: "en",
+    });
+    expect(curated).toBeTruthy();
+    expect(faq.mainEntity).toHaveLength(curated.faqs.length);
     expect(faq.mainEntity[0].name).toContain("anniversary");
     expect(faq.mainEntity[0].name).toContain("Dubai");
   });
@@ -8688,7 +8691,7 @@ describe("Prerender body — product page enhancements", () => {
       ...PRODUCT_HEAD_OPTS,
     });
     expect(bodyHtml).toContain("In Stock");
-    expect(bodyHtml).toContain("$60.00 USD");
+    expect(bodyHtml).toContain("220.00 AED");
   });
 
   it("product body emits 'Out of Stock' when inStock is false with a price", () => {
@@ -9910,7 +9913,7 @@ describe("pre-hydration fallback critical CSS", () => {
     const fallback = out.match(/<div data-seo-fallback>([\s\S]*?)<\/div><\/div>/)?.[1] ?? "";
     expect(fallback).toContain("<h1>Visible Merchant Rose</h1>");
     expect(fallback).toMatch(/<img src="https:\/\/presentail\.test\/api\/og-image\/product\/visible-merchant-rose[^"]*"/);
-    expect(fallback).toContain("From $42.00 USD — In Stock");
+    expect(fallback).toContain("From 42.00 USD — In Stock");
     expect(fallback).toContain("A visible product description for crawler checks.");
     expect(fallback).toContain("<h2>Product Details</h2>");
     expect(fallback).not.toContain('style="display:none"');
