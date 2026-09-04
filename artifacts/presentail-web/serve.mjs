@@ -43,6 +43,8 @@ import {
   buildProductLifecycle410Event,
 } from "./server-analytics-policy.mjs";
 import { resolveGmcLocaleOnlyCheckoutRedirect } from "./gmc-checkout-route.mjs";
+export { getCrawlerProductCurrencyOverride } from "./crawler-product-currency.mjs";
+import { getCrawlerProductCurrencyOverride } from "./crawler-product-currency.mjs";
 
 // seo-inject.mjs and sidecar-cache.mjs are loaded via guarded dynamic import
 // below so a missing or corrupt file produces a structured Slack alert rather
@@ -782,7 +784,7 @@ const PUBLIC_HTML_CACHE_CONTROL =
   "public, max-age=0, s-maxage=300, stale-while-revalidate=60";
 const PUBLIC_EDGE_CACHE_CONTROL =
   "public, s-maxage=300, stale-while-revalidate=60";
-const PRIVATE_HTML_CACHE_CONTROL = "no-store, no-cache, must-revalidate";
+const PRIVATE_HTML_CACHE_CONTROL = "private, no-store, no-cache, must-revalidate";
 
 /**
  * Build cache headers that remain unambiguous to browsers and shared proxies.
@@ -790,12 +792,12 @@ const PRIVATE_HTML_CACHE_CONTROL = "no-store, no-cache, must-revalidate";
  * public responses to `private`. max-age=0 keeps browser revalidation while
  * explicit CDN/Surrogate directives retain safe shared caching.
  */
-function buildHtmlCacheHeaders(pathname, xRobotsTag, html = "") {
+function buildHtmlCacheHeaders(pathname, xRobotsTag, html = "", crawlerProductCurrencyOverride) {
   const noindex =
     typeof xRobotsTag === "string" && xRobotsTag.toLowerCase().includes("noindex");
   const metaNoindex =
     /<meta\s+name=["']robots["'][^>]*content=["'][^"']*noindex/i.test(html);
-  if (isTransactionalPage(pathname) || noindex || metaNoindex) {
+  if (isTransactionalPage(pathname) || noindex || metaNoindex || crawlerProductCurrencyOverride) {
     return { "cache-control": PRIVATE_HTML_CACHE_CONTROL };
   }
   return {
@@ -1536,6 +1538,7 @@ const server = http.createServer(async (req, res) => {
             origin,
             apiBaseUrl: INTERNAL_API_BASE_URL,
             acceptLanguage: req.headers["accept-language"],
+            productPriceCurrencyOverride: getCrawlerProductCurrencyOverride(req.headers["user-agent"], virtualPath),
             telemetry,
           });
           const seoMs = performance.now() - seoStartedAt;
@@ -1625,6 +1628,7 @@ const server = http.createServer(async (req, res) => {
             origin,
             apiBaseUrl: INTERNAL_API_BASE_URL,
             acceptLanguage: req.headers["accept-language"],
+            productPriceCurrencyOverride: getCrawlerProductCurrencyOverride(req.headers["user-agent"], virtualPath),
             telemetry,
           });
           const seoMs = performance.now() - seoStartedAt;
@@ -1706,6 +1710,7 @@ const server = http.createServer(async (req, res) => {
             origin,
             apiBaseUrl: INTERNAL_API_BASE_URL,
             acceptLanguage: req.headers["accept-language"],
+            productPriceCurrencyOverride: getCrawlerProductCurrencyOverride(req.headers["user-agent"], virtualPath),
             telemetry,
           });
           const seoMs = performance.now() - seoStartedAt;
@@ -2632,6 +2637,7 @@ const server = http.createServer(async (req, res) => {
           apiBaseUrl: INTERNAL_API_BASE_URL,
           search: url.search,
           acceptLanguage: req.headers["accept-language"],
+          productPriceCurrencyOverride: getCrawlerProductCurrencyOverride(req.headers["user-agent"], pathname),
           firstBannerImageUrl: firstBannerImageUrl ?? undefined,
           lifecycleOut,
           telemetry,
@@ -2693,7 +2699,7 @@ const server = http.createServer(async (req, res) => {
           // All other HTML pages use max-age=0 so browsers revalidate the shell,
           // while explicit s-maxage/CDN directives allow the deployed edge to
           // retain the SEO-injected response for five minutes.
-          ...buildHtmlCacheHeaders(pathname, xRobotsTag, out),
+          ...buildHtmlCacheHeaders(pathname, xRobotsTag, out, getCrawlerProductCurrencyOverride(req.headers["user-agent"], pathname)),
           "vary": "Accept-Encoding",
           // HTTP Link header mirrors the <link rel="canonical"> injected into
           // the HTML by seo-inject.mjs so HTTP-level crawlers and preload
@@ -2979,6 +2985,7 @@ const server = http.createServer(async (req, res) => {
       apiBaseUrl: INTERNAL_API_BASE_URL,
       search: url.search,
       acceptLanguage: req.headers["accept-language"],
+      productPriceCurrencyOverride: getCrawlerProductCurrencyOverride(req.headers["user-agent"], pathname),
       firstBannerImageUrl: firstBannerImageUrl ?? undefined,
       paginationRef,
       lifecycleOut: spaLifecycleOut,
@@ -3070,7 +3077,7 @@ const server = http.createServer(async (req, res) => {
       ...(xRobotsTagSpa !== null ? { "x-robots-tag": xRobotsTagSpa } : {}),
       // Transactional/noindex pages keep no-store. Public SPA pages use
       // browser revalidation plus a five-minute shared-cache TTL.
-      ...buildHtmlCacheHeaders(pathname, xRobotsTagSpa, spaOut),
+      ...buildHtmlCacheHeaders(pathname, xRobotsTagSpa, spaOut, getCrawlerProductCurrencyOverride(req.headers["user-agent"], pathname)),
       "vary": "Accept-Encoding",
       "link": `<${spaCanonicalHref}>; rel="canonical", <${origin}/llms.txt>; rel="describedby", <${origin}/llms-full.txt>; rel="describedby", <${origin}/sitemap.md>; rel="describedby", <${origin}/agents.md>; rel="describedby"${spaMdAlternateLink}`,
     };

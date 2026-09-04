@@ -11,28 +11,11 @@
 
 import { describe, it, expect, vi } from "vitest";
 import type { OSProduct } from "@workspace/presentail-os";
+import { buildFeedData } from "./merchantFeed";
 
 vi.mock("../lib/osProductsCache", () => ({
   getOsProducts: vi.fn(),
 }));
-
-// ── Import the internal buildFeedData via a test-only export shim ─────────────
-// merchantFeed.ts does not export buildFeedData, so we extract the logic
-// by importing the module and using its exported routers for side-effects,
-// then test the price logic through a lightweight inline port that mirrors
-// the exact branching in merchantFeed.ts.
-//
-// This is intentional: we want to guard the *branching logic*, not the XML
-// serialisation.  The inline port below must be kept in sync with the
-// `salePrice` block in buildFeedData when that block changes.
-
-const USD_RATE: Record<string, number> = { USD: 1, AED: 3.6725, EUR: 0.92 };
-
-function convertPrice(usdPrice: number, currency: string): string {
-  const rate = USD_RATE[currency] ?? 1;
-  const converted = Math.round(usdPrice * rate * 100) / 100;
-  return `${converted.toFixed(2)} ${currency}`;
-}
 
 function resolveFeedSalePrice(
   product: Pick<
@@ -45,40 +28,29 @@ function resolveFeedSalePrice(
   >,
   currency: string,
 ): string | null {
-  const regularPriceRaw = product.regular_price ? parseFloat(product.regular_price) : NaN;
-  const hasRegularPrice = !isNaN(regularPriceRaw) && regularPriceRaw > 0;
-  const basePriceUsd = hasRegularPrice ? regularPriceRaw : product.price;
-
-  let salePrice: string | null = null;
-
-  if (hasRegularPrice) {
-    if (product.sale_price) {
-      const salePriceUsd = parseFloat(product.sale_price);
-      if (!isNaN(salePriceUsd) && salePriceUsd > 0 && salePriceUsd < regularPriceRaw) {
-        salePrice = convertPrice(salePriceUsd, currency);
-      }
-    }
-    if (salePrice === null && product.price > 0 && product.price < regularPriceRaw) {
-      salePrice = convertPrice(product.price, currency);
-    }
-  }
-
-  if (salePrice === null) {
-    if (currency === "AED" && product.discount_price_aed) {
-      const discountAed = parseFloat(product.discount_price_aed);
-      const baseAed = basePriceUsd * (USD_RATE["AED"] ?? 1);
-      if (!isNaN(discountAed) && discountAed > 0 && discountAed < baseAed) {
-        salePrice = `${discountAed.toFixed(2)} AED`;
-      }
-    } else if (product.discount_price_usd) {
-      const discountUsd = parseFloat(product.discount_price_usd);
-      if (!isNaN(discountUsd) && discountUsd > 0 && discountUsd < basePriceUsd) {
-        salePrice = convertPrice(discountUsd, currency);
-      }
-    }
-  }
-
-  return salePrice;
+  const item = buildFeedData(
+    currency.toLowerCase(),
+    currency === "AED" ? "AE" : "LB",
+    currency === "AED" ? "en-ae" : "en-lb",
+    currency === "AED" ? "dubai" : "beirut",
+    [{
+      id: "test",
+      name: "Test",
+      price: product.price,
+      priceAed: currency === "AED" ? "100" : undefined,
+      regular_price: product.regular_price,
+      sale_price: product.sale_price,
+      discount_price_usd: product.discount_price_usd,
+      discount_price_aed: product.discount_price_aed,
+      images: [{ url: "https://example.com/image.jpg" }],
+      inStock: true,
+      categories: [],
+      occasions: [],
+      brands: [],
+    }],
+    currency,
+  ).items[0];
+  return item?.salePrice ?? null;
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -92,12 +64,12 @@ describe("merchantFeed — sale price resolution", () => {
     expect(result).toBe("15.00 USD");
   });
 
-  it("OS sale_price + regular_price yields converted sale price in AED feed", () => {
+  it("UAE does not synthesize a sale from USD fields", () => {
     const result = resolveFeedSalePrice(
       { price: 15, regular_price: "25", sale_price: "15" },
       "AED",
     );
-    expect(result).toBe(convertPrice(15, "AED"));
+    expect(result).toBeNull();
   });
 
   it("sale_price '0' (invalid) → falls through to legacy discount_price_usd", () => {
@@ -138,14 +110,6 @@ describe("merchantFeed — sale price resolution", () => {
   it("no OS pair, no legacy fields → null", () => {
     const result = resolveFeedSalePrice({ price: 25 }, "USD");
     expect(result).toBeNull();
-  });
-
-  it("no OS pair, AED feed with discount_price_aed → AED sale price", () => {
-    const result = resolveFeedSalePrice(
-      { price: 25, discount_price_aed: "73.50" },
-      "AED",
-    );
-    expect(result).toBe("73.50 AED");
   });
 
   it("no OS pair, legacy discount_price_usd → USD sale price", () => {
@@ -199,5 +163,65 @@ describe("merchantFeed — sale price resolution", () => {
       "USD",
     );
     expect(result).toBe("100.00 USD");
+  });
+
+  it("uses native UAE regular and sale amounts verbatim, without FX rounding", () => {
+    const product: OSProduct = {
+      id: "uae-native",
+      name: "UAE Native",
+      price: 25,
+      priceAed: "100.125",
+      discount_price_aed: "73.505",
+      images: [{ url: "https://example.com/image.jpg" }],
+      inStock: true,
+      categories: [],
+      occasions: [],
+      brands: [],
+    };
+    const result = buildFeedData("ae", "AE", "en-ae", "dubai", [product], "AED");
+    expect(result.items[0]).toMatchObject({
+      price: "100.125 AED",
+      salePrice: "73.505 AED",
+    });
+  });
+
+  it("excludes UAE products that lack a valid native AED regular price", () => {
+    const product: OSProduct = {
+      id: "no-native-aed",
+      name: "No Native AED",
+      price: 25,
+      images: [{ url: "https://example.com/image.jpg" }],
+      inStock: true,
+      categories: [],
+      occasions: [],
+      brands: [],
+    };
+    const result = buildFeedData("ae", "AE", "en-ae", "dubai", [product], "AED");
+    expect(result.items).toEqual([]);
+    expect(result.exclusions).toEqual([{ slug: "no-native-aed", reason: "missing or invalid AED price" }]);
+  });
+
+  it("preserves trailing zeros and suppresses malformed or non-active native sales", () => {
+    const base: OSProduct = {
+      id: "strict-aed",
+      name: "Strict AED",
+      price: 25,
+      priceAed: "100.1250",
+      discount_price_aed: "100.1250",
+      images: [{ url: "https://example.com/image.jpg" }],
+      inStock: true,
+      categories: [],
+      occasions: [],
+      brands: [],
+    };
+    expect(buildFeedData("ae", "AE", "en-ae", "dubai", [base], "AED").items[0]).toMatchObject({
+      price: "100.1250 AED",
+      salePrice: null,
+    });
+    expect(buildFeedData("ae", "AE", "en-ae", "dubai", [{
+      ...base,
+      priceAed: " 100.1250",
+      discount_price_aed: "99.000",
+    }], "AED").items).toEqual([]);
   });
 });

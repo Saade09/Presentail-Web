@@ -24,6 +24,8 @@
 import type { OSProduct } from "@workspace/presentail-os";
 import type { Product } from "./queries";
 import { CATEGORY_SLUG_REMAP } from "./categoryGroups";
+// @ts-expect-error Root server/client shared JS module has no TS package entry.
+import { isExactAedDecimal } from "../../native-aed-price.mjs";
 
 // Must match the server-side HIDDEN_CATEGORY_SLUGS in routes/woo.ts.
 const HIDDEN_CATEGORY_SLUGS = new Set(["board-games", "coffee"]);
@@ -143,6 +145,18 @@ export function mapOsProduct(p: OSProduct): Product {
   }
 
   const discountPriceAed = parseDiscountField(p.discount_price_aed);
+  const discountPriceAedExact =
+    typeof p.discount_price_aed === "string" && isExactAedDecimal(p.discount_price_aed)
+      ? p.discount_price_aed
+      : null;
+  // price_aed is being added to the OS payload independently of the shared
+  // client type. Keep this web boundary forwards-compatible until that type
+  // is released, without changing the shared package here.
+  const canonicalPriceAed = (p as OSProduct & { priceAed?: string | number | null }).priceAed;
+  const priceAedExact = typeof canonicalPriceAed === "string" && isExactAedDecimal(canonicalPriceAed)
+    ? canonicalPriceAed
+    : null;
+  const priceAed = parseDiscountField(canonicalPriceAed == null ? undefined : String(canonicalPriceAed));
 
   const formattedPrice = `$${priceValue.toLocaleString()}`;
 
@@ -153,8 +167,11 @@ export function mapOsProduct(p: OSProduct): Product {
     name: decodeHtmlEntities(p.name),
     price: formattedPrice,
     priceValue,
+    priceAed,
+    priceAedExact,
     discountPriceValue,
     discountPriceAed,
+    discountPriceAedExact,
     image: imageList[0] ?? null,
     images: imageList,
     category: mapCategory(p.categories),

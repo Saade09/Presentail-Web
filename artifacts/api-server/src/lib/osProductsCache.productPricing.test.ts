@@ -217,6 +217,7 @@ describe("enrichProductPricingFromOs — modern regular_price / sale_price schem
     expect(entry.regularPriceUsd).toBe(80);
     expect(entry.discountPriceUsd).toBe(60);
     expect(entry.discountPriceAed).toBeNull();
+    expect(entry.priceAed).toBeNull();
   });
 
   it("uses price field as discountPriceUsd when sale_price is absent but price < regular_price", async () => {
@@ -318,7 +319,7 @@ describe("enrichProductPricingFromOs — AED-only discount", () => {
     await fetchAndStoreForTesting();
 
     vi.mocked(fetch).mockResolvedValue(
-      makePricingResponse({ discount_price_aed: "150" }),
+      makePricingResponse({ price_aed: "200.00", discount_price_aed: "150.000" }),
     );
 
     await __enrichProductPricingForTest(TEST_CONFIG);
@@ -327,6 +328,8 @@ describe("enrichProductPricingFromOs — AED-only discount", () => {
     expect(map.has("301")).toBe(true);
     const entry = map.get("301")!;
     expect(entry.discountPriceAed).toBe(150);
+    expect(entry.priceAedExact).toBe("200.00");
+    expect(entry.discountPriceAedExact).toBe("150.000");
     expect(entry.discountPriceUsd).toBeNull();
     expect(entry.regularPriceUsd).toBeNull();
   });
@@ -338,7 +341,7 @@ describe("enrichProductPricingFromOs — AED-only discount", () => {
     await fetchAndStoreForTesting();
 
     vi.mocked(fetch).mockResolvedValue(
-      makePricingResponse({ regular_price: "90", sale_price: "70", discount_price_aed: "260" }),
+      makePricingResponse({ regular_price: "90", sale_price: "70", price_aed: "300", discount_price_aed: "260" }),
     );
 
     await __enrichProductPricingForTest(TEST_CONFIG);
@@ -348,6 +351,52 @@ describe("enrichProductPricingFromOs — AED-only discount", () => {
     expect(entry.discountPriceUsd).toBe(70);
     expect(entry.discountPriceAed).toBe(260);
     expect(entry.regularPriceUsd).toBe(90);
+    expect(entry.priceAed).toBe(300);
+  });
+});
+
+describe("enrichProductPricingFromOs — native AED regular price", () => {
+  it("stores price_aed even without a discount, accepting the camelCase wire variant", async () => {
+    vi.mocked(fetchOsProducts).mockResolvedValue({
+      products: [makeProduct("native-aed", 303)],
+    });
+    await fetchAndStoreForTesting();
+    vi.mocked(fetch).mockResolvedValue(makePricingResponse({ priceAed: "100.125" }));
+
+    await __enrichProductPricingForTest(TEST_CONFIG);
+
+    const entry = getOsProductPricingMap().get("303")!;
+    expect(entry.priceAed).toBe(100.125);
+    expect(entry.priceAedExact).toBe("100.125");
+    expect(entry.discountPriceUsd).toBeNull();
+    expect(entry.discountPriceAed).toBeNull();
+  });
+});
+
+describe("enrichProductPricingFromOs — strict native AED validation", () => {
+  it("rejects malformed native amounts and non-active AED sales", async () => {
+    vi.mocked(fetchOsProducts).mockResolvedValue({
+      products: [makeProduct("invalid-native-aed", 304)],
+    });
+    await fetchAndStoreForTesting();
+    vi.mocked(fetch).mockResolvedValue(
+      makePricingResponse({ price_aed: " 100.00", discount_price_aed: "1e1" }),
+    );
+    await __enrichProductPricingForTest(TEST_CONFIG);
+    expect(getOsProductPricingMap().has("304")).toBe(false);
+
+    vi.mocked(fetchOsProducts).mockResolvedValue({
+      products: [makeProduct("inactive-native-sale", 305)],
+    });
+    await fetchAndStoreForTesting();
+    vi.mocked(fetch).mockResolvedValue(
+      makePricingResponse({ price_aed: "100.125", discount_price_aed: "100.125" }),
+    );
+    await __enrichProductPricingForTest(TEST_CONFIG);
+    const entry = getOsProductPricingMap().get("305")!;
+    expect(entry.priceAedExact).toBe("100.125");
+    expect(entry.discountPriceAedExact).toBeNull();
+    expect(entry.discountPriceAed).toBeNull();
   });
 });
 

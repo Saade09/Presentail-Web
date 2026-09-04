@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { getOsProducts } from "../lib/osProductsCache";
 import type { OSProduct } from "@workspace/presentail-os";
+import { resolveNativeAedPrices } from "@workspace/presentail-os";
 import { checkAdminToken } from "../lib/admin-auth";
 
 // Market → storeKeys + currency + ISO country code (for deliverability filtering)
@@ -185,7 +186,18 @@ export function buildFeedData(
       continue;
     }
 
-    if (!product.price || product.price <= 0) {
+    // UAE pricing is OS-native AED only. Do not quietly derive an AED amount
+    // from the USD catalog price, as that can publish a price OS does not sell.
+    const nativeAed = currency === "AED"
+      ? resolveNativeAedPrices(product.priceAed, product.discount_price_aed)
+      : null;
+    const nativeAedPrice = nativeAed?.priceAedExact ?? null;
+    if (currency === "AED" && nativeAedPrice === null) {
+      exclusions.push({ slug, reason: "missing or invalid AED price" });
+      continue;
+    }
+
+    if (currency !== "AED" && (!product.price || product.price <= 0)) {
       exclusions.push({ slug, reason: "missing or zero price" });
       continue;
     }
@@ -197,6 +209,41 @@ export function buildFeedData(
 
     const rawDesc = product.description ? stripHtml(product.description) : "";
     const description = (rawDesc || product.name).slice(0, 5000);
+
+    // UAE uses the OS native regular AED price verbatim. Lebanon remains a
+    // direct USD feed and Cyprus retains the existing USD conversion.
+    if (currency === "AED") {
+      const salePrice = nativeAed?.discountPriceAedExact == null
+        ? null
+        : `${nativeAed.discountPriceAedExact} AED`;
+      const brandName = product.brands?.[0]?.name || "Presentail";
+      const gmcCategory = getGmcCategory(product.categories);
+      const primaryCategoryName = product.categories[0]?.name ?? "";
+      const primaryOccasionName = product.occasions?.[0]?.name ?? "";
+      const productType = [primaryCategoryName, primaryOccasionName]
+        .filter(Boolean)
+        .join(" > ");
+      const canonicalLink = `${SITE_ORIGIN}/${localePrefix}/${defaultCity}/product/${encodeURIComponent(slug)}`;
+      items.push({
+        slug,
+        title: product.name.trim(),
+        description,
+        link: canonicalLink,
+        imageLink: ensureAbsoluteHttps(imageUrl),
+        additionalImages: additionalImages.map(ensureAbsoluteHttps).filter(Boolean),
+        availability: "in stock",
+        price: `${nativeAedPrice} AED`,
+        salePrice,
+        brand: brandName,
+        condition: "new",
+        googleProductCategory: gmcCategory,
+        productType,
+        customLabel0: market,
+        customLabel1: primaryCategoryName,
+        customLabel2: primaryOccasionName,
+      });
+      continue;
+    }
 
     // Resolve the base (regular) price in USD.
     // Prefer OS-native regular_price when present and valid; fall back to product.price.
@@ -210,8 +257,7 @@ export function buildFeedData(
     //   1. OS-native sale_price (explicit field, USD), if valid and < regular_price.
     //   2. product.price (WC active selling price), if < regular_price — handles the
     //      common case where the OS omits sale_price but already sets price=sale price.
-    //   3. AED-native discount_price_aed (legacy, AED feed only).
-    //   4. Legacy discount_price_usd (USD, converted to feed currency).
+    //   3. Legacy discount_price_usd (USD, converted to feed currency).
     let salePrice: string | null = null;
 
     if (hasRegularPrice) {
@@ -231,14 +277,7 @@ export function buildFeedData(
     // Paths 3 & 4: legacy discount fields — used when regular_price is absent
     // OR when it was present but yielded no valid sale price.
     if (salePrice === null) {
-      if (currency === "AED" && product.discount_price_aed) {
-        // AED-native discount price — compare against the AED-equivalent base price.
-        const discountAed = parseFloat(product.discount_price_aed);
-        const baseAed = basePriceUsd * (USD_RATE["AED"] ?? 1);
-        if (!isNaN(discountAed) && discountAed > 0 && discountAed < baseAed) {
-          salePrice = `${discountAed.toFixed(2)} AED`;
-        }
-      } else if (product.discount_price_usd) {
+      if (product.discount_price_usd) {
         // Legacy USD discount — compare against the USD base price, then convert.
         const discountUsd = parseFloat(product.discount_price_usd);
         if (!isNaN(discountUsd) && discountUsd > 0 && discountUsd < basePriceUsd) {
@@ -384,7 +423,7 @@ feedsRouter.get(
   "/google-merchant/:marketFile",
   (req: Request, res: Response) => {
     const marketFile = String(req.params["marketFile"] ?? "");
-    const market = marketFile.replace(/\.xml$/i, "").toLowerCase();
+    const market = String(req.query.market ?? "lb").toLowerCase();
 
     // The UAE Merchant Center account is fed exclusively by OS-managed API
     // data sources. This legacy XML endpoint is intentionally retired so it
@@ -403,12 +442,9 @@ feedsRouter.get(
 
     const config = MARKET_CONFIG[market];
     if (!config) {
-      res
-        .status(404)
-        .type("text/plain")
-        .send(
-          `Unknown market: ${market}. Supported markets: ${Object.keys(MARKET_CONFIG).join(", ")}`, // i18n-ignore — internal API error, not user-facing
-        );
+      res.status(400).json({
+        error: `Unknown market: ${market}. Supported: ${Object.keys(MARKET_CONFIG).join(", ")}`, // i18n-ignore — internal API error, not user-facing
+      });
       return;
     }
 

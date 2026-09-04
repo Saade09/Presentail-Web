@@ -84,6 +84,71 @@ describe("entity route slug extraction", () => {
 });
 
 describe("injectSeoTagsAsync — /product/<slug>", () => {
+  it("uses one native AED sale amount across crawler body, OG metadata and Offer", () => {
+    const result = buildProductHead({
+      product: {
+        id: "native-aed",
+        name: "Native AED",
+        description: "",
+        priceValue: 65,
+        priceAedExact: "241.75",
+        discountPriceValue: 40,
+        discountPriceAedExact: "140.25",
+        inStock: true,
+      },
+      lang: "en", basePath: "", origin: "https://presentail.test",
+      pathname: "/en-ae/dubai/product/native-aed", countryCode: "AE",
+      country: "ae", city: "dubai", productPriceCurrencyOverride: "AED",
+    });
+    expect(result.headSnippet).toContain('product:price:amount" content="140.25"');
+    expect(result.headSnippet).toContain('"price":"140.25","priceCurrency":"AED"');
+    expect(result.bodyHtml).toContain("From 140.25 AED");
+    expect(result.headSnippet).not.toContain("145.00");
+  });
+
+  it("does not synthesize an AED crawler price when priceAed is missing", () => {
+    const result = buildProductHead({
+      product: { id: "no-aed", name: "No AED", description: "", priceValue: 65, inStock: true },
+      lang: "en", basePath: "", origin: "https://presentail.test",
+      pathname: "/en-ae/dubai/product/no-aed", countryCode: "AE",
+      country: "ae", city: "dubai", productPriceCurrencyOverride: "AED",
+    });
+    expect(result.headSnippet).not.toContain("product:price:amount");
+    expect(result.bodyHtml).not.toContain("From ");
+  });
+
+  it("rejects malformed native AED and sale values not below regular", () => {
+    const base = {
+      id: "invalid-aed", name: "Invalid AED", description: "", priceValue: 65, inStock: true,
+      priceAedExact: "241.75", discountPriceAedExact: "241.75",
+    };
+    const result = buildProductHead({
+      product: base, lang: "en", basePath: "", origin: "https://presentail.test",
+      pathname: "/en-ae/dubai/product/invalid-aed", countryCode: "AE",
+      country: "ae", city: "dubai", productPriceCurrencyOverride: "AED",
+    });
+    expect(result.headSnippet).toContain('content="241.75"');
+    expect(result.headSnippet).not.toContain('content="241.75".*discount');
+    const malformed = buildProductHead({
+      product: { ...base, priceAedExact: "241.7x" }, lang: "en", basePath: "", origin: "https://presentail.test",
+      pathname: "/en-ae/dubai/product/invalid-aed", countryCode: "AE",
+      country: "ae", city: "dubai", productPriceCurrencyOverride: "AED",
+    });
+    expect(malformed.headSnippet).not.toContain("product:price:amount");
+  });
+
+  it("uses direct USD sale amount for Lebanon crawler presentation", () => {
+    const result = buildProductHead({
+      product: { id: "lb-sale", name: "LB Sale", description: "", priceValue: 65, discountPriceValue: 40, inStock: true },
+      lang: "en", basePath: "", origin: "https://presentail.test",
+      pathname: "/en-lb/beirut/product/lb-sale", countryCode: "LB",
+      country: "lb", city: "beirut", productPriceCurrencyOverride: "USD",
+    });
+    expect(result.headSnippet).toContain('product:price:amount" content="40.00"');
+    expect(result.headSnippet).toContain('"price":"40.00","priceCurrency":"USD"');
+    expect(result.bodyHtml).toContain("From 40.00 USD");
+  });
+
   it("uses product name, description, image and price when API returns the product", async () => {
     const fetchMock = mockFetchOnce({
       ok: true,

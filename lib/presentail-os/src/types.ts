@@ -195,6 +195,12 @@ export type OSProduct = {
   wcId?: number;
   name: string;
   price: number;
+  /**
+   * Authoritative regular price for UAE shoppers, in AED. This is kept as the
+   * OS decimal string so consumers that publish prices can avoid FX conversion
+   * and avoid changing the precision configured in OS.
+   */
+  priceAed?: string | null;
   description?: string;
   images: OSProductImage[];
   inStock: boolean;

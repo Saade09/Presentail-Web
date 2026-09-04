@@ -31,6 +31,8 @@ import {
   fetchOsCategories,
   fetchOsCatalogAttributesBrands,
   fetchOsOccasions,
+  parsePositivePlainDecimal,
+  resolveNativeAedPrices,
   type PresentailOsConfig,
 } from "@workspace/presentail-os";
 import type {
@@ -188,6 +190,12 @@ let cachedOccasionProductCountsByCountry: Map<string, Map<string, number>> = new
 export type ProductPricingEntry = {
   discountPriceUsd: number | null;
   discountPriceAed: number | null;
+  /** Exact validated OS decimal, including configured trailing zeros. */
+  priceAedExact?: string | null;
+  /** Exact active AED sale decimal, including configured trailing zeros. */
+  discountPriceAedExact?: string | null;
+  /** Authoritative OS regular price in AED; never derived from USD. */
+  priceAed?: number | null;
   /** Non-null when the modern regular_price/sale_price scheme is active. */
   regularPriceUsd: number | null;
 };
@@ -889,8 +897,8 @@ function parseOsPriceField(v: unknown): number | null {
 /**
  * After each successful store-cache refresh, batch-fetches the single-product
  * OS endpoint for every unique product (by osNumericId) across all stores to
- * retrieve `regular_price`, `sale_price`, `discount_price_usd`, and
- * `discount_price_aed` — fields that the list endpoint omits.
+ * retrieve `regular_price`, `sale_price`, `discount_price_usd`,
+ * `discount_price_aed`, and `price_aed` — fields that the list endpoint omits.
  *
  * Results are stored in `cachedProductPricing` (keyed by osNumericId string).
  * Only products with an active discount are stored.
@@ -974,11 +982,30 @@ async function enrichProductPricingFromOs(config: PresentailOsConfig): Promise<v
         } else {
           discountPriceUsd = parseOsPriceField(p["discount_price_usd"]);
         }
-        const discountPriceAed = parseOsPriceField(p["discount_price_aed"]);
+        const priceAedRaw = p["price_aed"] ?? p["priceAed"];
+        const { priceAedExact, discountPriceAedExact } = resolveNativeAedPrices(
+          priceAedRaw,
+          p["discount_price_aed"] ?? p["discountPriceAed"],
+        );
+        const priceAed = priceAedExact === null ? null : Number(priceAedExact);
+        // Preserve the legacy AED discount for non-native catalog entries.
+        // When a native regular price exists, however, only expose an active
+        // native sale that is strictly below that exact regular amount.
+        const discountPriceAed = priceAedRaw == null
+          ? parseOsPriceField(p["discount_price_aed"])
+          : discountPriceAedExact === null ? null : Number(discountPriceAedExact);
 
-        // Only store when there is an active discount (keeps the map small).
-        if (discountPriceUsd != null || discountPriceAed != null) {
-          newPricing.set(id, { discountPriceUsd, discountPriceAed, regularPriceUsd });
+        // Keep native AED regular prices too: UAE must never synthesize its
+        // selling price from USD when the OS has an authoritative AED value.
+        if (discountPriceUsd != null || discountPriceAed != null || priceAed != null) {
+          newPricing.set(id, {
+            discountPriceUsd,
+            discountPriceAed,
+            priceAed,
+            priceAedExact,
+            discountPriceAedExact,
+            regularPriceUsd,
+          });
         }
       } catch {
         // Individual failures are silently skipped; the overall error handler at

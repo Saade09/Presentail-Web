@@ -10,6 +10,14 @@ import "./index.css";
 installChunkReloadHandlers();
 
 const LOCATION_STORAGE_KEY = "presentail_delivery_location_v1";
+const crawlerProductCurrency = document
+  .querySelector("[data-seo-product-currency]")
+  ?.getAttribute("data-seo-product-currency");
+// The SEO fallback lives inside #root and is cleared by createRoot. Promote
+// the narrowly scoped crawler setting before React replaces that fallback.
+if (crawlerProductCurrency === "AED" || crawlerProductCurrency === "USD") {
+  document.documentElement.dataset.seoProductCurrency = crawlerProductCurrency;
+}
 
 setCustomHeadersGetter(() => {
   const headers: Record<string, string> = {};

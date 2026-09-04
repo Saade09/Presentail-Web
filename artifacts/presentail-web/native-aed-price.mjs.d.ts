@@ -1,0 +1,2 @@
+export function isExactAedDecimal(value: unknown): value is string;
+export function resolveExactAedPrice(regular: unknown, sale: unknown): { regular: string; sale: string | null; selling: string } | null;

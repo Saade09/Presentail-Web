@@ -6,9 +6,11 @@
  * tests catch that before it reaches production.
  */
 
+import express from "express";
+import request from "supertest";
 import { describe, it, expect, vi } from "vitest";
 import type { OSProduct } from "@workspace/presentail-os";
-import { mapOsProductToWcShape, transformProduct } from "./woo";
+import wooRouter, { mapOsProductToWcShape, transformProduct } from "./woo";
 
 // ── Module mocks ─────────────────────────────────────────────────────────────
 // woo.ts imports a number of side-effectful modules; mock them all so the file
@@ -55,6 +57,16 @@ vi.mock("../lib/osProductsCache", () => ({
   getOsBrands: vi.fn(),
   getOsOccasions: vi.fn(),
   getOsProductBySlug: vi.fn(),
+  getOsProductPricingMap: vi.fn(() => new Map()),
+}));
+
+vi.mock("../lib/productSocialShareStore", () => ({
+  getProductSocialShare: vi.fn().mockResolvedValue(null),
+  rowToProductSocialOverrides: vi.fn(() => null),
+}));
+vi.mock("../lib/productSocialShare", () => ({
+  buildProductSocialVersion: vi.fn(() => "test"),
+  selectProductSocialImage: vi.fn(() => null),
 }));
 
 vi.mock("../lib/logger", () => ({
@@ -80,6 +92,11 @@ function makeOsProduct(overrides: Partial<OSProduct> = {}): OSProduct {
 // ── mapOsProductToWcShape — discount field tests ──────────────────────────────
 
 describe("mapOsProductToWcShape — discount fields", () => {
+  it("passes through the authoritative AED regular price", () => {
+    const wc = mapOsProductToWcShape(makeOsProduct({ priceAed: "100.125" }));
+    expect(wc.priceAed).toBe(100.125);
+  });
+
   it("passes through a valid USD discount price", () => {
     const p = makeOsProduct({ discount_price_usd: "20" });
     const wc = mapOsProductToWcShape(p);
@@ -227,6 +244,20 @@ describe("transformProduct — discount fields", () => {
     expect(result.discountPriceAed).toBe(73.5);
   });
 
+  it("passes the AED regular price through from WcProduct", () => {
+    const result = transformProduct({
+      id: 0,
+      slug: "test-slug",
+      price: "25",
+      priceAed: 100.125,
+      name: "Test Product",
+      stock_status: "instock",
+      images: [],
+      categories: [],
+    });
+    expect(result.priceAed).toBe(100.125);
+  });
+
   it("passes both discount fields through when both are set", () => {
     const wc = {
       id: 0,
@@ -287,6 +318,43 @@ describe("transformProduct — discount fields", () => {
     const result = transformProduct(wc);
     expect(result.discountPriceValue).toBeNull();
     expect(result.discountPriceAed).toBeNull();
+  });
+});
+
+describe("GET /api/woo/product — pricing enrichment", () => {
+  it("returns exact native AED regular and active-sale values from the pricing map", async () => {
+    const cache = await import("../lib/osProductsCache");
+    const wooStore = await import("../lib/wooStore");
+    vi.mocked(wooStore.resolveStoreFromRequest).mockReturnValue({
+      storeKey: "dubai",
+      currencySymbol: "AED",
+    } as never);
+    vi.mocked(cache.getOsProductBySlug).mockReturnValue(makeOsProduct({
+      id: "native-aed",
+      osNumericId: 991,
+      priceAed: "100.125",
+      discount_price_aed: "99.000",
+      images: [{ url: "https://example.com/a.jpg" }],
+    }));
+    vi.mocked(cache.getOsProductPricingMap).mockReturnValue(new Map([["991", {
+      regularPriceUsd: null,
+      discountPriceUsd: null,
+      priceAed: 100.125,
+      priceAedExact: "100.1250",
+      discountPriceAed: 99,
+      discountPriceAedExact: "99.000",
+    }]]));
+    const app = express();
+    app.use("/api", wooRouter);
+
+    const response = await request(app).get("/api/woo/product?slug=native-aed");
+    expect(response.status).toBe(200);
+    expect(response.body.product).toMatchObject({
+      priceAed: 100.125,
+      priceAedExact: "100.1250",
+      discountPriceAed: 99,
+      discountPriceAedExact: "99.000",
+    });
   });
 });
 

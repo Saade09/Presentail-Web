@@ -22,6 +22,7 @@ import {
   expressSurchargeForCountry,
 } from "@workspace/delivery";
 import { roundToNearestFive } from "@workspace/display-currency";
+import { resolveExactAedPrice } from "./native-aed-price.mjs";
 import { WindowedKeyRateLimiter } from "./server-analytics-policy.mjs";
 
 // Hub city per country — only these pages emit the LocalBusiness organisation
@@ -1899,7 +1900,7 @@ function buildGenericBodyHtml(routeKey, { h1, description, localeBase, faqItems 
   );
 }
 
-function buildProductBodyHtml(product, { title, description, localeBase, imageUrl, cityLabel = "", lang, country, city }) {
+function buildProductBodyHtml(product, { title, description, localeBase, imageUrl, cityLabel = "", lang, country, city, pricePresentation = null, productPriceCurrencyOverride = null }) {
   const rawName = typeof product.name === "string" ? product.name.trim() : "";
   const safeTitle = escapeHtml(rawName || title);
   const rawDesc = typeof product.description === "string"
@@ -1918,14 +1919,15 @@ function buildProductBodyHtml(product, { title, description, localeBase, imageUr
 
   // Availability + price in a single <p> so crawlers see stock status with
   // the price rather than an ambiguous price-only line.
-  const hasPrice =
-    typeof product.priceValue === "number" &&
-    Number.isFinite(product.priceValue) &&
-    product.priceValue > 0;
+  const hasPrice = pricePresentation
+    ? pricePresentation.amount != null
+    : typeof product.priceValue === "number" &&
+      Number.isFinite(product.priceValue) &&
+      product.priceValue > 0;
   const inStock = product.inStock !== false; // default to in-stock when field is absent
   // i18n-ignore — availability and price labels in crawlers-only body
   const availabilityHtml = hasPrice
-    ? `<p>From $${escapeHtml(product.priceValue.toFixed(2))} USD — ${inStock ? "In Stock" : "Out of Stock"}</p>` // i18n-ignore
+    ? `<p>From ${escapeHtml(pricePresentation ? `${pricePresentation.amount} ${pricePresentation.currency}` : `$${product.priceValue.toFixed(2)} USD`)} — ${inStock ? "In Stock" : "Out of Stock"}</p>` // i18n-ignore
     : (inStock ? "" : `<p>Out of Stock</p>`); // i18n-ignore
 
   // City delivery note — emitted only when a city is known so city-less
@@ -1990,7 +1992,10 @@ function buildProductBodyHtml(product, { title, description, localeBase, imageUr
     }
   }
 
-  return `<h1>${safeTitle}</h1><div>${imgHtml}${brandHtml}${availabilityHtml}${cityDeliveryHtml}${detailsHeading}${safeDesc ? `<p>${safeDesc}</p>` : ""}${deliveryNote}${nav}</div>${noscriptNav}`;
+  const currencyMarker = productPriceCurrencyOverride
+    ? `<i data-seo-product-currency="${escapeAttr(productPriceCurrencyOverride)}" hidden></i>`
+    : "";
+  return `${currencyMarker}<h1>${safeTitle}</h1><div>${imgHtml}${brandHtml}${availabilityHtml}${cityDeliveryHtml}${detailsHeading}${safeDesc ? `<p>${safeDesc}</p>` : ""}${deliveryNote}${nav}</div>${noscriptNav}`;
 }
 
 function buildSimpleEntityBodyHtml(entity, { title, description, localeBase }) {
@@ -3995,6 +4000,7 @@ export function buildProductHead({
   country,
   city,
   ogImageUrl,
+  productPriceCurrencyOverride,
 }) {
   const rawName = typeof product.name === "string" ? product.name.trim() : "";
   const rawDesc =
@@ -4050,19 +4056,42 @@ export function buildProductHead({
     (countryCode && COUNTRY_CURRENCY[String(countryCode).toUpperCase()]) || "USD";
   const marketFx =
     (countryCode && COUNTRY_FX[String(countryCode).toUpperCase()]) || 1;
+  // Google product crawls use the native market selling amount. In particular,
+  // AED is never FX-derived: absent priceAed intentionally means no AED Offer.
+  // Keep the historical FX presentation for callers without this narrow
+  // request-boundary override.
+  const nativeOverride = productPriceCurrencyOverride === "AED" || productPriceCurrencyOverride === "USD"
+    ? productPriceCurrencyOverride
+    : null;
+  const exactAed = resolveExactAedPrice(product.priceAedExact, product.discountPriceAedExact);
+  const usdSale = Number(product.discountPriceValue);
+  const usdRegular = Number(product.priceValue);
+  const sellingNumber = nativeOverride === "AED"
+    ? (exactAed?.selling ?? null)
+    : nativeOverride === "USD"
+      ? (usdSale > 0 ? usdSale : usdRegular > 0 ? usdRegular : null)
+      : (usdRegular > 0 ? roundToNearestFive(usdRegular * marketFx, marketCurrency) : null);
+  const presentationCurrency = nativeOverride ?? marketCurrency;
+  const sellingAmount = sellingNumber == null
+    ? null
+    : nativeOverride === "AED"
+      ? sellingNumber
+      : sellingNumber.toFixed(2);
+  // Retain an explicit null presentation for an overridden AED response: it
+  // tells the body builder not to fall back to a synthetic USD/AED amount.
+  const pricePresentation = sellingAmount == null
+    ? (nativeOverride ? { amount: null, currency: presentationCurrency } : null)
+    : { amount: sellingAmount, currency: presentationCurrency };
 
   const extraLines = [];
   if (
     inStock &&
-    typeof product.priceValue === "number" &&
-    Number.isFinite(product.priceValue) &&
-    product.priceValue > 0
+    sellingAmount != null
   ) {
-    const marketPrice = roundToNearestFive(product.priceValue * marketFx, marketCurrency);
     extraLines.push(
-      `<meta property="product:price:amount" content="${escapeAttr(marketPrice.toFixed(2))}" />`,
+      `<meta property="product:price:amount" content="${escapeAttr(sellingAmount)}" />`,
     );
-    extraLines.push(`<meta property="product:price:currency" content="${escapeAttr(marketCurrency)}" />`);
+    extraLines.push(`<meta property="product:price:currency" content="${escapeAttr(presentationCurrency)}" />`);
   }
 
   // Canonical product URL (no query string) — reused for the Product `url`,
@@ -4111,10 +4140,7 @@ export function buildProductHead({
   // and to prevent stale-price penalties from cached structured data.
   // availability mirrors the lifecycle state: sold-out and seasonal products
   // keep their page alive but emit OutOfStock.
-  const hasPrice =
-    typeof product.priceValue === "number" &&
-    Number.isFinite(product.priceValue) &&
-    product.priceValue > 0;
+  const hasPrice = sellingAmount != null;
 
   // priceValidUntil: 30 days from now, ISO 8601 date (YYYY-MM-DD).
   const priceValidUntilDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
@@ -4200,8 +4226,8 @@ export function buildProductHead({
       ? {
           offers: {
             "@type": "Offer",
-            price: roundToNearestFive(product.priceValue * marketFx, marketCurrency).toFixed(2),
-            priceCurrency: marketCurrency,
+            price: sellingAmount,
+            priceCurrency: presentationCurrency,
             priceValidUntil,
             availability: schemaAvailability,
             itemCondition: "https://schema.org/NewCondition",
@@ -4258,6 +4284,8 @@ export function buildProductHead({
     lang,
     country,
     city,
+    pricePresentation,
+    productPriceCurrencyOverride: nativeOverride,
   });
   // When a pre-generated branded OG image URL is provided use fixed 1200×630
   // dimensions (no need to probe the URL with a Range request).
@@ -5452,6 +5480,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
           basePath: rest.basePath ?? "",
           origin: rest.origin ?? "",
           pathname,
+          productPriceCurrencyOverride: rest.productPriceCurrencyOverride,
         });
         return assembleHtml(html, {
           lang: bareProductLang,
@@ -5769,6 +5798,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
     countryCode,
     country: parsed.country,
     city: parsed.city,
+    productPriceCurrencyOverride: rest.productPriceCurrencyOverride,
   };
 
   // Base public origin used to build OG image API URLs. The og:image tag must

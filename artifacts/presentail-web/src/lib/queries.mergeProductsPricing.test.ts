@@ -102,6 +102,19 @@ describe("mergeProductsPricing — modern regular_price / sale_price scheme", ()
     expect(result[0].discountPriceValue).toBe(55);
     expect(result[0].discountPriceAed).toBe(200);
   });
+
+  it("carries exact native AED regular and active sale strings into hydrated list products", () => {
+    const result = merge([makeProduct({ osNumericId: 103 })], {
+      "103": {
+        discountPriceUsd: 40, discountPriceAed: 140.125, regularPriceUsd: 65,
+        priceAed: 241.750, priceAedExact: "0241.750", discountPriceAedExact: "0140.125",
+      },
+    });
+    expect(result[0]).toMatchObject({
+      priceAedExact: "0241.750",
+      discountPriceAedExact: "0140.125",
+    });
+  });
 });
 
 describe("catalog readiness retry policy", () => {

@@ -16,6 +16,7 @@ import type {
   OSAddressBookPlace,
   OSAddressBookPlacesResponse,
 } from "./types";
+import { parsePositivePlainDecimal } from "./pricing";
 
 const DEFAULT_BASE_URL = "https://os.presentail.com";
 const DEFAULT_WORKSPACE = "presentail";
@@ -468,6 +469,8 @@ type RawOSProduct = Omit<OSProduct, "id" | "hasInputField"> & {
   hasInputField?: boolean;
   has_letter_field?: boolean;
   hasLetterField?: boolean;
+  /** OS deployments have used both spellings on the wire. */
+  price_aed?: string | null;
 };
 
 type RawOSProductsResponse = Omit<OSProductsResponse, "products"> & {
@@ -504,6 +507,7 @@ function normaliseProduct(raw: RawOSProduct): NormalisedProduct {
     _rawNumericId: raw.id,
     hasInputField: raw.has_input_field ?? raw.hasInputField ?? false,
     hasLetterField: raw.has_letter_field ?? raw.hasLetterField ?? false,
+    priceAed: parsePositivePlainDecimal(raw.price_aed ?? raw.priceAed),
   };
 }
 

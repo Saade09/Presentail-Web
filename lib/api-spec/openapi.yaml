@@ -3583,6 +3583,18 @@ components:
           type: number
           nullable: true
           description: Active sale price in AED. Null when no AED discount is set.
+        priceAed:
+          type: number
+          nullable: true
+          description: Authoritative OS regular price in AED. Never derived from USD.
+        priceAedExact:
+          type: string
+          nullable: true
+          description: Exact authoritative OS AED decimal, preserving trailing zeros.
+        discountPriceAedExact:
+          type: string
+          nullable: true
+          description: Exact active OS AED sale decimal, preserving trailing zeros.
       required:
         - id
         - name
@@ -4108,6 +4120,18 @@ components:
         discountPriceAed:
           type: number
           nullable: true
+        priceAed:
+          type: number
+          nullable: true
+          description: Authoritative OS regular price in AED. Never derived from USD.
+        priceAedExact:
+          type: string
+          nullable: true
+          description: Exact authoritative OS AED decimal, preserving trailing zeros.
+        discountPriceAedExact:
+          type: string
+          nullable: true
+          description: Exact active OS AED sale decimal, preserving trailing zeros.
         isBestSeller:
           type: boolean
           description: Whether this product is in the top 20 by total sales across all stores.

@@ -3,6 +3,8 @@ import { useFxRates } from "@/lib/queries";
 import { DirhamSymbol } from "./DirhamSymbol";
 import { RiyalSymbol } from "./RiyalSymbol";
 import { roundToNearestFive } from "@workspace/display-currency";
+// @ts-expect-error Root server/client shared JS module has no TS package entry.
+import { isExactAedDecimal } from "../../native-aed-price.mjs";
 
 function aedNumStr(usdValue: number, rates: Record<string, number>): string {
   const v = Number(usdValue) || 0;
@@ -20,6 +22,9 @@ function sarNumStr(usdValue: number, rates: Record<string, number>): string {
 
 type Props = {
   usdValue: number;
+  /** OS-native AED regular price, used exactly when AED is active. */
+  priceAed?: number | null;
+  priceAedExact?: string | null;
   className?: string;
   symbolSize?: number | string;
   currencyCodeOverride?: string;
@@ -44,6 +49,8 @@ type Props = {
  */
 export function FormattedPrice({
   usdValue,
+  priceAed,
+  priceAedExact,
   className,
   symbolSize = "0.75em",
   currencyCodeOverride,
@@ -54,6 +61,17 @@ export function FormattedPrice({
   const rates = (fxData?.rates ?? {}) as Record<string, number>;
 
   if (currencyCode === "AED") {
+    if (isExactAedDecimal(priceAedExact)) {
+      return <span style={{ whiteSpace: "nowrap" }} className={className}><DirhamSymbol size={symbolSize} />{priceAedExact}</span>;
+    }
+    if (priceAed != null && priceAed > 0) {
+      return (
+        <span style={{ whiteSpace: "nowrap" }} className={className}>
+          <DirhamSymbol size={symbolSize} />
+          {priceAed.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
+        </span>
+      );
+    }
     const rate = Number((rates as Record<string, number>)["AED"] ?? 0);
     if (rate > 0) {
       return (

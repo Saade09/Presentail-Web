@@ -43,10 +43,14 @@ export type Product = {
   name: string;
   price: string;
   priceValue: number;
+  /** Native AED regular price. Never derive this from USD for AED presentation. */
+  priceAed?: number | null;
+  priceAedExact?: string | null;
   /** Parsed discount price in USD. Null/undefined means no active discount. */
   discountPriceValue?: number | null;
   /** Parsed discount price in AED. Use directly for AED shoppers when available. */
   discountPriceAed?: number | null;
+  discountPriceAedExact?: string | null;
   image: { uri: string } | null;
   images?: { uri: string }[];
   category: string;
@@ -230,6 +234,9 @@ type ProductsPricingMap = Record<string, {
   discountPriceUsd: number | null;
   discountPriceAed: number | null;
   regularPriceUsd: number | null;
+  priceAed?: number | null;
+  priceAedExact?: string | null;
+  discountPriceAedExact?: string | null;
 }>;
 
 async function fetchProductsPricing(): Promise<ProductsPricingMap> {
@@ -278,6 +285,9 @@ function mergeProductsPricing(products: Product[], pricing: ProductsPricingMap):
       // regularPriceUsd is the crossed-out "was" price when the modern
       // regular_price/sale_price scheme is active on this product.
       priceValue: entry.regularPriceUsd != null ? entry.regularPriceUsd : p.priceValue,
+      ...(entry.priceAed != null ? { priceAed: entry.priceAed } : {}),
+      ...(entry.priceAedExact != null ? { priceAedExact: entry.priceAedExact } : {}),
+      ...(entry.discountPriceAedExact != null ? { discountPriceAedExact: entry.discountPriceAedExact } : {}),
       discountPriceValue: entry.discountPriceUsd,
       discountPriceAed: entry.discountPriceAed,
     };

@@ -67,6 +67,13 @@ function setMeta(selector: string, attrs: Record<string, string>, parent: HTMLEl
 }
 
 export default function ProductDetail() {
+  // This marker is emitted only for the narrowly identified Google crawlers
+  // on a product response. It preserves server/body/Offer price parity during
+  // hydration without changing human currency precedence elsewhere.
+  const crawlerProductCurrencyOverride =
+    typeof document !== "undefined"
+      ? document.documentElement.dataset.seoProductCurrency
+      : undefined;
   const [, params] = useRoute("/product/:slug");
   const slug = params?.slug;
   const { t, language, cityName, countryName } = useLocale();
@@ -771,8 +778,12 @@ export default function ProductDetail() {
               price={
                 <SalePrice
                   priceValue={osPricing?.regularPriceUsd ?? product.priceValue}
+                  priceAed={osPricing?.priceAed ?? product.priceAed}
+                  priceAedExact={osPricing?.priceAedExact ?? product.priceAedExact}
                   discountPriceValue={osPricing?.discountPriceUsd ?? product.discountPriceValue}
                   discountPriceAed={osPricing?.discountPriceAed ?? product.discountPriceAed}
+                  discountPriceAedExact={osPricing?.discountPriceAedExact ?? product.discountPriceAedExact}
+                  currencyCodeOverride={crawlerProductCurrencyOverride}
                 />
               }
               taxLabel="TAX Inclusive"
@@ -1040,8 +1051,12 @@ export default function ProductDetail() {
                 ? <FormattedPrice usdValue={stickyTotalUsd} />
                 : <SalePrice
                     priceValue={osPricing?.regularPriceUsd ?? product.priceValue}
+                    priceAed={osPricing?.priceAed ?? product.priceAed}
+                    priceAedExact={osPricing?.priceAedExact ?? product.priceAedExact}
                     discountPriceValue={osPricing?.discountPriceUsd ?? product.discountPriceValue}
                     discountPriceAed={osPricing?.discountPriceAed ?? product.discountPriceAed}
+                    discountPriceAedExact={osPricing?.discountPriceAedExact ?? product.discountPriceAedExact}
+                    currencyCodeOverride={crawlerProductCurrencyOverride}
                   />
               }
             </span>

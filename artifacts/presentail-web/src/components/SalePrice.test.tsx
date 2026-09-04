@@ -61,11 +61,13 @@ function renderAed(
   discountPriceValue?: number | null,
   discountPriceAed?: number | null,
   aedRate = 3.67,
+  priceAed?: number | null,
 ) {
   mockUseFxRates.mockReturnValue({ data: { rates: { AED: aedRate } } });
   return renderWithProviders(
     <SalePrice
       priceValue={priceValue}
+      priceAed={priceAed}
       discountPriceValue={discountPriceValue}
       discountPriceAed={discountPriceAed}
     />,
@@ -194,6 +196,21 @@ describe("SalePrice — USD discount", () => {
 // ---------------------------------------------------------------------------
 
 describe("SalePrice — AED with native AED discount price", () => {
+  it("renders native regular and sale AED values exactly without FX rounding", () => {
+    renderAed(65, null, 140.25, 3.67, 241.75);
+    expect(screen.getByText(/140.25/)).toBeTruthy();
+    expect(document.querySelector(".line-through")!.textContent).toContain("241.75");
+  });
+
+  it("does not activate an exact AED sale that is not below its regular price", () => {
+    mockUseFxRates.mockReturnValue({ data: { rates: { AED: 3.67 } } });
+    renderWithProviders(
+      <SalePrice priceValue={65} priceAedExact="241.75" discountPriceAedExact="241.75" />,
+      { currency: { currencyCode: "AED", formatPrice: (v: number) => `$${v}` } },
+    );
+    expect(document.querySelector(".line-through")).toBeNull();
+    expect(document.body.textContent).toContain("241.75");
+  });
   it("honours an AED override when the visitor currency is USD", () => {
     mockUseFxRates.mockReturnValue({ data: { rates: { AED: 3.67 } } });
     renderWithProviders(

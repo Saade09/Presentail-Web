@@ -46,4 +46,18 @@ describe("OS product pricing identifiers", () => {
     });
     expect(fetchMock).toHaveBeenCalledWith("/api/woo/product-pricing/123");
   });
+
+  it("preserves valid exact proxy AED decimals and clears a non-lower sale", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ok: true, regularPriceUsd: 90, discountPriceUsd: 75, discountPriceAed: 330,
+        priceAedExact: "00330.000", discountPriceAedExact: "00330.000",
+      }),
+    }));
+    await expect(fetchOsProductPricing(123)).resolves.toMatchObject({
+      priceAedExact: "00330.000",
+      discountPriceAedExact: null,
+    });
+  });
 });

@@ -12,6 +12,8 @@ import type {
   OSProductOccasion,
   OSCatalogAttributeBrand,
 } from "@workspace/presentail-os";
+// @ts-expect-error Root server/client shared JS module has no TS package entry.
+import { resolveExactAedPrice } from "../../native-aed-price.mjs";
 
 const OS_BASE_URL = (import.meta.env.VITE_OS_API_URL as string | undefined) ?? "https://os.presentail.com";
 const OS_API_KEY = (import.meta.env.VITE_OS_API_KEY as string | undefined) ?? "";
@@ -48,6 +50,8 @@ type RawOsProduct = Omit<OSProduct, "id" | "hasInputField"> & {
   hasInputField?: boolean;
   has_letter_field?: boolean;
   hasLetterField?: boolean;
+  price_aed?: string | number | null;
+  priceAed?: string | number | null;
 };
 
 type RawOsProductsPage = {
@@ -92,6 +96,11 @@ function normaliseProduct(raw: RawOsProduct): OSProduct {
     osNumericId: isValidOsNumericId(raw.id) ? raw.id : undefined,
     hasInputField: raw.has_input_field ?? raw.hasInputField ?? false,
     hasLetterField: raw.has_letter_field ?? raw.hasLetterField ?? false,
+    // Canonicalize OS naming variants at the browser boundary. The mapper only
+    // consumes this canonical field.
+    priceAed: raw.priceAed == null && raw.price_aed == null
+      ? null
+      : String(raw.priceAed ?? raw.price_aed),
   };
 }
 
@@ -114,6 +123,9 @@ type OsProductDetail = {
     price?: string | number | null;
     discount_price_usd?: string | number | null;
     discount_price_aed?: string | number | null;
+    price_aed?: string | number | null;
+    discountPriceAed?: string | number | null;
+    priceAed?: string | number | null;
     regular_price?: string | number | null;
     sale_price?: string | number | null;
     [key: string]: unknown;
@@ -150,6 +162,9 @@ export async function fetchOsProductPricing(
 ): Promise<{
   discountPriceUsd: number | null;
   discountPriceAed: number | null;
+  priceAed?: number | null;
+  priceAedExact?: string | null;
+  discountPriceAedExact?: string | null;
   /** Non-null only when the modern regular_price/sale_price scheme is active. */
   regularPriceUsd: number | null;
 }> {
@@ -168,11 +183,17 @@ export async function fetchOsProductPricing(
       regularPriceUsd?: number | null;
       discountPriceUsd?: number | null;
       discountPriceAed?: number | null;
+      priceAed?: number | null;
+      priceAedExact?: string | null;
+      discountPriceAedExact?: string | null;
     };
+    const exact = resolveExactAedPrice(data.priceAedExact, data.discountPriceAedExact);
     return {
       regularPriceUsd: data.regularPriceUsd ?? null,
       discountPriceUsd: data.discountPriceUsd ?? null,
       discountPriceAed: data.discountPriceAed ?? null,
+      ...(data.priceAed != null ? { priceAed: data.priceAed } : {}),
+      ...(exact ? { priceAedExact: exact.regular, discountPriceAedExact: exact.sale } : {}),
     };
   }
 
@@ -184,6 +205,15 @@ export async function fetchOsProductPricing(
   const regularPriceRaw = parseOsPrice(p.regular_price);
   const salePriceRaw = parseOsPrice(p.sale_price);
   const priceRaw = parseOsPrice(p.price);
+  const nativePriceAed = p.price_aed ?? p.priceAed;
+  const nativeDiscountPriceAed =
+    p.discount_price_aed ?? p.discountPriceAed;
+  const exactAed = resolveExactAedPrice(
+    nativePriceAed,
+    nativeDiscountPriceAed,
+  );
+  const numericPriceAed = parseOsPrice(nativePriceAed);
+  const numericDiscountPriceAed = parseOsPrice(nativeDiscountPriceAed);
 
   // Modern scheme: regular_price is the crossed-out "was" price; derive discount.
   if (regularPriceRaw != null && regularPriceRaw > 0) {
@@ -196,7 +226,9 @@ export async function fetchOsProductPricing(
     return {
       regularPriceUsd: regularPriceRaw,
       discountPriceUsd,
-      discountPriceAed: parseOsPrice(p.discount_price_aed),
+      discountPriceAed: numericDiscountPriceAed,
+      ...(numericPriceAed != null ? { priceAed: numericPriceAed } : {}),
+      ...(exactAed ? { priceAedExact: exactAed.regular, discountPriceAedExact: exactAed.sale } : {}),
     };
   }
 
@@ -204,7 +236,9 @@ export async function fetchOsProductPricing(
   return {
     regularPriceUsd: null,
     discountPriceUsd: parseOsPrice(p.discount_price_usd),
-    discountPriceAed: parseOsPrice(p.discount_price_aed),
+    discountPriceAed: numericDiscountPriceAed,
+    ...(numericPriceAed != null ? { priceAed: numericPriceAed } : {}),
+    ...(exactAed ? { priceAedExact: exactAed.regular, discountPriceAedExact: exactAed.sale } : {}),
   };
 }
 

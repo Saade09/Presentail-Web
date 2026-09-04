@@ -135,11 +135,16 @@ import {
   getOsOccasions,
   getOsProductOccasions,
   getOsProductBySlug,
+  getOsProductPricingMap,
   getCachedBestSellerIds,
   getOsBrandNameToCanonicalSlug,
   normaliseBrandName,
 } from "../lib/osProductsCache";
-import type { OSProduct, OSCatalogAttributeBrand } from "@workspace/presentail-os";
+import {
+  resolveNativeAedPrices,
+  type OSProduct,
+  type OSCatalogAttributeBrand,
+} from "@workspace/presentail-os";
 import { getCustomerById } from "../lib/customers";
 
 const router: IRouter = Router();
@@ -171,6 +176,9 @@ type WcProduct = {
   osNumericId?: number | string;
   name?: string;
   price?: string;
+  /** Authoritative OS regular price in AED, passed through without FX. */
+  priceAed?: number | null;
+  priceAedExact?: string | null;
   short_description?: string;
   stock_status?: string;
   featured?: boolean;
@@ -186,6 +194,7 @@ type WcProduct = {
   personalisationRequired?: boolean;
   discountPriceValue?: number | null;
   discountPriceAed?: number | null;
+  discountPriceAedExact?: string | null;
   isBestSeller?: boolean;
 };
 
@@ -280,6 +289,7 @@ export function mapOsProductToWcShape(p: OSProduct): WcProduct {
     discountPriceValue = parseDiscountField(p.discount_price_usd);
   }
 
+  const nativeAed = resolveNativeAedPrices(p.priceAed, p.discount_price_aed);
   return {
     id: p.wcId ?? 0,
     // p.id is the slug (normalised by fetchOsProducts in lib/presentail-os).
@@ -287,6 +297,8 @@ export function mapOsProductToWcShape(p: OSProduct): WcProduct {
     osNumericId: p.osNumericId,
     name: decodeHtmlEntities(p.name),
     price: String(basePrice),
+    priceAed: nativeAed.priceAedExact === null ? null : Number(nativeAed.priceAedExact),
+    priceAedExact: nativeAed.priceAedExact,
     short_description: p.description,
     stock_status: p.inStock ? "instock" : "outofstock",
     featured: p.featured ?? false,
@@ -303,7 +315,10 @@ export function mapOsProductToWcShape(p: OSProduct): WcProduct {
     hasLetterField: p.hasLetterField ?? LETTER_INPUT_PRODUCT_NAMES.includes(p.name.toLowerCase().trim()),
     personalisationRequired: p.personalisationRequired ?? false,
     discountPriceValue,
-    discountPriceAed: parseDiscountField(p.discount_price_aed),
+    discountPriceAed: nativeAed.priceAedExact === null
+      ? parseDiscountField(p.discount_price_aed)
+      : nativeAed.discountPriceAedExact === null ? null : Number(nativeAed.discountPriceAedExact),
+    discountPriceAedExact: nativeAed.discountPriceAedExact,
     isBestSeller: p.isBestSeller ?? false,
   };
 }
@@ -532,6 +547,8 @@ export function transformProduct(p: WcProduct, currencySymbol = "$") {
     name: p.name ? decodeHtmlEntities(p.name) : "",
     price: formattedPrice,
     priceValue: price,
+    priceAed: p.priceAed ?? null,
+    priceAedExact: p.priceAedExact ?? null,
     image,
     images: imageList,
     category: mapCategory(p.categories ?? []),
@@ -555,6 +572,7 @@ export function transformProduct(p: WcProduct, currencySymbol = "$") {
     personalisationRequired: p.personalisationRequired ?? false,
     discountPriceValue: p.discountPriceValue ?? null,
     discountPriceAed: p.discountPriceAed ?? null,
+    discountPriceAedExact: p.discountPriceAedExact ?? null,
     isBestSeller: p.isBestSeller ?? false,
   };
 }
@@ -957,6 +975,20 @@ router.get("/woo/product", async (req, res) => {
   }
 
   const product = transformProduct(wcProduct, store.currencySymbol);
+  const pricing = osProduct.osNumericId == null
+    ? undefined
+    : getOsProductPricingMap().get(String(osProduct.osNumericId));
+  const enrichedProduct = pricing
+    ? {
+        ...product,
+        priceValue: pricing.regularPriceUsd ?? product.priceValue,
+        priceAed: pricing.priceAed ?? product.priceAed,
+        priceAedExact: pricing.priceAedExact ?? product.priceAedExact,
+        discountPriceValue: pricing.discountPriceUsd,
+        discountPriceAed: pricing.discountPriceAed,
+        discountPriceAedExact: pricing.discountPriceAedExact ?? null,
+      }
+    : product;
   // The SEO injector receives this field from the same product API response
   // and adds it to the public OG URL. A DB failure is non-fatal: source-image
   // changes still produce a deterministic version from the catalog photo.
@@ -964,7 +996,7 @@ router.get("/woo/product", async (req, res) => {
     await getProductSocialShare(slug).catch(() => null),
   );
   const socialSelection = selectProductSocialImage(
-    { images: product.images.map((image) => ({ url: image.uri })) },
+    { images: enrichedProduct.images.map((image) => ({ url: image.uri })) },
     socialOverrides,
   );
   const socialShareVersion = buildProductSocialVersion(
@@ -990,7 +1022,7 @@ router.get("/woo/product", async (req, res) => {
       // emitting an hreflang that falsely claims translated content.
       contentLang: translated.translated ? lang : "en",
       product: {
-        ...product,
+        ...enrichedProduct,
         socialShareVersion,
         name: translated.name,
         // Only override description when we actually got a translated string
@@ -1000,7 +1032,7 @@ router.get("/woo/product", async (req, res) => {
     });
   }
 
-  return res.json({ ok: true, product: { ...product, socialShareVersion } });
+  return res.json({ ok: true, product: { ...enrichedProduct, socialShareVersion } });
 });
 
 // GET /api/woo/product-pricing/:osId
@@ -1009,7 +1041,7 @@ router.get("/woo/product", async (req, res) => {
 // The browser cannot call OS directly when VITE_OS_API_KEY is absent
 // (no browser-side API key), so the web app routes through here instead.
 // Returns only the pricing fields needed for the slash-price display:
-//   { ok, regularPriceUsd, discountPriceUsd, discountPriceAed }
+//   { ok, regularPriceUsd, discountPriceUsd, priceAed, discountPriceAed }
 // regularPriceUsd is non-null only when the modern regular_price/sale_price
 // scheme is active (i.e. the product has an OS-configured sale with a
 // crossed-out "was" price).
@@ -1072,7 +1104,20 @@ router.get("/woo/product-pricing/:osId", async (req, res) => {
       ok: true,
       regularPriceUsd,
       discountPriceUsd,
-      discountPriceAed: parseP(p.discount_price_aed),
+      ...(() => {
+        const nativeAed = resolveNativeAedPrices(
+          p.price_aed ?? p.priceAed,
+          p.discount_price_aed ?? p.discountPriceAed,
+        );
+        return {
+          priceAed: nativeAed.priceAedExact === null ? null : Number(nativeAed.priceAedExact),
+          priceAedExact: nativeAed.priceAedExact,
+          discountPriceAed: nativeAed.priceAedExact === null
+            ? parseP(p.discount_price_aed)
+            : nativeAed.discountPriceAedExact === null ? null : Number(nativeAed.discountPriceAedExact),
+          discountPriceAedExact: nativeAed.discountPriceAedExact,
+        };
+      })(),
     });
   } catch (err) {
     req.log?.warn?.({ err }, "product-pricing proxy: OS fetch failed"); // i18n-ignore

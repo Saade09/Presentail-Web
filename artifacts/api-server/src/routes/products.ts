@@ -198,9 +198,12 @@ router.get(
     const enrichedProduct = pricing
       ? {
           ...product,
-          priceValue: pricing.regularPriceUsd ?? product.priceValue,
+            priceValue: pricing.regularPriceUsd ?? product.priceValue,
+            priceAed: pricing.priceAed ?? product.priceAed,
+            priceAedExact: pricing.priceAedExact ?? product.priceAedExact,
           discountPriceValue: pricing.discountPriceUsd,
           discountPriceAed: pricing.discountPriceAed,
+            discountPriceAedExact: pricing.discountPriceAedExact ?? null,
         }
       : product;
     logger.info({ ...logContext, outcome: "resolved" }, "gmc checkout link resolved");

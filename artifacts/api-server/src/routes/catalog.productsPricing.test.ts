@@ -4,7 +4,7 @@
  * Verifies that the endpoint:
  *   - Returns { ok: true, pricing: {} } when the map is empty.
  *   - Serialises all map entries with the correct field names.
- *   - Preserves null values for discountPriceUsd / discountPriceAed /
+ *   - Preserves null values for discountPriceUsd / discountPriceAed / priceAed /
  *     regularPriceUsd (not omitted or coerced to 0).
  *   - Sets Cache-Control: public, max-age=60 on every response.
  *   - Responds with 200 regardless of cache state.
@@ -113,8 +113,8 @@ describe("GET /api/catalog/products-pricing", () => {
   it("serialises all map entries with correct field names", async () => {
     getOsProductPricingMapMock.mockReturnValue(
       new Map([
-        ["101", { discountPriceUsd: 60, discountPriceAed: 220, regularPriceUsd: 80 }],
-        ["202", { discountPriceUsd: 45, discountPriceAed: null, regularPriceUsd: null }],
+        ["101", { discountPriceUsd: 60, discountPriceAed: 220, priceAed: 250, regularPriceUsd: 80 }],
+        ["202", { discountPriceUsd: 45, discountPriceAed: null, priceAed: null, regularPriceUsd: null }],
       ]),
     );
 
@@ -125,11 +125,13 @@ describe("GET /api/catalog/products-pricing", () => {
     expect(res.body.pricing["101"]).toEqual({
       discountPriceUsd: 60,
       discountPriceAed: 220,
+      priceAed: 250,
       regularPriceUsd: 80,
     });
     expect(res.body.pricing["202"]).toEqual({
       discountPriceUsd: 45,
       discountPriceAed: null,
+      priceAed: null,
       regularPriceUsd: null,
     });
   });
@@ -137,7 +139,7 @@ describe("GET /api/catalog/products-pricing", () => {
   it("preserves null values — does not coerce them to 0 or omit them", async () => {
     getOsProductPricingMapMock.mockReturnValue(
       new Map([
-        ["303", { discountPriceUsd: null, discountPriceAed: 180, regularPriceUsd: null }],
+        ["303", { discountPriceUsd: null, discountPriceAed: 180, priceAed: null, regularPriceUsd: null }],
       ]),
     );
 
@@ -147,6 +149,7 @@ describe("GET /api/catalog/products-pricing", () => {
     expect(entry.discountPriceUsd).toBeNull();
     expect(entry.regularPriceUsd).toBeNull();
     expect(entry.discountPriceAed).toBe(180);
+    expect(entry.priceAed).toBeNull();
   });
 
   it("sets Cache-Control: public, max-age=60", async () => {
@@ -159,9 +162,9 @@ describe("GET /api/catalog/products-pricing", () => {
   it("returns a non-empty pricing map when the OS product cache is warmed", async () => {
     getOsProductPricingMapMock.mockReturnValue(
       new Map([
-        ["501", { discountPriceUsd: 55, discountPriceAed: 202, regularPriceUsd: 75 }],
-        ["502", { discountPriceUsd: 30, discountPriceAed: null, regularPriceUsd: 50 }],
-        ["503", { discountPriceUsd: null, discountPriceAed: 148, regularPriceUsd: null }],
+        ["501", { discountPriceUsd: 55, discountPriceAed: 202, priceAed: 275, regularPriceUsd: 75 }],
+        ["502", { discountPriceUsd: 30, discountPriceAed: null, priceAed: null, regularPriceUsd: 50 }],
+        ["503", { discountPriceUsd: null, discountPriceAed: 148, priceAed: 190, regularPriceUsd: null }],
       ]),
     );
 
@@ -174,17 +177,19 @@ describe("GET /api/catalog/products-pricing", () => {
     expect(keys).toEqual(expect.arrayContaining(["501", "502", "503"]));
     expect(res.body.pricing["501"].discountPriceUsd).toBe(55);
     expect(res.body.pricing["501"].discountPriceAed).toBe(202);
+    expect(res.body.pricing["501"].priceAed).toBe(275);
     expect(res.body.pricing["501"].regularPriceUsd).toBe(75);
     expect(res.body.pricing["503"].discountPriceUsd).toBeNull();
     expect(res.body.pricing["503"].discountPriceAed).toBe(148);
+    expect(res.body.pricing["503"].priceAed).toBe(190);
   });
 
   it("includes all entries from a map with many products", async () => {
-    const entries: [string, { discountPriceUsd: number | null; discountPriceAed: number | null; regularPriceUsd: number | null }][] = Array.from(
+    const entries: [string, { discountPriceUsd: number | null; discountPriceAed: number | null; priceAed: number | null; regularPriceUsd: number | null }][] = Array.from(
       { length: 5 },
       (_, i) => [
         String(i + 1),
-        { discountPriceUsd: (i + 1) * 10, discountPriceAed: null, regularPriceUsd: (i + 1) * 15 },
+        { discountPriceUsd: (i + 1) * 10, discountPriceAed: null, priceAed: (i + 1) * 40, regularPriceUsd: (i + 1) * 15 },
       ],
     );
     getOsProductPricingMapMock.mockReturnValue(new Map(entries));

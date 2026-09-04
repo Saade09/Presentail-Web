@@ -1795,6 +1795,24 @@ export const GetHomepageBestSellersResponse = zod.object({
           .describe(
             "Active sale price in AED. Null when no AED discount is set.",
           ),
+        priceAed: zod
+          .number()
+          .nullish()
+          .describe(
+            "Authoritative OS regular price in AED. Never derived from USD.",
+          ),
+        priceAedExact: zod
+          .string()
+          .nullish()
+          .describe(
+            "Exact authoritative OS AED decimal, preserving trailing zeros.",
+          ),
+        discountPriceAedExact: zod
+          .string()
+          .nullish()
+          .describe(
+            "Exact active OS AED sale decimal, preserving trailing zeros.",
+          ),
       })
       .describe(
         "A product returned in the best-sellers carousel. Prices are in the store's base currency (USD internally, formatted with the store's currency symbol).",
@@ -1904,6 +1922,24 @@ export const GetHomepageCollectionBestSellersResponse = zod.object({
           .nullish()
           .describe(
             "Active sale price in AED. Null when no AED discount is set.",
+          ),
+        priceAed: zod
+          .number()
+          .nullish()
+          .describe(
+            "Authoritative OS regular price in AED. Never derived from USD.",
+          ),
+        priceAedExact: zod
+          .string()
+          .nullish()
+          .describe(
+            "Exact authoritative OS AED decimal, preserving trailing zeros.",
+          ),
+        discountPriceAedExact: zod
+          .string()
+          .nullish()
+          .describe(
+            "Exact active OS AED sale decimal, preserving trailing zeros.",
           ),
       })
       .describe(
@@ -2112,6 +2148,24 @@ export const GetBeirutLateNightCampaignResponse = zod
                 .describe(
                   "Active sale price in AED. Null when no AED discount is set.",
                 ),
+              priceAed: zod
+                .number()
+                .nullish()
+                .describe(
+                  "Authoritative OS regular price in AED. Never derived from USD.",
+                ),
+              priceAedExact: zod
+                .string()
+                .nullish()
+                .describe(
+                  "Exact authoritative OS AED decimal, preserving trailing zeros.",
+                ),
+              discountPriceAedExact: zod
+                .string()
+                .nullish()
+                .describe(
+                  "Exact active OS AED sale decimal, preserving trailing zeros.",
+                ),
             })
             .describe(
               "A product returned in the best-sellers carousel. Prices are in the store's base currency (USD internally, formatted with the store's currency symbol).",
@@ -2186,6 +2240,24 @@ export const GetBeirutLateNightCampaignResponse = zod
                 .nullish()
                 .describe(
                   "Active sale price in AED. Null when no AED discount is set.",
+                ),
+              priceAed: zod
+                .number()
+                .nullish()
+                .describe(
+                  "Authoritative OS regular price in AED. Never derived from USD.",
+                ),
+              priceAedExact: zod
+                .string()
+                .nullish()
+                .describe(
+                  "Exact authoritative OS AED decimal, preserving trailing zeros.",
+                ),
+              discountPriceAedExact: zod
+                .string()
+                .nullish()
+                .describe(
+                  "Exact active OS AED sale decimal, preserving trailing zeros.",
                 ),
             })
             .describe(
@@ -3166,6 +3238,24 @@ export const WooSearchResponse = zod.object({
       priceValue: zod.number().nullish(),
       discountPriceValue: zod.number().nullish(),
       discountPriceAed: zod.number().nullish(),
+      priceAed: zod
+        .number()
+        .nullish()
+        .describe(
+          "Authoritative OS regular price in AED. Never derived from USD.",
+        ),
+      priceAedExact: zod
+        .string()
+        .nullish()
+        .describe(
+          "Exact authoritative OS AED decimal, preserving trailing zeros.",
+        ),
+      discountPriceAedExact: zod
+        .string()
+        .nullish()
+        .describe(
+          "Exact active OS AED sale decimal, preserving trailing zeros.",
+        ),
       isBestSeller: zod
         .boolean()
         .optional()

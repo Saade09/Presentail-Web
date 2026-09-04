@@ -770,7 +770,8 @@ router.get("/catalog/brand-allowlist", (_req, res) => {
 // GET /api/catalog/products-pricing
 //
 // Returns a JSON map of osNumericId → { discountPriceUsd, discountPriceAed,
-// regularPriceUsd } for all products that have an active discount.
+// priceAed, regularPriceUsd } for discounted products and products with an
+// authoritative native AED regular price.
 // Reads from the in-memory pricing enrichment cache populated after each
 // OS product cache refresh. This is a fast cache-read with no OS calls at
 // request time.
@@ -792,12 +793,26 @@ router.get("/catalog/best-seller-ids", (_req, res) => {
 // sale badges and strikethrough prices appear everywhere, not just on the PDP.
 router.get("/catalog/products-pricing", (_req, res) => {
   const pricingMap = getOsProductPricingMap();
-  const pricing: Record<string, { discountPriceUsd: number | null; discountPriceAed: number | null; regularPriceUsd: number | null }> = {};
+  const pricing: Record<string, {
+    discountPriceUsd: number | null;
+    discountPriceAed: number | null;
+    discountPriceAedExact?: string | null;
+    priceAed: number | null;
+    priceAedExact?: string | null;
+    regularPriceUsd: number | null;
+  }> = {};
   for (const [id, entry] of pricingMap) {
     pricing[id] = {
       discountPriceUsd: entry.discountPriceUsd,
       discountPriceAed: entry.discountPriceAed,
+      priceAed: entry.priceAed ?? null,
       regularPriceUsd: entry.regularPriceUsd,
+      ...(entry.priceAedExact !== undefined
+        ? { priceAedExact: entry.priceAedExact }
+        : {}),
+      ...(entry.discountPriceAedExact !== undefined
+        ? { discountPriceAedExact: entry.discountPriceAedExact }
+        : {}),
     };
   }
   res.setHeader("Cache-Control", "public, max-age=60");

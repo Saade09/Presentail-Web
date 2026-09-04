@@ -15,6 +15,12 @@ export interface WooSearchProduct {
   priceValue?: number | null;
   discountPriceValue?: number | null;
   discountPriceAed?: number | null;
+  /** Authoritative OS regular price in AED. Never derived from USD. */
+  priceAed?: number | null;
+  /** Exact authoritative OS AED decimal, preserving trailing zeros. */
+  priceAedExact?: string | null;
+  /** Exact active OS AED sale decimal, preserving trailing zeros. */
+  discountPriceAedExact?: string | null;
   /** Whether this product is in the top 20 by total sales across all stores. */
   isBestSeller?: boolean;
 }
