@@ -20,7 +20,6 @@ import { LazySearchOverlay } from "@/components/search/LazySearchOverlay";
 import { trackEvent } from "@/lib/analytics";
 import { useBrands, useCatalogMetadata, useCatalogOccasions } from "@/lib/queries";
 import { CATEGORY_SLUG_REMAP, CATEGORY_NAV_BLOCKLIST } from "@/lib/categoryGroups";
-import { OCCASION_OPTIONS } from "@/data/occasions";
 import { prefetchProps } from "@/lib/prefetch";
 import {
   loadCart,
@@ -293,11 +292,7 @@ export function MainNavbar() {
             ...(img ? { img } : { emoji: "🎉" }),
           };
         })
-      : OCCASION_OPTIONS.map((o) => ({
-          label: o.label,
-          href: `/occasion/${o.value}`,
-          ...("img" in o ? { img: o.img } : { emoji: o.emoji }),
-        }));
+      : [];
   const occasionsMenuDef: MegaMenuDef = {
     key: "occasions",
     labelKey: "nav.occasions",

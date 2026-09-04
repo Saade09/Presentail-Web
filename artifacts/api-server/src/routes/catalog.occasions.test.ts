@@ -65,6 +65,8 @@ const {
 
 vi.mock("../lib/osProductsCache", () => ({
   getOsOccasions: getOsOccasionsMock,
+  getOsOccasionsForCity: vi.fn(async () => getOsOccasionsMock()),
+  getOsOccasionsForCountry: vi.fn(async () => getOsOccasionsMock()),
   getOsProductOccasions: getOsProductOccasionsMock,
   getOsBrands: getOsBrandsMock,
   getOsRawCatalogBrands: getOsRawCatalogBrandsMock,
@@ -163,6 +165,30 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.resetModules();
+});
+
+describe("GET /api/catalog/occasions — reachable city links", () => {
+  it("omits active occasions with no products in the requested country", async () => {
+    getOsOccasionsMock.mockReturnValue([
+      { id: "1", slug: "birthday", name: "Birthday", featured: true },
+      { id: "2", slug: "easter", name: "Easter", featured: false },
+    ]);
+    getOsOccasionProductCountsByCountryMock.mockReturnValue(
+      new Map([
+        ["birthday", 7],
+        ["easter", 0],
+      ]),
+    );
+
+    const app = await buildApp();
+    const res = await request(app).get(
+      "/api/catalog/occasions?countryCode=LB&city=beirut",
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.occasions.map((occasion: { slug: string }) => occasion.slug))
+      .toEqual(["birthday"]);
+  });
 });
 
 // ---------------------------------------------------------------------------

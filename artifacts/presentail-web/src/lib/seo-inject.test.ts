@@ -173,11 +173,14 @@ describe("injectSeoTagsAsync — /product/<slug>", () => {
       "/en-ae/dubai/product/velvet-rose-bouquet",
       OPTS,
     );
-    expect(fetchMock).toHaveBeenCalledTimes(1); // entity API only (OG image URL used — no dim probe when origin is set)
+    expect(fetchMock).toHaveBeenCalledTimes(2); // entity API + cached live occasion allowlist
     expect(fetchMock.mock.calls[0][0]).toContain("/api/woo/product?");
     expect(fetchMock.mock.calls[0][0]).toContain("slug=velvet-rose-bouquet");
     expect(fetchMock.mock.calls[0][0]).toContain("countryCode=AE");
     expect(fetchMock.mock.calls[0][0]).toContain("cityId=ae-dubai");
+    expect(fetchMock.mock.calls[1][0]).toContain(
+      "/api/catalog/occasions?countryCode=AE&city=dubai",
+    );
     expect(out).toContain("<title>Velvet Rose Bouquet — Dubai | Presentail</title>");
     expect(out).toContain(
       'content="A dozen long-stem velvet roses, hand-tied."',
@@ -2687,6 +2690,12 @@ describe("image dims cache invalidation — product (image.uri shape)", () => {
               priceValue: 60,
             },
           }),
+        };
+      }
+      if (String(url).includes("/api/catalog/occasions")) {
+        return {
+          ok: true,
+          json: async () => ({ occasions: [] }),
         };
       }
       // Image dims Range request.
@@ -8728,7 +8737,7 @@ describe("Prerender body — product page enhancements", () => {
     expect(bodyHtml).not.toContain("/category/hand-bouquets");
   });
 
-  it("product body emits an occasion cross-link for the first occasion slug string", () => {
+  it("product body links the first product occasion present in the live catalog", () => {
     const { bodyHtml } = buildProductHead({
       product: {
         name: "Birthday Flowers",
@@ -8736,14 +8745,34 @@ describe("Prerender body — product page enhancements", () => {
         image: null,
         priceValue: 70,
         categories: [],
-        // occasions must be an array of slug strings — internalLinks rule 2 uses occasions[0] as a slug.
-        occasions: ["birthday", "anniversary"],
+        occasions: ["colleague", "birthday", "anniversary"],
       },
       ...PRODUCT_HEAD_OPTS,
+      availableOccasions: [
+        { id: "birthday", name: "Birthday" },
+        { id: "anniversary", name: "Anniversary" },
+      ],
     });
-    // Only the first occasion is linked (rule 2 picks occasions[0]).
     expect(bodyHtml).toContain("/occasion/birthday");
     expect(bodyHtml).toContain("Birthday");
+    expect(bodyHtml).not.toContain("/occasion/colleague");
+    expect(bodyHtml).not.toContain("/occasion/anniversary");
+  });
+
+  it("product body emits no occasion link when historical tags have no live page", () => {
+    const { bodyHtml } = buildProductHead({
+      product: {
+        name: "Archived Occasion Flowers",
+        description: "Previously tagged for inactive occasions.",
+        image: null,
+        priceValue: 70,
+        categories: [],
+        occasions: ["colleague", "friend", "children", "love"],
+      },
+      ...PRODUCT_HEAD_OPTS,
+      availableOccasions: [{ id: "birthday", name: "Birthday" }],
+    });
+    expect(bodyHtml).not.toContain("/occasion/");
   });
 
   it("product body caps combined category + occasion cross-links at 5", () => {

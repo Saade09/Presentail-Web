@@ -431,13 +431,17 @@ router.get("/catalog/occasions", async (req, res) => {
       availabilityFloor: 3,
       osPositions,
     });
-    const occasions = await localizeNames(rankedItems.map((item) => ({
-      slug: item.slug,
-      name: item.name,
-      image: item.osImage ? `/api/catalog/occasion-image/${item.id}` : null,
-      count: occasionCountMap.get(item.slug) ?? 0,
-      featured: item.featured,
-    })));
+    const occasions = await localizeNames(
+      rankedItems
+        .map((item) => ({
+          slug: item.slug,
+          name: item.name,
+          image: item.osImage ? `/api/catalog/occasion-image/${item.id}` : null,
+          count: occasionCountMap.get(item.slug) ?? 0,
+          featured: item.featured,
+        }))
+        .filter((item) => item.count > 0),
+    );
     res.setHeader("Cache-Control", PUBLIC_CATALOG_CACHE_CONTROL);
     res.json({ occasions });
   } catch {
@@ -448,13 +452,17 @@ router.get("/catalog/occasions", async (req, res) => {
       const bp = typeof b.osPosition === "number" ? b.osPosition : Infinity;
       return ap - bp;
     });
-    const occasions = await localizeNames(fallbackSorted.map((o) => ({
-      slug: o.slug,
-      name: o.name,
-      image: (o.imagePublicUrl ?? o.image) ? `/api/catalog/occasion-image/${o.id}` : null,
-      count: occasionCountMap.get(o.slug) ?? 0,
-      featured: o.featured ?? false,
-    })));
+    const occasions = await localizeNames(
+      fallbackSorted
+        .map((o) => ({
+          slug: o.slug,
+          name: o.name,
+          image: (o.imagePublicUrl ?? o.image) ? `/api/catalog/occasion-image/${o.id}` : null,
+          count: occasionCountMap.get(o.slug) ?? 0,
+          featured: o.featured ?? false,
+        }))
+        .filter((item) => item.count > 0),
+    );
     res.setHeader("Cache-Control", PUBLIC_CATALOG_CACHE_CONTROL);
     res.json({ occasions });
   }

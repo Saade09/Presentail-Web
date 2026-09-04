@@ -1434,6 +1434,78 @@ const shopCategorySlugsByCountry = new Map(); // countrySlug -> { slugs: Set, ex
 const shopCategoryInFlight = new Map(); // countrySlug -> Promise
 const shopCategoryFailedUntil = new Map(); // countrySlug -> epoch ms (negative cache)
 
+const PRODUCT_OCCASION_CACHE_TTL_MS = 10 * 60 * 1000;
+const PRODUCT_OCCASION_FAILURE_TTL_MS = 60 * 1000;
+const productOccasionsByLocale = new Map();
+const productOccasionInFlight = new Map();
+const productOccasionFailedUntil = new Map();
+
+/**
+ * Return the live, inventory-backed occasion allowlist for a product page.
+ * Product tags are historical metadata and may refer to deactivated occasions;
+ * only this catalog response is safe to turn into a crawlable route.
+ */
+export async function fetchAvailableProductOccasionsForSeo({
+  countryCode,
+  city,
+  lang,
+  apiBaseUrl,
+}) {
+  if (!countryCode || !city || !apiBaseUrl) return [];
+  const key = `${countryCode.toUpperCase()}:${city.toLowerCase()}:${lang || "en"}`;
+  const hit = productOccasionsByLocale.get(key);
+  if (hit && hit.expiresAt > Date.now()) return hit.occasions;
+  if ((productOccasionFailedUntil.get(key) ?? 0) > Date.now()) return [];
+  const existing = productOccasionInFlight.get(key);
+  if (existing) return existing;
+
+  const request = (async () => {
+    try {
+      const params = new URLSearchParams({
+        countryCode: countryCode.toUpperCase(),
+        city: city.toLowerCase(),
+      });
+      if (lang && lang !== "en") params.set("lang", lang);
+      const response = await fetch(
+        `${apiBaseUrl.replace(/\/$/, "")}/api/catalog/occasions?${params.toString()}`,
+        { signal: AbortSignal.timeout(5000) },
+      );
+      if (!response.ok) {
+        productOccasionFailedUntil.set(
+          key,
+          Date.now() + PRODUCT_OCCASION_FAILURE_TTL_MS,
+        );
+        return [];
+      }
+      const body = await response.json();
+      const occasions = (Array.isArray(body?.occasions) ? body.occasions : [])
+        .filter(
+          (occasion) =>
+            typeof occasion?.slug === "string" &&
+            typeof occasion?.name === "string" &&
+            Number(occasion?.count) > 0,
+        )
+        .map((occasion) => ({ id: occasion.slug, name: occasion.name }));
+      productOccasionsByLocale.set(key, {
+        occasions,
+        expiresAt: Date.now() + PRODUCT_OCCASION_CACHE_TTL_MS,
+      });
+      productOccasionFailedUntil.delete(key);
+      return occasions;
+    } catch {
+      productOccasionFailedUntil.set(
+        key,
+        Date.now() + PRODUCT_OCCASION_FAILURE_TTL_MS,
+      );
+      return [];
+    } finally {
+      productOccasionInFlight.delete(key);
+    }
+  })();
+  productOccasionInFlight.set(key, request);
+  return request;
+}
+
 export async function ensureShopCategoriesForSeo(countrySlug, apiBaseUrl) {
   if (!countrySlug || !apiBaseUrl) return;
   const key = countrySlug.toLowerCase();
@@ -1915,7 +1987,7 @@ function buildGenericBodyHtml(routeKey, { h1, description, localeBase, faqItems 
   );
 }
 
-function buildProductBodyHtml(product, { title, description, localeBase, imageUrl, cityLabel = "", lang, country, city, pricePresentation = null, productPriceCurrencyOverride = null }) {
+function buildProductBodyHtml(product, { title, description, localeBase, imageUrl, cityLabel = "", lang, country, city, availableOccasions = [], pricePresentation = null, productPriceCurrencyOverride = null }) {
   const rawName = typeof product.name === "string" ? product.name.trim() : "";
   const safeTitle = escapeHtml(rawName || title);
   const rawDesc = typeof product.description === "string"
@@ -1996,7 +2068,7 @@ function buildProductBodyHtml(product, { title, description, localeBase, imageUr
     const links = buildInternalLinks(
       productForLinks,
       { lang, country, city: city || null, baseUrl: localeBase },
-      { brands: brandContext },
+      { brands: brandContext, occasions: availableOccasions },
     );
     if (links.length > 0) {
       const listItems = links
@@ -4015,6 +4087,7 @@ export function buildProductHead({
   country,
   city,
   ogImageUrl,
+  availableOccasions = [],
   productPriceCurrencyOverride,
 }) {
   const rawName = typeof product.name === "string" ? product.name.trim() : "";
@@ -4314,6 +4387,7 @@ export function buildProductHead({
     lang,
     country,
     city,
+    availableOccasions,
     pricePresentation,
     productPriceCurrencyOverride: nativeOverride,
   });
@@ -5504,6 +5578,13 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
                 product.images.find((i) => i && typeof i.uri === "string" && i.uri)?.uri) ||
               null,
             );
+        const availableOccasions =
+          await fetchAvailableProductOccasionsForSeo({
+            countryCode: "LB",
+            city: "beirut",
+            lang: bareProductLang,
+            apiBaseUrl,
+          });
         const result = buildProductHead({
           product,
           availabilityState: bareProductState,
@@ -5513,6 +5594,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
           basePath: rest.basePath ?? "",
           origin: rest.origin ?? "",
           pathname,
+          availableOccasions,
           productPriceCurrencyOverride: rest.productPriceCurrencyOverride,
         });
         return assembleHtml(html, {
@@ -5935,11 +6017,19 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
               product.images.find((i) => i && typeof i.uri === "string" && i.uri)?.uri) ||
             null,
           );
+      const availableOccasions =
+        await fetchAvailableProductOccasionsForSeo({
+          countryCode,
+          city: parsed.city,
+          lang: parsed.lang ?? generic.lang,
+          apiBaseUrl,
+        });
       result = buildProductHead({
         product,
         availabilityState: productState,
         imageDimensions: productImageDims,
         ogImageUrl: productOgImageUrl,
+        availableOccasions,
         ...headOpts,
       });
       // Emit the intra-city hreflang cluster only when this page IS the hub

@@ -8,7 +8,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test-utils";
-import { OCCASION_OPTIONS } from "@/data/occasions";
 
 // ---------------------------------------------------------------------------
 // Hoisted mock factories — declared before any import of the mocked modules
@@ -281,10 +280,8 @@ describe("MainNavbar — mobile brands sub-panel", () => {
     expect(brandsTile).toBeDefined();
   });
 
-  it("renders every occasion and the footer CTA with the compact occasions treatment", async () => {
+  it("renders no stale occasion links while the catalog allowlist is unresolved", async () => {
     const user = userEvent.setup();
-    // An unresolved occasions response uses the current static occasion list,
-    // which makes this regression test independent of catalog inventory.
     mockUseCatalogOccasions.mockReturnValue({ data: undefined, isPending: false });
     renderWithProviders(<MainNavbar />);
 
@@ -305,12 +302,7 @@ describe("MainNavbar — mobile brands sub-panel", () => {
     expect(grid.className).toContain("gap-y-1.5");
     expect(footer.closest('[data-testid="mobile-sub-panel-scroll"]')).toBeNull();
 
-    for (const occasion of OCCASION_OPTIONS) {
-      const link = screen.getByRole("link", { name: new RegExp(occasion.label) });
-      expect(link).toBeDefined();
-      expect((link as HTMLAnchorElement).href).toContain(`/occasion/${occasion.value}`);
-      expect(link.querySelector("div")?.className).toContain("aspect-[4/3]");
-    }
+    expect(panel.querySelector('a[href*="/occasion/"]')).toBeNull();
 
     const footerLink = screen.getByRole("link", { name: /nav\.viewAllOccasions/i });
     expect(footerLink).toBeDefined();

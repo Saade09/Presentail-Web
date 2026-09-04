@@ -69,9 +69,8 @@ export function ShopByOccasion() {
   // map get the Gift icon as a generic fallback. Occasions only in ITEMS but not
   // in the API response are omitted (no products or inactive).
   //
-  // Fall back to the hardcoded ITEMS order ONLY while the query is still in
-  // flight (loading state). Once the query has settled — even to an empty list
-  // — we render strictly from the API data so the order is always server-driven.
+  // While the query is in flight, emit no links. Static fallback links can point
+  // at occasions that were deactivated after products were tagged with them.
   // Only show occasions the OS has marked as featured — same rule as the mega menu.
   // Non-featured occasions (e.g. Funeral, Wedding, I'm Sorry) are excluded so the
   // grid stays curated. The featured flag is included in every /catalog/occasions
@@ -83,7 +82,7 @@ export function ShopByOccasion() {
 
   const displayItems: Array<{ slug: string; key: string; Icon: LucideIcon; image: string | null }> =
     isPending
-      ? ITEMS.map((it) => ({ slug: it.slug, key: it.key, Icon: it.Icon, image: null }))
+      ? []
       : apiOccasions.map((o) => {
           const meta = ITEMS_BY_SLUG.get(o.slug);
           return {

@@ -153,14 +153,17 @@ export function buildInternalLinks(product, locale, context = {}) {
     add(`${base}/category/${encodeURIComponent(primaryCatSlug)}`, catName);
   }
 
-  // Rule 2: First occasion
-  const occasionSlug = product.occasions && product.occasions[0];
-  if (occasionSlug) {
-    const occEntry = context.occasions && context.occasions.find((o) => o.id === occasionSlug);
-    const occName =
-      (occEntry && occEntry.name) ??
-      occasionSlug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-    add(`${base}/occasion/${encodeURIComponent(occasionSlug)}`, occName);
+  // Rule 2: First product occasion that is present in the live catalog
+  // allowlist. Product tags can outlive their public occasion page, so a raw
+  // product occasion must never be treated as proof that the route exists.
+  const occEntry =
+    context.occasions &&
+    product.occasions &&
+    product.occasions
+      .map((slug) => context.occasions.find((occasion) => occasion.id === slug))
+      .find(Boolean);
+  if (occEntry) {
+    add(`${base}/occasion/${encodeURIComponent(occEntry.id)}`, occEntry.name);
   }
 
   // Rule 3: Brand collection
