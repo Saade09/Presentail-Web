@@ -66,7 +66,7 @@ export const shopStrings: Dict = {
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.cat.roses": { en: "Roses", ar: "ورد جوري" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
-  "shop.cat.balloons": { en: "Balloons", ar: "بالونات" },
+  "shop.cat.balloons": { en: "Balloons", ar: "بالونات", fr: "Ballons", el: "Μπαλόνια" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.cat.preservedFlowers": { en: "Preserved Flowers", ar: "ورد محفوظ" },
   // eslint-disable-next-line presentail/no-orphan-translation-key

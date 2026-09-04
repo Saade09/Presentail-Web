@@ -4,6 +4,9 @@ import { getRates, SUPPORTED_CURRENCIES } from "../lib/fx";
 
 const router: IRouter = Router();
 
+const PUBLIC_FX_RATES_CACHE_CONTROL =
+  "public, max-age=60, s-maxage=300, stale-while-revalidate=600";
+
 // Public read-only endpoint the mobile app calls on launch (and periodically)
 // to keep its display rates in sync with what the server will charge.
 router.get("/fx/rates", async (req, res) => {
@@ -38,6 +41,7 @@ router.get("/fx/rates", async (req, res) => {
           );
         });
     }
+    res.setHeader("Cache-Control", PUBLIC_FX_RATES_CACHE_CONTROL);
     return res.json({
       ok: true,
       base: c.base,

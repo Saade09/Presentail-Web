@@ -219,10 +219,10 @@ export default function Shop() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Redirect old /occasion/newborn to the canonical /occasion/new-born
+  // Redirect old/non-canonical newborn aliases to /occasion/new-born.
   const occasion = isOccasionRoute ? (params.slug ?? "") : occasionFromSearch;
   useEffect(() => {
-    if (occasion === "newborn") {
+    if (occasion === "newborn" || occasion === "new-baby") {
       // searchString from useSearch() already includes the leading "?" when
       // query params are present, so append it directly (no extra "?").
       navigate(`/occasion/new-born${searchString}`, { replace: true });
@@ -236,7 +236,7 @@ export default function Shop() {
 
   const { countryCode, cityId, country, city, openPicker } = useLocationSelection();
   const citySlug = city?.id ?? null;
-  const { data: occasionsApiData } = useCatalogOccasions(countryCode, citySlug);
+  const { data: occasionsApiData } = useCatalogOccasions(countryCode, citySlug, language);
 
   // Contextual description: only on category / occasion pages
   const pageDescriptionType: "category" | "occasion" | null = isCategoryRoute

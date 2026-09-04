@@ -1864,7 +1864,7 @@ function CardPreviewDialog({
           {cardTo ? (
             <span
               style={{
-                fontFamily: "'Roboto', sans-serif",
+                fontFamily: "var(--app-font-sans)",
                 fontWeight: 400,
                 fontSize: "18px",
               }}
@@ -1876,7 +1876,7 @@ function CardPreviewDialog({
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "14px 4px" }}>
           <p
             style={{
-              fontFamily: "'Roboto', sans-serif",
+              fontFamily: "var(--app-font-sans)",
               fontStyle: "italic",
               color: ink,
               fontSize: `${messageFontPx}px`,
@@ -1894,7 +1894,7 @@ function CardPreviewDialog({
           {cardFrom ? (
             <span
               style={{
-                fontFamily: "'Roboto', sans-serif",
+                fontFamily: "var(--app-font-sans)",
                 fontWeight: 400,
                 fontSize: "18px",
               }}
@@ -1923,7 +1923,7 @@ function CardPreviewDialog({
           style={{
             bottom: "8px",
             ...(dir === "rtl" ? { right: "12px" } : { left: "12px" }),
-            fontFamily: "'Roboto', sans-serif",
+            fontFamily: "var(--app-font-sans)",
             fontWeight: 500,
             fontSize: "11px",
             letterSpacing: "0.2em",

@@ -8,7 +8,7 @@
  * EN values are provided for reference only — seo-inject.mjs uses rawName
  * (from the OS API) for the en locale and only looks up ar/fr here.
  *
- * @typedef {{ en: string; ar: string; fr: string }} TaxLabel
+ * @typedef {{ en: string; ar: string; fr: string; el?: string }} TaxLabel
  */
 
 /** @type {Record<string, TaxLabel>} */
@@ -21,7 +21,7 @@ export const CATEGORY_TRANSLATIONS = {
   "chocolate":            { en: "Chocolate",            ar: "شوكولا",                 fr: "Chocolats" },
   "gift-baskets":         { en: "Gift Baskets",         ar: "سلال هدايا",             fr: "Paniers cadeaux" },
   "plants":               { en: "Plants",               ar: "نباتات",                 fr: "Plantes" },
-  "balloons":             { en: "Balloons",             ar: "بالونات",                fr: "Ballons" },
+  "balloons":             { en: "Balloons",             ar: "بالونات",                fr: "Ballons", el: "Μπαλόνια" },
   "preserved-flowers":    { en: "Preserved Flowers",    ar: "ورد محفوظ",              fr: "Fleurs éternelles" },
   "flower-baskets":       { en: "Flower Baskets",       ar: "سلال ورد",               fr: "Paniers de fleurs" },
   "flower-vases":         { en: "Flower Vases",         ar: "ورد بفازة",              fr: "Vases de fleurs" },

@@ -33,6 +33,8 @@ vi.mock("../lib/osProductsCache", () => ({
   getOsOccasionProductCounts: vi.fn().mockReturnValue(new Map()),
   getOsProductOccasions: vi.fn().mockReturnValue(new Map()),
   getOsProductEmbeddedCategories: vi.fn().mockReturnValue(new Map()),
+  registerOsProductsRefreshListener: vi.fn(),
+  registerPricingEnrichmentListener: vi.fn(),
 }));
 
 vi.mock("../lib/imageTransform", () => ({
@@ -200,5 +202,32 @@ describe("GET /api/catalog/products-pricing", () => {
     for (const [id, entry] of entries) {
       expect(res.body.pricing[id]).toEqual(entry);
     }
+  });
+});
+
+describe("public catalog reference cache headers", () => {
+  let app: Awaited<ReturnType<typeof buildApp>>;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    getOsProductPricingMapMock.mockReturnValue(new Map());
+    app = await buildApp();
+  });
+
+  afterEach(() => {
+    vi.resetModules();
+  });
+
+  it.each([
+    "/api/currencies",
+    "/api/catalog/occasions",
+    "/api/catalog/metadata",
+  ])("%s permits shared caching with a short browser TTL", async (path) => {
+    const res = await request(app).get(path);
+
+    expect(res.status).toBe(200);
+    expect(res.headers["cache-control"]).toBe(
+      "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400",
+    );
   });
 });

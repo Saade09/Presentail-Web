@@ -367,6 +367,21 @@ function escapeHtml(s) {
     .replace(/>/g, "&gt;");
 }
 
+/**
+ * Append an image preload only when its href is not already represented in the
+ * generated head. Several server-rendered paths can nominate the same image as
+ * an LCP candidate; duplicate hints waste preload-scanner work and may produce
+ * duplicate network requests in some browsers.
+ */
+export function appendUniqueImagePreload(headSnippet, href, preloadTag) {
+  const escapedHref = escapeAttr(href);
+  const imagePreloadTags = headSnippet.match(/<link\b(?=[^>]*\brel="preload")(?=[^>]*\bas="image")[^>]*>/g) ?? [];
+  if (imagePreloadTags.some((tag) => tag.includes(`href="${escapedHref}"`))) {
+    return headSnippet;
+  }
+  return `${headSnippet}\n    ${preloadTag}`;
+}
+
 function cityLabelFromSlug(slug) {
   return slug
     .split("-")
@@ -4005,9 +4020,24 @@ export function buildProductHead({
   const rawName = typeof product.name === "string" ? product.name.trim() : "";
   const rawDesc =
     typeof product.description === "string" ? product.description.trim() : "";
+  const lastCategory = Array.isArray(product.categoryNames)
+    ? product.categoryNames.at(-1)
+    : Array.isArray(product.categories)
+      ? product.categories.at(-1)
+      : null;
+  const productVariant = typeof lastCategory === "string"
+    ? lastCategory
+    : typeof lastCategory?.name === "string"
+      ? lastCategory.name
+      : typeof lastCategory?.slug === "string"
+        ? lastCategory.slug.split("-").map((part) =>
+            part.charAt(0).toUpperCase() + part.slice(1)
+          ).join(" ")
+        : "";
   const seo = buildProductSeo({
     lang,
     productName: rawName,
+    productVariant,
     city: cityLabel || "",
     country: countryLabel || "",
     shortDescription: clampDescription(stripHtml(rawDesc), 160),
@@ -4812,13 +4842,16 @@ function buildShopEntityHead({
   // For ar/fr pages, replace the English OS entity name with the locale-specific
   // taxonomy label so {name} interpolation in headings, FAQs, and intros is translated.
   const _parsedForLabel = parseLocalePath(pathname);
+  const entityLang =
+    _parsedForLabel.lang ??
+    (typeof lang === "string" ? lang.toLowerCase().split("-")[0] : "en");
   const _entitySlugMatch = entityKind === "occasion"
     ? (_parsedForLabel.rest ?? "").match(/^\/occasion\/([^/?#]+)/)
     : (_parsedForLabel.rest ?? "").match(/^\/category\/([^/?#]+)/);
   const _entitySlug = _entitySlugMatch ? decodeURIComponent(_entitySlugMatch[1]) : null;
   const _taxMap = entityKind === "occasion" ? OCCASION_TRANSLATIONS : CATEGORY_TRANSLATIONS;
-  const displayName = (lang && lang !== "en" && _entitySlug && _taxMap[_entitySlug]?.[lang])
-    ? _taxMap[_entitySlug][lang]
+  const displayName = (entityLang !== "en" && _entitySlug && _taxMap[_entitySlug]?.[entityLang])
+    ? _taxMap[_entitySlug][entityLang]
     : rawName;
   // Curated per-occasion SEO content (title/description/H1/sections/FAQs).
   // Only defined for specific country/city/slug combinations and EN locale;
@@ -4832,7 +4865,7 @@ function buildShopEntityHead({
         country: parsedLoc.country,
         city: parsedLoc.city,
         slug: decodeURIComponent(slugMatch[1]),
-        lang,
+        lang: entityLang,
       });
     }
   } else if (entityKind === "category") {
@@ -4846,21 +4879,21 @@ function buildShopEntityHead({
         country: parsedLoc.country,
         city: parsedLoc.city,
         slug: decodeURIComponent(slugMatch[1]),
-        lang,
+        lang: entityLang,
       });
     }
   }
   const seo =
     entityKind === "occasion"
       ? buildOccasionSeo({
-          lang,
+          lang: entityLang,
           occasionName: displayName,
           city: cityLabel || "",
           country: countryLabel || "",
           productCount,
         })
       : buildCategorySeo({
-          lang,
+          lang: entityLang,
           categoryName: displayName,
           city: cityLabel || "",
           country: countryLabel || "",
@@ -5313,7 +5346,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
           ` href="${escapeAttr(href)}"` +
           ` imagesrcset="${escapeAttr(srcset)}"` +
           ` imagesizes="${escapeAttr(sizes)}">`;
-        generic.headSnippet += `\n    ${preloadTag}`;
+        generic.headSnippet = appendUniqueImagePreload(generic.headSnippet, href, preloadTag);
       }
     }
   }
@@ -5768,7 +5801,12 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
           )}`;
         // Preload the first (eager / LCP-candidate) product image so the
         // browser preload scanner fetches it before the JS bundle executes.
-        headSnippet += `\n    <link rel="preload" as="image" fetchpriority="high" href="${escapeAttr(ssrProducts[0].imageUrl)}">`;
+        const imageHref = ssrProducts[0].imageUrl;
+        headSnippet = appendUniqueImagePreload(
+          headSnippet,
+          imageHref,
+          `<link rel="preload" as="image" fetchpriority="high" href="${escapeAttr(imageHref)}">`,
+        );
         return assembleHtml(html, { ...generic, headSnippet, bodyHtml });
       }
     }
@@ -5975,7 +6013,10 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
             ` href="${escapeAttr(_pdpHref)}"` +
             ` imagesrcset="${escapeAttr(_pdpSrcset)}"` +
             ` imagesizes="${escapeAttr(_pdpSizes)}">`;
-          result = { ...result, headSnippet: result.headSnippet + "\n    " + _pdpPreloadTag };
+          result = {
+            ...result,
+            headSnippet: appendUniqueImagePreload(result.headSnippet, _pdpHref, _pdpPreloadTag),
+          };
         }
       }
     } else {

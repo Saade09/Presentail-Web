@@ -27,7 +27,6 @@
  *     Inter              400/normal, 500/normal, 600/normal, 700/normal
  *     Noto Naskh Arabic  400/normal, 700/normal
  *     Playfair Display   400/normal, 700/normal
- *     Roboto             400/normal, 500/normal, 400/italic
  *
  * Exits 0 on PASS, 1 on FAIL.
  *
@@ -138,11 +137,6 @@ const EXPECTED_FONTS = {
     { weight: "400", style: "normal" },
     { weight: "700", style: "normal" },
   ],
-  roboto: [
-    { weight: "400", style: "normal" },
-    { weight: "500", style: "normal" },
-    { weight: "400", style: "italic" },
-  ],
 };
 
 /** Display names for PASS/FAIL messages (preserves original capitalisation). */
@@ -150,7 +144,6 @@ const DISPLAY_NAME = {
   inter: "Inter",
   "noto naskh arabic": "Noto Naskh Arabic",
   "playfair display": "Playfair Display",
-  roboto: "Roboto",
 };
 
 /**
@@ -237,7 +230,6 @@ const summary = [
   "Inter (400–700 normal)",
   "Noto Naskh Arabic (400, 700 normal)",
   "Playfair Display (400, 700 normal)",
-  "Roboto (400 normal, 500 normal, 400 italic)",
 ].join(", ");
 console.log(`\nPASS  All expected font-face declarations found for ${summary}.`);
 process.exit(0);

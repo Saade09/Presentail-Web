@@ -124,20 +124,28 @@ describe("buildSitemapXml — per-locale generation", () => {
     }
   });
 
-  it("EN, AR, and FR sitemaps have matching country/city URL counts (no per-city inflation)", () => {
-    const countryCityEntryCount = (xml: string) =>
-      Array.from(parse(xml).getElementsByTagName("url")).filter((url) => {
-        const loc = url.getElementsByTagName("loc")[0]?.textContent ?? "";
-        return /\/(?:en|ar|fr)-(?:lb|ae|cy)(?:\/|$)/.test(loc);
-      }).length;
+  it("locale sitemap differences are limited to pages with dedicated translated content", () => {
+    const countryCityPaths = (xml: string) =>
+      new Set(
+        Array.from(parse(xml).getElementsByTagName("loc"))
+          .map((loc) => loc.textContent ?? "")
+          .filter((loc) => /\/(?:en|ar|fr)-(?:lb|ae|cy)(?:\/|$)/.test(loc))
+          .map((loc) => new URL(loc).pathname.replace(/^\/(?:en|ar|fr)-/, "/")),
+      );
 
-    const counts = ["en", "ar", "fr"].map((lang) =>
-      countryCityEntryCount(xmlByLocale[lang]),
-    );
-    // Blog article counts may intentionally differ by locale while a new post
-    // awaits translation. The country/city route set must remain identical.
-    expect(counts[0]).toBe(counts[1]);
-    expect(counts[1]).toBe(counts[2]);
+    const en = countryCityPaths(xmlByLocale.en);
+    const expectedEnglishOnly = [
+      "/cy/larnaca/category/balloons",
+      "/cy/limassol/category/balloons",
+      "/cy/paphos/category/balloons",
+    ];
+    for (const lang of ["ar", "fr"]) {
+      const localized = countryCityPaths(xmlByLocale[lang]);
+      expect([...localized].filter((path) => !en.has(path))).toEqual([]);
+      expect([...en].filter((path) => !localized.has(path)).sort()).toEqual(
+        expectedEnglishOnly,
+      );
+    }
   });
 
   it("only the en sitemap lists the un-prefixed root URL", () => {
@@ -431,33 +439,36 @@ describe("buildSitemapXml", () => {
     }
   });
 
-  it("emits reciprocal hreflang alternates + x-default on every <url> with a prefix (cy adds el)", () => {
-    const doc = parse(xml);
-    const urlNodes = Array.from(doc.getElementsByTagName("url"));
+  it("every hreflang alternate points to a URL present in that locale's sitemap", () => {
+    const xmlByLocale = Object.fromEntries(
+      SITEMAP_LANGS.map((locale: string) => [
+        locale,
+        buildSitemapXml({ origin: ORIGIN, basePath: "/", locale, ...MOCK }),
+      ]),
+    );
 
-    // Locale-prefixed entries (every entry except the one language-agnostic
-    // one: root "/") must carry alternates.
-    const prefixed = urlNodes.filter((u) => {
-      const loc = u.getElementsByTagName("loc")[0]?.textContent ?? "";
-      return /\/(en|ar|fr|el)-(lb|ae|cy)\//.test(loc);
-    });
-    expect(prefixed.length).toBeGreaterThan(0);
+    for (const locale of SITEMAP_LANGS) {
+      const doc = parse(xmlByLocale[locale]);
+      const prefixed = Array.from(doc.getElementsByTagName("url")).filter((url) =>
+        /\/(?:en|ar|fr|el)-(?:lb|ae|cy)\//.test(
+          url.getElementsByTagName("loc")[0]?.textContent ?? "",
+        ),
+      );
+      expect(prefixed.length).toBeGreaterThan(0);
 
-    for (const url of prefixed) {
-      const links = Array.from(url.getElementsByTagName("xhtml:link"));
-      const hreflangs = links
-        .map((l) => l.getAttribute("hreflang"))
-        .filter(Boolean)
-        .sort();
-      // Country is derived from the loc. Cyprus clusters carry en/ar/fr/el;
-      // lb/ae clusters carry en/ar/fr only. All carry x-default.
-      const loc = url.getElementsByTagName("loc")[0]?.textContent ?? "";
-      const country = (loc.match(/\/(?:en|ar|fr|el)-(lb|ae|cy)\//)?.[1] ?? "").toUpperCase();
-      const expected =
-        country === "CY"
-          ? [`en-${country}`, `ar-${country}`, `fr-${country}`, `el-${country}`, "x-default"]
-          : [`en-${country}`, `ar-${country}`, `fr-${country}`, "x-default"];
-      expect(hreflangs).toEqual(expected.sort());
+      for (const url of prefixed) {
+        const links = Array.from(url.getElementsByTagName("xhtml:link"));
+        expect(links.some((link) => link.getAttribute("hreflang") === "x-default")).toBe(true);
+        for (const link of links) {
+          const hreflang = link.getAttribute("hreflang") ?? "";
+          const href = link.getAttribute("href") ?? "";
+          const targetLocale = hreflang === "x-default" ? "en" : hreflang.split("-")[0];
+          expect(
+            xmlByLocale[targetLocale],
+            `${href} must be submitted in sitemap-${targetLocale}.xml`,
+          ).toContain(`<loc>${href}</loc>`);
+        }
+      }
     }
   });
 

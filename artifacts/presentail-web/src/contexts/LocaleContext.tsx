@@ -17,17 +17,15 @@ import {
   isLangAllowedForCountry,
   type Lang,
 } from "@/lib/locale-route";
-import { STRINGS, STRINGS_FR, STRINGS_EL } from "@/locales/index";
+import { loadLocaleStrings, type LocaleStrings } from "@/locales/load";
 
 export type Language = Lang;
-
-export { STRINGS, STRINGS_FR, STRINGS_EL };
 
 type LocaleContextType = {
   language: Language;
   setLanguage: (l: Language) => void;
   dir: "ltr" | "rtl";
-  t: (key: keyof typeof STRINGS | string, params?: Record<string, string | number>) => string;
+  t: (key: string, params?: Record<string, string | number>) => string;
   countryName: (code: string, fallback: string) => string;
   cityName: (id: string, fallback: string) => string;
 };
@@ -111,6 +109,37 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
 
   const language: Language = parsed.lang ?? blogLang ?? stored;
   const dir: "ltr" | "rtl" = language === "ar" ? "rtl" : "ltr";
+  const [localeStrings, setLocaleStrings] = useState<LocaleStrings | null>(null);
+  const [loadedLocaleLanguage, setLoadedLocaleLanguage] = useState<Language | null>(null);
+
+  // Every table is fetched only for its active language. Rendering is gated
+  // until it resolves so route changes never briefly paint untranslated keys
+  // (or the prior locale) while preserving the normal provider API.
+  useEffect(() => {
+    const loader = loadLocaleStrings(language);
+    if (!loader) return;
+
+    let cancelled = false;
+    loader.then(
+      (strings) => {
+        if (!cancelled) {
+          setLocaleStrings(strings);
+          setLoadedLocaleLanguage(language);
+        }
+      },
+      () => {
+        if (!cancelled) {
+          // A loaded table has English fallbacks where applicable. If a chunk
+          // cannot be fetched, unblock rendering with the existing key fallback.
+          setLocaleStrings(null);
+          setLoadedLocaleLanguage(language);
+        }
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [language]);
 
   // Greek is Cyprus-only: a /el-ae/... or /el-lb/... URL (e.g. a Greek-selecting
   // shopper switching to a non-Cyprus city) gracefully falls back to English.
@@ -188,25 +217,30 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
       dir,
       t: (key, params) => {
         const k = key as string;
-        if (language === "fr" || language === "el") {
-          const companion = language === "fr" ? STRINGS_FR[k] : STRINGS_EL[k];
-          if (companion) return format(companion, params);
-          const en = STRINGS[k]?.en;
-          return format(en ?? k, params);
-        }
-        const entry = STRINGS[k];
-        if (!entry) return format(k, params);
-        return format(entry[language as "en" | "ar"], params);
+        const entry = loadedLocaleLanguage === language ? localeStrings?.[k] : undefined;
+        return format(entry ?? k, params);
       },
       countryName: (code, fallback) =>
         pickLocalized(countryNames.get(code), language, fallback),
       cityName: (id, fallback) =>
         pickLocalized(cityNames.get(id), language, fallback),
     }),
-    [language, dir, setLanguage, countryNames, cityNames],
+    [
+      language,
+      dir,
+      setLanguage,
+      countryNames,
+      cityNames,
+      localeStrings,
+      loadedLocaleLanguage,
+    ],
   );
 
-  return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;
+  return (
+    <LocaleContext.Provider value={value}>
+      {loadedLocaleLanguage === language ? children : null}
+    </LocaleContext.Provider>
+  );
 }
 
 export function useLocale() {

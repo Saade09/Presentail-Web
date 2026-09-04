@@ -9,8 +9,7 @@
  *
  * Budget tiers (calibrated to sit above each font's current size with ~30 %
  * headroom so existing files pass while clear regressions fail):
- *   - Latin-subset fonts (Inter, Playfair Display, Roboto italic): ≤ 30 kB
- *   - Roboto regular (wider glyph coverage):                       ≤ 50 kB
+ *   - Latin-subset fonts (Inter, Playfair Display):                ≤ 30 kB
  *   - Arabic-script fonts (Noto Naskh Arabic):                     ≤ 60 kB
  *
  * Exits 0 on PASS, 1 on FAIL.
@@ -27,7 +26,7 @@ import { fileURLToPath } from "node:url";
 
 /**
  * Default budget in kB applied to every woff2 file unless overridden below.
- * Sized for Latin-subset fonts (Inter, Playfair Display, Roboto italic).
+ * Sized for Latin-subset fonts (Inter, Playfair Display).
  */
 const DEFAULT_BUDGET_KB = 30;
 
@@ -38,7 +37,6 @@ const DEFAULT_BUDGET_KB = 30;
  */
 const PREFIX_BUDGET_KB = {
   "noto-naskh-arabic": 60,
-  "roboto-400.woff2": 50,
 };
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -83,7 +81,7 @@ const budgetFor = (name) => {
 
 const COL_NAME = 40;
 const fmt = (bytes) => `${(bytes / 1024).toFixed(1).padStart(7)} kB`;
-const budgetSummary = `latin ≤${DEFAULT_BUDGET_KB} kB, roboto-400 ≤50 kB, arabic ≤60 kB`;
+const budgetSummary = `latin ≤${DEFAULT_BUDGET_KB} kB, arabic ≤60 kB`;
 
 const header = `${"file".padEnd(COL_NAME)}${"size".padStart(10)}  ${"budget".padStart(9)}  status`;
 console.log(`\nfont-budget report  (${budgetSummary})`);

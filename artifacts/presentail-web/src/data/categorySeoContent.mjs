@@ -437,7 +437,7 @@ export const CATEGORY_SEO_CONTENT = {
             links: [
               { label: "Birthday balloons", href: "/occasion/birthday" },
               { label: "Graduation balloons", href: "/occasion/graduation" },
-              { label: "New baby balloons", href: "/occasion/new-baby" },
+              { label: "New baby balloons", href: "/occasion/new-born" },
               { label: "Anniversary balloons", href: "/occasion/anniversary" },
             ],
           },
@@ -513,7 +513,7 @@ export const CATEGORY_SEO_CONTENT = {
             links: [
               { label: "Birthday balloons", href: "/occasion/birthday" },
               { label: "Graduation balloons", href: "/occasion/graduation" },
-              { label: "New baby balloons", href: "/occasion/new-baby" },
+              { label: "New baby balloons", href: "/occasion/new-born" },
               { label: "Anniversary balloons", href: "/occasion/anniversary" },
             ],
           },
@@ -577,7 +577,7 @@ export const CATEGORY_SEO_CONTENT = {
             links: [
               { label: "Birthday balloons", href: "/occasion/birthday" },
               { label: "Graduation balloons", href: "/occasion/graduation" },
-              { label: "New baby balloons", href: "/occasion/new-baby" },
+              { label: "New baby balloons", href: "/occasion/new-born" },
               { label: "Anniversary balloons", href: "/occasion/anniversary" },
             ],
           },
@@ -937,13 +937,11 @@ export const CATEGORY_SEO_CONTENT = {
  */
 export function getCategorySeoContent({ country, city, slug, lang } = {}) {
   if (!country || !city || !slug) return null;
-  const SUPPORTED = ["en", "ar", "fr"];
+  const SUPPORTED = ["en", "ar", "fr", "el"];
   const langKey = (lang && SUPPORTED.includes(lang)) ? lang : "en";
   const cityKey = `${country}/${city}`;
-  return (
-    CATEGORY_SEO_CONTENT[langKey]?.[cityKey]?.[slug] ??
-    // Fall back to English when no curated copy exists for the requested locale.
-    (langKey !== "en" ? CATEGORY_SEO_CONTENT.en?.[cityKey]?.[slug] : null) ??
-    null
-  );
+  // Curated copy is language-specific editorial content. Reusing the English
+  // entry on another locale route overrides that locale's translated title,
+  // H1 and description and creates a half-translated indexable page.
+  return CATEGORY_SEO_CONTENT[langKey]?.[cityKey]?.[slug] ?? null;
 }

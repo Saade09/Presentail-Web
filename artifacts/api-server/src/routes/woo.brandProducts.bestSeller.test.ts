@@ -259,4 +259,17 @@ describe("GET /woo/brand-products — best-seller badge reliability", () => {
     // The cold product with no sales must have popularity 0, not undefined.
     expect(byId["lily-vase"]).toBe(0);
   });
+
+  it("sets a public shared-cache policy on the brands reference endpoint", async () => {
+    getOsProductsMock.mockReturnValue([]);
+    getCachedBestSellerIdsMock.mockReturnValue(new Set());
+
+    const app = await buildApp();
+    const res = await request(app).get("/woo/brands");
+
+    expect(res.status).toBe(200);
+    expect(res.headers["cache-control"]).toBe(
+      "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400",
+    );
+  });
 });

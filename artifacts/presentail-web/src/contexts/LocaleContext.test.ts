@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { STRINGS, STRINGS_FR, STRINGS_EL } from "./LocaleContext";
+import { STRINGS_FR } from "@/locales/fr";
+import { STRINGS_EL } from "@/locales/el";
+import { loadLocaleStrings } from "@/locales/load";
+import { STRINGS } from "@/locales/index";
 
 describe("LocaleContext string dictionaries", () => {
   const keys = Object.keys(STRINGS);
@@ -76,5 +79,27 @@ describe("LocaleContext string dictionaries", () => {
       orphans,
       `Keys in STRINGS_EL not present in STRINGS (stale translations): ${orphans.join(", ")}`,
     ).toHaveLength(0);
+  });
+});
+
+describe("on-demand locale tables", () => {
+  it.each(["en", "ar", "fr", "el"] as const)(
+    "loads and caches the %s table",
+    async (language) => {
+      const locale = loadLocaleStrings(language);
+
+      expect(locale).not.toBeNull();
+      expect(loadLocaleStrings(language)).toBe(locale);
+      await expect(locale!).resolves.toEqual(expect.any(Object));
+    },
+  );
+
+  it("keeps French and Greek tables distinct", async () => {
+    const french = loadLocaleStrings("fr")!;
+    const greek = loadLocaleStrings("el")!;
+
+    await expect(french!).resolves.toBe(STRINGS_FR);
+    await expect(greek!).resolves.toBe(STRINGS_EL);
+    expect(await french).not.toBe(await greek);
   });
 });

@@ -5,6 +5,12 @@ import path from "path";
 import fs from "fs";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 import { clarityPluginsForMode } from "./src/lib/clarityInjectPlugin";
+import {
+  LOGO_EN_WEBP_BASENAME,
+  LOGO_AR_WEBP_BASENAME,
+  LOGO_EN_WHITE_WEBP_BASENAME,
+  LOGO_AR_WHITE_WEBP_BASENAME,
+} from "./logo-assets.mjs";
 // rollup-plugin-visualizer: opt-in only. Set VITE_VISUALIZE=1 before running
 // `pnpm --filter @workspace/presentail-web run build` to emit dist/stats.html
 // for bundle composition auditing. Never runs during normal CI builds.
@@ -14,8 +20,6 @@ const visualizer = process.env.VITE_VISUALIZE
   : null;
 // @ts-expect-error - plain ESM module (no types).
 import { injectSeoTagsAsync } from "./seo-inject.mjs";
-// @ts-expect-error - plain ESM module (no types).
-import { LOGO_EN_WEBP_BASENAME, LOGO_AR_WEBP_BASENAME, LOGO_EN_WHITE_WEBP_BASENAME, LOGO_AR_WHITE_WEBP_BASENAME } from "./logo-assets.mjs";
 // @ts-expect-error - plain ESM module (no types).
 import { getMarkdownForPath, isMirroredPath } from "./markdown.mjs";
 
@@ -265,114 +269,6 @@ function seoInjectPlugin(basePath: string): Plugin {
           search,
         });
       },
-    },
-  };
-}
-
-/**
- * Inject <link rel="preload" as="image"> tags for both the English and Arabic
- * WebP logos into the built index.html. Reads the Vite manifest to resolve the
- * content-hashed asset filenames, then splices the tags into <head> right
- * before </head>. A tiny inline <script> immediately removes the unused tag
- * based on the URL's lang segment (URL pattern: /{lang}-{country}/{city}/...)
- * so neither locale incurs an extra network hit. Runs only at build time.
- *
- * Logo basenames are imported from logo-assets.mjs (the single source of
- * truth shared with scripts/check-logo-preload.mjs).
- */
-function logoPreloadPlugin(outDir: string, basePath: string): Plugin {
-  // Normalise basePath: strip trailing slash so we can append "/" + file safely.
-  const base = basePath.endsWith("/") ? basePath.slice(0, -1) : basePath;
-
-  return {
-    name: "presentail-logo-preload",
-    apply: "build",
-    async closeBundle() {
-      const htmlPath = path.join(outDir, "index.html");
-      const manifestPath = path.join(outDir, ".vite", "manifest.json");
-      if (!fs.existsSync(htmlPath) || !fs.existsSync(manifestPath)) return;
-
-      const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as Record<
-        string,
-        { file: string }
-      >;
-
-      /** Look up a logo by its source basename in the Vite manifest. */
-      function findLogoEntry(basename: string) {
-        return (
-          Object.entries(manifest).find(([key]) => key.endsWith(basename))?.[1] ??
-          Object.values(manifest).find(
-            (entry) =>
-              entry.file.includes(basename.replace(".webp", "")) &&
-              entry.file.endsWith(".webp")
-          )
-        );
-      }
-
-      const enEntry = findLogoEntry(LOGO_EN_WEBP_BASENAME);
-      const arEntry = findLogoEntry(LOGO_AR_WEBP_BASENAME);
-      const enWhiteEntry = findLogoEntry(LOGO_EN_WHITE_WEBP_BASENAME);
-      const arWhiteEntry = findLogoEntry(LOGO_AR_WHITE_WEBP_BASENAME);
-
-      // Require at least the English logo; all others are best-effort.
-      // Hard error instead of silent skip: if the EN logo is missing from the
-      // manifest the preload would be silently omitted and LCP would regress
-      // without any CI signal. Fail the build so the rename is caught early.
-      if (!enEntry) {
-        this.error(
-          `[logo-preload] EN logo asset "${LOGO_EN_WEBP_BASENAME}" was not found in the Vite manifest. ` +
-          `Update LOGO_EN_WEBP_BASENAME in artifacts/presentail-web/logo-assets.mjs to match the current source filename.`,
-        );
-      }
-
-      const enHref = `${base}/${enEntry.file}`;
-      const arHref = arEntry ? `${base}/${arEntry.file}` : null;
-      const enWhiteHref = enWhiteEntry ? `${base}/${enWhiteEntry.file}` : null;
-      const arWhiteHref = arWhiteEntry ? `${base}/${arWhiteEntry.file}` : null;
-
-      // All four preload tags are emitted with IDs so the inline script can
-      // remove the two that are not needed for the current locale.
-      const enTag = `<link rel="preload" as="image" type="image/webp" href="${enHref}" fetchpriority="high" id="preload-logo-en">`;
-      const arTag = arHref
-        ? `<link rel="preload" as="image" type="image/webp" href="${arHref}" fetchpriority="high" id="preload-logo-ar">`
-        : null;
-      const enWhiteTag = enWhiteHref
-        ? `<link rel="preload" as="image" type="image/webp" href="${enWhiteHref}" id="preload-logo-en-white">`
-        : null;
-      const arWhiteTag = arWhiteHref
-        ? `<link rel="preload" as="image" type="image/webp" href="${arWhiteHref}" id="preload-logo-ar-white">`
-        : null;
-
-      // Inline script: strip the base path prefix, extract the first URL
-      // segment, and remove whichever preload tags are not needed for the
-      // current locale (both normal and white variants for the unused locale).
-      // Additionally, the white-logo preloads are only useful on routes where
-      // the inverse logo is above-the-fold (checkout, order-confirmed).  On
-      // every other route the current-locale white tag is also pruned so we
-      // never emit unnecessary preload hints.
-      // The URL pattern is /{basePath}/{lang}-{country}/{city}/...
-      // A segment starting with "ar-" means Arabic locale.
-      const cleanBase = base || "";
-      // Emit the pruning script whenever any preload tag exists (normal or white).
-      const hasAnyTag = arTag || enWhiteTag || arWhiteTag;
-      const localeScript = hasAnyTag
-        ? `<script>(function(){var p=location.pathname.replace(/\\/+$/,"");${
-            cleanBase ? `if(p.indexOf(${JSON.stringify(cleanBase)})===0)p=p.slice(${cleanBase.length});` : ""
-          }var seg=(p.split("/").filter(Boolean)[0]||"");var isAr=seg.startsWith("ar-");var isDark=p.endsWith("/checkout")||p.endsWith("/order-confirmed");var ids=isAr?["preload-logo-en","preload-logo-en-white"]:["preload-logo-ar","preload-logo-ar-white"];if(!isDark)ids.push(isAr?"preload-logo-ar-white":"preload-logo-en-white");ids.forEach(function(id){var el=document.getElementById(id);if(el)el.parentNode.removeChild(el);});}());</script>`
-        : null;
-
-      const html = fs.readFileSync(htmlPath, "utf8");
-      const injection = [enTag, arTag, enWhiteTag, arWhiteTag, localeScript]
-        .filter(Boolean)
-        .map((t) => `  ${t}`)
-        .join("\n");
-      const patched = html.replace("</head>", `${injection}\n  </head>`);
-      if (patched === html) return; // guard: no </head> found
-      fs.writeFileSync(htmlPath, patched, "utf8");
-      console.log(`[logo-preload] Injected EN preload for ${enHref}`);
-      if (arHref) console.log(`[logo-preload] Injected AR preload for ${arHref}`);
-      if (enWhiteHref) console.log(`[logo-preload] Injected EN-white preload for ${enWhiteHref}`);
-      if (arWhiteHref) console.log(`[logo-preload] Injected AR-white preload for ${arWhiteHref}`);
     },
   };
 }
@@ -632,7 +528,6 @@ export default defineConfig(async ({ command, mode }) => {
       ...(command === "serve" ? [runtimeErrorOverlay()] : []),
       markdownMirrorDevPlugin(basePath),
       seoInjectPlugin(basePath),
-      logoPreloadPlugin(path.resolve(import.meta.dirname, "dist/public"), basePath),
       lazyChunkPreloadPlugin(path.resolve(import.meta.dirname, "dist/public")),
       criticalCssPlugin(path.resolve(import.meta.dirname, "dist/public")),
       envPlaceholderGuardPlugin(path.resolve(import.meta.dirname, "dist/public")),

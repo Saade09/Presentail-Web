@@ -171,7 +171,7 @@ async function inputFiles(prefixes) {
       .filter((prefix) => !prefix.endsWith("/"))
       .map((prefix) => path.resolve(ROOT, prefix)),
   );
-  return [...new Set(candidates.concat([...exactInputs]))]
+  const selected = [...new Set(candidates.concat([...exactInputs]))]
     .filter((file) => {
       const rel = relative(file);
       return (
@@ -183,6 +183,17 @@ async function inputFiles(prefixes) {
       );
     })
     .sort();
+  const existing = await Promise.all(
+    selected.map(async (file) => {
+      try {
+        return (await stat(file)).isFile() ? file : null;
+      } catch (error) {
+        if (error?.code === "ENOENT") return null;
+        throw error;
+      }
+    }),
+  );
+  return existing.filter(Boolean);
 }
 
 async function hashFiles(files) {

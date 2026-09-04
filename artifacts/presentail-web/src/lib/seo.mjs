@@ -1065,11 +1065,38 @@ export function buildOccasionSeo({ lang, occasionName, city, country, productCou
 // always remain visible. This mirrors the FAQ/Contact page guardrail pattern.
 const PRODUCT_TITLE_HARD_MAX = 65;
 
-export function buildProductSeo({ lang, productName, city, country, shortDescription } = {}) {
+function truncateProductNameForTitle(name, maxLength) {
+  if (name.length <= maxLength) return name;
+  if (maxLength <= 1) return "\u2026";
+  // Product variants commonly differ at the end of the name ("16 Pieces",
+  // "24 Pieces", size, colour, etc.). Preserve that tail so title truncation
+  // cannot collapse distinct variants back into the same SERP title.
+  const tailLength = Math.min(16, Math.max(6, Math.floor((maxLength - 1) / 3)));
+  const headLength = maxLength - tailLength - 1;
+  return `${name.slice(0, headLength)}\u2026${name.slice(-tailLength)}`;
+}
+
+export function buildProductSeo({
+  lang,
+  productName,
+  productVariant,
+  city,
+  country,
+  shortDescription,
+} = {}) {
   const l = pickLang(lang);
   const name = productName ?? "";
+  const cleanVariant =
+    typeof productVariant === "string" &&
+    productVariant.trim() &&
+    normalizeSeoText(productVariant) !== normalizeSeoText(name)
+      ? productVariant.trim().slice(0, 24)
+      : "";
+  const variantSuffix = cleanVariant ? ` \u00b7 ${cleanVariant}` : "";
+  const titleName = `${name}${variantSuffix}`;
   const cityVal = city ?? "";
-  const params = { name, city: cityVal, country: country ?? "" };
+  const params = { name: titleName, city: cityVal, country: country ?? "" };
+  const h1Params = { name, city: cityVal, country: country ?? "" };
   const titleTpl = city ? ENTITY_TITLES.product[l] : ENTITY_TITLES_NO_CITY.product[l];
   const descTpl = city ? ENTITY_DESCRIPTIONS.product[l] : ENTITY_DESCRIPTIONS_NO_CITY.product[l];
   // Prefer the product's own short description when it fits within 160 chars.
@@ -1083,17 +1110,23 @@ export function buildProductSeo({ lang, productName, city, country, shortDescrip
   let title = formatTemplate(titleTpl, params);
   if (city && title.length > PRODUCT_TITLE_HARD_MAX) {
     // Suffix that always follows the name in the city-qualified template.
-    const suffix = ` \u2014 ${cityVal} | Presentail`;
+    // Keep the qualifier as well as the city/brand suffix. Removing the
+    // qualifier during truncation would recreate duplicate titles for
+    // same-name product variants.
+    const suffix = `${variantSuffix} \u2014 ${cityVal} | Presentail`;
     const maxNameLen = PRODUCT_TITLE_HARD_MAX - suffix.length - 1; // -1 for ellipsis
     if (maxNameLen > 0 && name.length > maxNameLen) {
-      const truncatedName = name.slice(0, maxNameLen) + "\u2026";
-      title = formatTemplate(titleTpl, { ...params, name: truncatedName });
+      const truncatedName = truncateProductNameForTitle(name, maxNameLen + 1);
+      title = formatTemplate(titleTpl, {
+        ...params,
+        name: `${truncatedName}${variantSuffix}`,
+      });
     }
   }
 
   return meta({
     title,
-    h1: formatTemplate(ENTITY_H1.product[l], params),
+    h1: formatTemplate(ENTITY_H1.product[l], h1Params),
     description,
   });
 }

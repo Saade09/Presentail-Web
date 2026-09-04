@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Truck, Clock, Gift, Sparkles, Star, Shield, Heart, Package, Flower2, Award, ShoppingBag, Users, Building2 } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
-import { STRINGS, STRINGS_FR } from "@/locales/index";
 
 const FLOWER_CATEGORY_SLUGS = new Set([
   "hand-bouquets",
@@ -143,11 +142,6 @@ interface SEOContentSectionProps {
   flushTop?: boolean;
 }
 
-function format(template: string, params?: Record<string, string>): string {
-  if (!params) return template;
-  return template.replace(/\{(\w+)\}/g, (_, k) => (k in params ? params[k] : `{${k}}`));
-}
-
 export function SEOContentSection(props: SEOContentSectionProps) {
   if (props.overrides?.is_active === false) return null;
   return <SEOContentSectionInner {...props} />;
@@ -166,22 +160,16 @@ function SEOContentSectionInner({
   faqsAlwaysVisible = false,
   flushTop = false,
 }: SEOContentSectionProps) {
-  const { t, language, dir } = useLocale();
+  const { t, dir } = useLocale();
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
 
   const tSeo = useCallback(
     (key: string, params?: Record<string, string>): string => {
       const raw = t(key, params);
       if (raw && raw !== key) return raw;
-      const entry = STRINGS[key];
-      if (!entry) {
-        const fr = STRINGS_FR[key];
-        if (fr) return format(fr, params);
-        return key;
-      }
-      return format(entry.en ?? key, params);
+      return key;
     },
-    [t, language], // eslint-disable-line react-hooks/exhaustive-deps
+    [t],
   );
 
   const p = { name: entityName, city: cityLabel };

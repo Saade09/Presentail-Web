@@ -85,6 +85,7 @@ export function buildOccasionSeo(args?: {
 export function buildProductSeo(args?: {
   lang?: string;
   productName?: string;
+  productVariant?: string;
   city?: string;
   country?: string;
   shortDescription?: string;

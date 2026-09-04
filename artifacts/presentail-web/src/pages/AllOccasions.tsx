@@ -188,7 +188,7 @@ export default function AllOccasions() {
   const { t, language, cityName } = useLocale();
   const { city, countryCode } = useLocationSelection();
   const citySlug = city?.id ?? null;
-  const { data, isLoading } = useCatalogOccasions(countryCode, citySlug);
+  const { data, isLoading } = useCatalogOccasions(countryCode, citySlug, language);
   const occasions = (data?.occasions ?? []).filter((o) => (o.count ?? 0) > 0);
   const cityLabel = city ? cityName(city.id, city.name) : "";
 

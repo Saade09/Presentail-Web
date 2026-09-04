@@ -30,6 +30,12 @@ import {
 
 const router: IRouter = Router();
 
+// These payloads contain public reference/catalog data only. Keep a browser
+// cache short enough for storefront changes to appear promptly, while allowing
+// shared caches to absorb repeated menu and app-launch requests.
+const PUBLIC_CATALOG_CACHE_CONTROL =
+  "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400";
+
 async function fetchAndTransformCatalogImage(
   rawUrl: string,
   apiKey: string,
@@ -321,6 +327,7 @@ router.get("/catalog/category-image/:id", async (req, res) => {
 // ── Routes ────────────────────────────────────────────────────────────────────
 
 router.get("/currencies", (_req, res) => {
+  res.setHeader("Cache-Control", PUBLIC_CATALOG_CACHE_CONTROL);
   const data = GetCurrenciesResponse.parse({
     currencies: CURRENCIES,
     fallbackCode: FALLBACK_CURRENCY_CODE,
@@ -387,6 +394,7 @@ router.get("/catalog/occasions", async (req, res) => {
       (activeSlugAllowlist.size === 0 || activeSlugAllowlist.has(o.slug)),
   );
   if (activeOs.length === 0) {
+    res.setHeader("Cache-Control", PUBLIC_CATALOG_CACHE_CONTROL);
     res.json({ occasions: [] });
     return;
   }
@@ -430,6 +438,7 @@ router.get("/catalog/occasions", async (req, res) => {
       count: occasionCountMap.get(item.slug) ?? 0,
       featured: item.featured,
     })));
+    res.setHeader("Cache-Control", PUBLIC_CATALOG_CACHE_CONTROL);
     res.json({ occasions });
   } catch {
     // Fallback: use OS best-selling order (osPosition) when available,
@@ -446,6 +455,7 @@ router.get("/catalog/occasions", async (req, res) => {
       count: occasionCountMap.get(o.slug) ?? 0,
       featured: o.featured ?? false,
     })));
+    res.setHeader("Cache-Control", PUBLIC_CATALOG_CACHE_CONTROL);
     res.json({ occasions });
   }
 });
@@ -748,6 +758,7 @@ router.get("/catalog/metadata", async (req, res) => {
     occasions: mergedOccasions,
     brands,
   });
+  res.setHeader("Cache-Control", PUBLIC_CATALOG_CACHE_CONTROL);
   res.json(data);
 });
 

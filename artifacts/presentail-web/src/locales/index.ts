@@ -1,5 +1,5 @@
 /**
- * locales/index.ts — Three-language string catalogue for the Presentail web storefront.
+ * locales/index.ts — Synchronous core string catalogue for the Presentail web storefront.
  *
  * ─── Catalogue structure ──────────────────────────────────────────────────────
  *
@@ -11,14 +11,16 @@
  *
  * Each domain file exports two objects:
  *   • `<domain>Strings`   — Dict  { en: "…", ar: "…" }  (assembled into STRINGS)
- *   • `<domain>StringsFr` — Record<string, string>       (assembled into STRINGS_FR)
+ *   • `<domain>StringsFr` — Record<string, string>       (assembled into `fr.ts`)
  *
- * This index merges them into the two flat maps that `LocaleContext` consumes.
+ * This index merges the English/Arabic core map. French and Greek are assembled
+ * by their own modules and loaded on demand by `locales/load.ts`.
  *
  * ─── Three-language contract ─────────────────────────────────────────────────
  *
- * Every user-facing string must appear in all three locales: EN, AR, and FR.
- * EN + AR live together in the Dict entry; FR lives in the matching *Fr object.
+ * Every user-facing string must appear in all four locales: EN, AR, FR, and EL.
+ * EN + AR live together in the Dict entry; FR and EL live in matching companion
+ * objects and are loaded only after those languages are selected.
  *
  * ─── Adding new strings (do all three in the same commit) ───────────────────
  *
@@ -118,21 +120,21 @@
 
 import type { Dict } from "./types";
 
-import { navStrings, navStringsFr, navStringsEl } from "./nav";
-import { homeStrings, homeStringsFr, homeStringsEl } from "./home";
-import { shopStrings, shopStringsFr, shopStringsEl } from "./shop";
-import { productStrings, productStringsFr, productStringsEl } from "./product";
-import { cartStrings, cartStringsFr, cartStringsEl } from "./cart";
-import { checkoutStrings, checkoutStringsFr, checkoutStringsEl } from "./checkout";
-import { accountStrings, accountStringsFr, accountStringsEl } from "./account";
-import { authStrings, authStringsFr, authStringsEl } from "./auth";
-import { brandsStrings, brandsStringsFr, brandsStringsEl } from "./brands";
-import { orderStrings, orderStringsFr, orderStringsEl } from "./order";
-import { seoStrings, seoStringsFr, seoStringsEl } from "./seo";
-import { footerStrings, footerStringsFr, footerStringsEl } from "./footer";
-import { commonStrings, commonStringsFr, commonStringsEl } from "./common";
-import { partnerStrings, partnerStringsFr, partnerStringsEl } from "./partner";
-import { campaignStrings, campaignStringsFr, campaignStringsEl } from "./campaign";
+import { navStrings } from "./nav";
+import { homeStrings } from "./home";
+import { shopStrings } from "./shop";
+import { productStrings } from "./product";
+import { cartStrings } from "./cart";
+import { checkoutStrings } from "./checkout";
+import { accountStrings } from "./account";
+import { authStrings } from "./auth";
+import { brandsStrings } from "./brands";
+import { orderStrings } from "./order";
+import { seoStrings } from "./seo";
+import { footerStrings } from "./footer";
+import { commonStrings } from "./common";
+import { partnerStrings } from "./partner";
+import { campaignStrings } from "./campaign";
 
 export type { Dict };
 
@@ -152,40 +154,4 @@ export const STRINGS: Dict = {
   ...commonStrings,
   ...partnerStrings,
   ...campaignStrings,
-};
-
-export const STRINGS_FR: Record<string, string> = {
-  ...navStringsFr,
-  ...homeStringsFr,
-  ...shopStringsFr,
-  ...productStringsFr,
-  ...cartStringsFr,
-  ...checkoutStringsFr,
-  ...accountStringsFr,
-  ...authStringsFr,
-  ...brandsStringsFr,
-  ...orderStringsFr,
-  ...seoStringsFr,
-  ...footerStringsFr,
-  ...commonStringsFr,
-  ...partnerStringsFr,
-  ...campaignStringsFr,
-};
-
-export const STRINGS_EL: Record<string, string> = {
-  ...navStringsEl,
-  ...homeStringsEl,
-  ...shopStringsEl,
-  ...productStringsEl,
-  ...cartStringsEl,
-  ...checkoutStringsEl,
-  ...accountStringsEl,
-  ...authStringsEl,
-  ...brandsStringsEl,
-  ...orderStringsEl,
-  ...seoStringsEl,
-  ...footerStringsEl,
-  ...commonStringsEl,
-  ...partnerStringsEl,
-  ...campaignStringsEl,
 };

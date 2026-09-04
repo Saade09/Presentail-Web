@@ -149,6 +149,9 @@ import { getCustomerById } from "../lib/customers";
 
 const router: IRouter = Router();
 
+const PUBLIC_BRANDS_CACHE_CONTROL =
+  "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400";
+
 // Narrow subset of the WooCommerce-shaped response used internally.
 // mapOsProductToWcShape converts Presentail OS products into this shape
 // so the isVisibleProduct / isDeliverable / transformProduct pipeline
@@ -585,6 +588,7 @@ router.get("/woo/brands", (_req, res) => {
     return res.status(503).json({ ok: false, message: "OS catalog not yet available" }); // i18n-ignore
   }
   const rawBrands = getOsRawCatalogBrands();
+  res.setHeader("Cache-Control", PUBLIC_BRANDS_CACHE_CONTROL);
   return res.json({
     ok: true,
     brands: osBrands.map((b) => {

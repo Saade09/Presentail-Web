@@ -1,13 +1,11 @@
 /**
  * Single source of truth for the WebP logo asset basenames used by:
- *   - vite.config.ts  (logoPreloadPlugin)
+ *   - logo-preloads.mjs (server-side locale-aware preload generation)
  *   - scripts/check-logo-preload.mjs  (post-build CI check)
  *
  * Update ONLY here when the source assets are renamed or replaced.
- * The Vite plugin emits a hard build error when the EN logo is not found in
- * the Vite manifest, so a rename that is not reflected here will fail the
- * build rather than silently skip the LCP preload. The AR logo is best-effort
- * (missing AR entry is logged but does not fail the build).
+ * The server resolves these against the Vite manifest for each response, so a
+ * rename here keeps the locale-aware preload output in sync with Logo.tsx.
  */
 
 /** Source filename (without path) of the English WebP logo imported by Logo.tsx. */

@@ -5,6 +5,9 @@ import { resolveDeliveryConfig } from "../data/deliveryConfig";
 
 const router: IRouter = Router();
 
+const PUBLIC_DELIVERY_LOCATIONS_CACHE_CONTROL =
+  "public, max-age=300, s-maxage=900, stale-while-revalidate=3600";
+
 // Returns the canonical list of supported delivery countries and cities.
 // Data is sourced from the Presentail OS cache (polled every 15 min) and
 // falls back automatically to the hardcoded catalog-data list when OS is
@@ -29,6 +32,7 @@ router.get("/delivery-locations", (_req, res) => {
     countries: enriched,
     dataStatus: getLocationsDataStatus(),
   });
+  res.setHeader("Cache-Control", PUBLIC_DELIVERY_LOCATIONS_CACHE_CONTROL);
   res.json(data);
 });
 

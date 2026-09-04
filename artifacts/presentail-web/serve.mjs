@@ -7,6 +7,7 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
+import { buildLocaleLogoPreloadTags } from "./logo-preloads.mjs";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { performance } from "node:perf_hooks";
@@ -880,6 +881,31 @@ const indexHtml = await readStartupFile(
   "dist/index.html",
   "The Vite build step may not have run — fix by running `vite build` (or the deploy build step) and restarting the server.",
 );
+
+// Logo preloads are generated for each URL, rather than baked into index.html:
+// the initial response now contains only the active locale's logo (and the
+// matching white variant on dark checkout routes).
+let logoManifest = null;
+try {
+  logoManifest = JSON.parse(
+    fs.readFileSync(path.join(DIST, ".vite", "manifest.json"), "utf8"),
+  );
+} catch (err) {
+  console.warn(`WARN: Logo preloads: could not read dist/.vite/manifest.json — ${err.message}`);
+}
+
+function injectLogoPreloads(html, pathname = "/") {
+  if (!logoManifest) return html;
+  try {
+    return html.replace(
+      "</head>",
+      `    ${buildLocaleLogoPreloadTags(logoManifest, BASE_PATH, pathname)}\n  </head>`,
+    );
+  } catch (err) {
+    console.warn(`WARN: Logo preloads: ${err.message}`);
+    return html;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Font preload hints — read the Vite manifest at startup to extract hashed
@@ -1889,6 +1915,7 @@ const server = http.createServer(async (req, res) => {
       "thank-you":       "thank-you",
       "get-well-soon":   "get-well-soon",
       "newborn":         "new-born",
+      "new-baby":        "new-born",
       "new-born":        "new-born",
       "eid":             "eid",
       "ramadan":         "ramadan",
@@ -2656,7 +2683,7 @@ const server = http.createServer(async (req, res) => {
           return;
         }
         const assemblyStartedAt = performance.now();
-        let out = injectPageChunkPreload(injectFontPreloads(injectGmcMeta(seoOut), pathname), pathname);
+        let out = injectPageChunkPreload(injectFontPreloads(injectLogoPreloads(injectGmcMeta(seoOut), pathname), pathname), pathname);
         // Inject <link rel="alternate" type="text/markdown"> for pages with a
         // Markdown mirror. This allows crawlers and AI agents to discover the
         // structured Markdown version directly from the HTML head.
@@ -3041,7 +3068,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     const assemblyStartedAt = performance.now();
-    let spaOut = injectPageChunkPreload(injectFontPreloads(injectGmcMeta(seoOut), pathname), pathname);
+    let spaOut = injectPageChunkPreload(injectFontPreloads(injectLogoPreloads(injectGmcMeta(seoOut), pathname), pathname), pathname);
     // Inject <link rel="alternate" type="text/markdown"> for pages with a mirror.
     if (isMirroredPath(pathname)) {
       const cleanBaseSpa = BASE_PATH ? BASE_PATH.replace(/\/$/, "") : "";

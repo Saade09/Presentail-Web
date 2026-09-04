@@ -3,10 +3,7 @@ import { Link } from "wouter";
 import { Cake, Heart, Sparkles, Trophy, Baby, Smile, Flower2, Gift, type LucideIcon } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
 import { ArrowRight } from "lucide-react";
-import {
-  useGetCatalogOccasions,
-  getGetCatalogOccasionsQueryKey,
-} from "@workspace/api-client-react";
+import { useCatalogOccasions } from "@/lib/queries";
 import { buildCatalogImageSrcset } from "@/lib/imageUtils";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { cityHref } from "@/lib/cityHref";
@@ -63,12 +60,7 @@ export function ShopByOccasion() {
   const { countryCode, cityId } = useLocationSelection();
   const toCityHref = (path: string) => cityHref(path, { language, countryCode, cityId });
 
-  const { data: occasionsData, isPending } = useGetCatalogOccasions({
-    query: {
-      queryKey: getGetCatalogOccasionsQueryKey(),
-      staleTime: 15 * 60 * 1000,
-    },
-  });
+  const { data: occasionsData, isPending } = useCatalogOccasions(countryCode, cityId, language);
 
   // Build the display list from the API's sorted array.
   // The API returns occasions ranked by best-seller stats (OS-level or product

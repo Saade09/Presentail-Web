@@ -1,7 +1,16 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 // @ts-expect-error - mjs import without types; the module is plain JS.
-import { injectSeoTagsAsync, buildSeoHead, buildProductHead, buildBlogPostHead, parseDimsFromBuffer, initImageDimsDb, genericSeoCache, getCachedGenericSeo, setCachedGenericSeo, collectJsonLdProblems, stripTrackingParams, extractSlugFor, SEO_FALLBACK_CRITICAL_CSS, __setShopCategorySlugsForTest, __resetSeoFailureAggregationForTest } from "../../seo-inject.mjs";
+import { injectSeoTagsAsync, buildSeoHead, buildProductHead, buildBlogPostHead, parseDimsFromBuffer, initImageDimsDb, genericSeoCache, getCachedGenericSeo, setCachedGenericSeo, collectJsonLdProblems, stripTrackingParams, extractSlugFor, SEO_FALLBACK_CRITICAL_CSS, __setShopCategorySlugsForTest, __resetSeoFailureAggregationForTest, appendUniqueImagePreload } from "../../seo-inject.mjs";
+
 import { BLOG_POSTS, getBlogPostLanguages } from "@workspace/blog-content";
+
+describe("appendUniqueImagePreload", () => {
+  it("does not emit a second preload for the same hero image href", () => {
+    const tag = '<link rel="preload" as="image" fetchpriority="high" href="/api/img/proxy?hero">';
+    const once = appendUniqueImagePreload("", "/api/img/proxy?hero", tag);
+    expect(appendUniqueImagePreload(once, "/api/img/proxy?hero", tag)).toBe(once);
+  });
+});
 
 // Seed the per-country available-category cache so the shop-route body
 // fragment emits its (now country-filtered) "Shop by Category" list, and so

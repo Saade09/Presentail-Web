@@ -6,7 +6,7 @@
 // async wrapper that fetches the catalog (products, brands, occasions,
 // categories) and delegates to the pure builder.
 
-import { BLOG_POSTS } from "@workspace/blog-content";
+import { BLOG_POSTS, getBlogPostLanguages } from "@workspace/blog-content";
 import { isPageEligible, MIN_PRODUCTS_BY_TYPE } from "./scripts/pageEligibility.mjs";
 import { getOccasionSeoContent } from "./src/data/occasionSeoContent.mjs";
 import { getCategorySeoContent, CATEGORY_SEO_CONTENT } from "./src/data/categorySeoContent.mjs";
@@ -188,9 +188,18 @@ export function buildSitemapXml({
   // `lastmod` defaults to `generatedAt` (the sitemap build date) for all
   // static and catalog entries — an honest proxy for "content verified as of
   // this date". Blog posts pass their real datePublished and override it.
-  const urlEntryWithAlternates = (priority, changefreq, country, city, rest, imageBlock = "", lastmod = generatedAt) => {
+  const urlEntryWithAlternates = (
+    priority,
+    changefreq,
+    country,
+    city,
+    rest,
+    imageBlock = "",
+    lastmod = generatedAt,
+    alternateLangs = hreflangLangsForCountry(country),
+  ) => {
     const loc = origin + cleanBase + `/${lang}-${country}/${city}${rest}`;
-    const alternates = hreflangLangsForCountry(country).map((altLang) => {
+    const alternates = alternateLangs.map((altLang) => {
       const href = origin + cleanBase + `/${altLang}-${country}/${city}${rest}`;
       const code = `${altLang}-${country.toUpperCase()}`;
       return `    <xhtml:link rel="alternate" hreflang="${escXml(code)}" href="${escXml(href)}"/>`;
@@ -424,10 +433,9 @@ export function buildSitemapXml({
   // the hub-city category loop above (section 5) which also produces nothing
   // without catalog data.
   //
-  // Locale: emitted for all three locales (en/ar/fr). AR/FR pages render
-  // with EN fallback copy, but they ARE accessible and should be crawlable.
-  // This keeps en/ar/fr sitemap URL counts in sync (the existing test
-  // invariant: EN has exactly one extra entry for the un-prefixed root "/").
+  // Locale: emit only languages with dedicated curated content. A missing
+  // translation uses a noindex fallback and must not appear in the sitemap or
+  // in the page's hreflang cluster.
   //
   // The hub-city loop (section 5) already covers hub-city curated pages, so
   // we skip hub cities here to avoid duplicates.
@@ -439,13 +447,29 @@ export function buildSitemapXml({
       for (const city of cities) {
         if (city === hubCity) continue; // already emitted above
         const cityKey = `${country}/${city}`;
-        const curatedSlugMap = CATEGORY_SEO_CONTENT.en?.[cityKey] ?? {};
+        const curatedSlugMap = CATEGORY_SEO_CONTENT[lang]?.[cityKey] ?? {};
         for (const categorySlug of Object.keys(curatedSlugMap)) {
           if (RETIRED_CATEGORY_SLUGS.has(categorySlug)) continue;
           const encoded = encodeURIComponent(categorySlug);
+          const curatedLangs = hreflangLangsForCountry(country).filter(
+            (candidate) => Boolean(
+              CATEGORY_SEO_CONTENT[candidate]?.[cityKey]?.[categorySlug],
+            ),
+          );
           // Priority 0.7 matches hub-city curated category pages.
           // No pagination — curated pages are single-page listings.
-          urls.push(urlEntryWithAlternates("0.7", "weekly", country, city, `/category/${encoded}`));
+          urls.push(
+            urlEntryWithAlternates(
+              "0.7",
+              "weekly",
+              country,
+              city,
+              `/category/${encoded}`,
+              "",
+              generatedAt,
+              curatedLangs,
+            ),
+          );
         }
       }
     }
@@ -499,16 +523,11 @@ export function buildSitemapXml({
     // Blog articles: /{lang}/blog/:slug
     for (const [slug, langs] of Object.entries(blogPostsSource)) {
       if (!slug) continue;
-      const availableLangs = SITEMAP_BLOG_LANGS.filter((candidate) => {
-        const article = langs?.[candidate];
-        return Boolean(
-          article &&
-          typeof article.title === "string" &&
-          article.title.trim() &&
-          typeof article.description === "string" &&
-          article.description.trim(),
-        );
-      });
+      // Use the shared descriptor-aware helper. Some legacy article objects
+      // expose English fallback content through ar/fr getters; checking only
+      // title/description would mistake those aliases for real translations.
+      const availableLangs = getBlogPostLanguages(langs)
+        .filter((candidate) => SITEMAP_BLOG_LANGS.includes(candidate));
       // Do not include a URL that serves a noindex fallback translation.
       if (!availableLangs.includes(lang)) continue;
       const encoded = encodeURIComponent(slug);

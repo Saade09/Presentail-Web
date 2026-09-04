@@ -270,9 +270,15 @@ export default function ProductDetail() {
     const head = document.head;
     const cityLabel = city ? cityName(city.id, city.name) : "";
     const countryLabel = country ? countryName(country.code, country.name) : "";
+    const productVariant =
+      product.categoryNames?.at(-1) ??
+      product.categories?.at(-1)?.split("-").map((part) =>
+        part.charAt(0).toUpperCase() + part.slice(1)
+      ).join(" ");
     const seo = buildProductSeo({
       lang: language,
       productName: product.name,
+      productVariant,
       city: cityLabel,
       country: countryLabel,
       shortDescription: product.description?.trim() || undefined,
