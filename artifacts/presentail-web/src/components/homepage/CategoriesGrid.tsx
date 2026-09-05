@@ -93,6 +93,15 @@ export function CategoriesGrid() {
                       width={400}
                       height={200}
                       priority={i === 0}
+                      fallback={
+                        staticImg ? (
+                          <img
+                            src={staticImg}
+                            alt={buildCollectionImageAlt(item.name, "flowers", language, city?.name ?? "")}
+                            className="absolute inset-0 w-full h-full object-cover"
+                          />
+                        ) : undefined
+                      }
                       srcset={heroSrcsetResult?.srcset}
                       sizes={
                         heroSrcsetResult

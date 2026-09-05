@@ -39,6 +39,16 @@ describe("isCatalogProxyUrl", () => {
   });
 });
 
+describe("bounded catalog proxy URLs", () => {
+  it("recognizes category images and replaces existing variant parameters", () => {
+    const input = "/api/catalog/category-image/123?w=480&f=webp";
+    expect(isCatalogProxyUrl(input)).toBe(true);
+    const result = buildCatalogImageSrcset(input);
+    expect(result?.src).toBe("/api/catalog/category-image/123?w=288&f=webp");
+    expect(result?.srcset).not.toContain("?w=480&f=webp?w=");
+  });
+});
+
 // ---------------------------------------------------------------------------
 // buildCatalogImageSrcset — per-prefix coverage
 // ---------------------------------------------------------------------------

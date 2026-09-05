@@ -87,6 +87,7 @@ function OccasionsRow({ title }: { title: string }) {
         return {
           ...base,
           imageUrl: base.imageUrl || OCCASION_STATIC_IMAGES[i.slug] || "",
+          fallbackImageUrl: OCCASION_STATIC_IMAGES[i.slug] || "",
         };
       }) ?? [];
   if (!isLoading && (isError || items.length === 0)) return null;

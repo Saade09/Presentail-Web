@@ -16,6 +16,7 @@ import {
 const OS_URL = "https://os.presentail.com/api/storage/public-objects/categories/bouquets.webp";
 const STATIC_URL = "/assets/category-bouquets.png";  // bundled static asset
 const ENCODED_OS = encodeURIComponent(OS_URL);
+  const SERVER_PROXY_URL = `/api/img/proxy?url=${ENCODED_OS}&w=480&f=webp`;
 
 describe("buildCategoryHeroSrcset", () => {
   // ── Branch 1: OS storage URL ─────────────────────────────────────────────
@@ -65,6 +66,16 @@ describe("buildCategoryHeroSrcset", () => {
           `/api/img/proxy?url=${ENCODED_OS}&w=800&f=webp 800w, ` +
           `/api/img/proxy?url=${ENCODED_OS}&w=1200&f=webp 1200w`,
       );
+    });
+  });
+
+  describe("server-produced proxy URL → responsive OS variants", () => {
+    it("replaces the bounded default without nesting the proxy", () => {
+      const result = buildCategoryHeroSrcset(SERVER_PROXY_URL)!;
+      expect(result.srcset).toContain("w=400");
+      expect(result.srcset).toContain("w=800");
+      expect(result.srcset).toContain("w=1200");
+      expect(result.srcset).not.toContain("url=%2Fapi%2Fimg%2Fproxy");
     });
   });
 

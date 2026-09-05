@@ -29,6 +29,11 @@ import { scoreCollections, getCollectionClickScores } from "../lib/collectionRan
 import { getOsOccasionStatsMap } from "../lib/osOccasionStats";
 import { categories as staticCategories } from "@workspace/catalog-data";
 import { resolveStoreFromRequest } from "../lib/wooStore";
+import {
+  buildHomepageCatalogImageUrl,
+  buildHomepageOsImageUrl,
+  buildHomepageProductImages,
+} from "../lib/homepageImagePolicy";
 
 // ── Ranking config cache ───────────────────────────────────────────────────
 //
@@ -153,10 +158,17 @@ router.get("/homepage/banners", async (req, res) => {
       .map((item: unknown): NormBanner => {
         const b = item as Record<string, unknown>;
         const rawMediaUrl = (b.media_url ?? b.mediaUrl ?? "") as string;
-        const mediaUrl = rawMediaUrl.startsWith("/") ? `${osBase}${rawMediaUrl}` : rawMediaUrl;
+        const absoluteMediaUrl = rawMediaUrl.startsWith("/") ? `${osBase}${rawMediaUrl}` : rawMediaUrl;
         const rawFallback = (b.fallback_image_url ?? b.fallbackImageUrl ?? "") as string;
-        const fallbackImageUrl = rawFallback
+        const absoluteFallbackImageUrl = rawFallback
           ? rawFallback.startsWith("/") ? `${osBase}${rawFallback}` : rawFallback
+          : undefined;
+        const mediaType = (b.media_type ?? b.mediaType ?? "image") as "image" | "video";
+        const mediaUrl = mediaType === "image"
+          ? buildHomepageOsImageUrl(absoluteMediaUrl, "hero", device === "mobile" ? 800 : 1200)
+          : absoluteMediaUrl;
+        const fallbackImageUrl = absoluteFallbackImageUrl
+          ? buildHomepageOsImageUrl(absoluteFallbackImageUrl, "hero", device === "mobile" ? 800 : 1200)
           : undefined;
         const rawLinkKind = b.link_kind ?? b.linkKind;
         const linkKind =
@@ -174,7 +186,7 @@ router.get("/homepage/banners", async (req, res) => {
           subtitle: b.subtitle ? String(b.subtitle) : undefined,
           headline: b.headline ? String(b.headline) : undefined,
           ctaText: b.cta_text ? String(b.cta_text) : b.ctaText ? String(b.ctaText) : undefined,
-          mediaType: (b.media_type ?? b.mediaType ?? "image") as "image" | "video",
+          mediaType,
           mediaUrl,
           fallbackImageUrl,
           linkUrl,
@@ -347,11 +359,9 @@ export function buildOsCategoriesRaw(): HomepageCollectionItem[] | null {
         id: c.id,
         name: c.name,
         slug: c.slug,
-        // OS category images are now publicly accessible via imagePublicUrl.
-        // Use the CDN URL directly so the browser fetches without a proxy
-        // round-trip. Fall back to empty string; the client resolves static
-        // assets from CATEGORY_STATIC_IMAGES[slug] when imageUrl is empty.
-        imageUrl: c.imagePublicUrl ?? "",
+        imageUrl: c.imagePublicUrl || c.image
+          ? buildHomepageCatalogImageUrl("category", c.id)
+          : "",
         sortOrder: i,
         isActive: true,
       }));
@@ -374,7 +384,9 @@ export function buildOsCategoriesRaw(): HomepageCollectionItem[] | null {
         // Only forward OS storage URLs (served via our proxy); drop external
         // WP/CDN URLs that may be broken or slow so the client uses its own
         // static images from CATEGORY_STATIC_IMAGES[slug] instead.
-        imageUrl: uri?.startsWith(OS_STORAGE_PREFIX) ? uri : "",
+        imageUrl: uri?.startsWith(OS_STORAGE_PREFIX)
+          ? buildHomepageOsImageUrl(uri, "category")
+          : "",
         sortOrder: i,
         isActive: true,
       };
@@ -430,7 +442,9 @@ export function buildOsOccasionsRaw(): HomepageCollectionItem[] | null {
     id: String(o.id),
     name: o.name,
     slug: o.slug,
-    imageUrl: o.imagePublicUrl ? `/api/catalog/occasion-image/${o.id}` : "",
+    imageUrl: o.imagePublicUrl || o.image
+      ? buildHomepageCatalogImageUrl("occasion", o.id)
+      : "",
     sortOrder: i,
     isActive: true,
   }));
@@ -817,9 +831,7 @@ router.get("/homepage/best-sellers", async (req, res) => {
     if (seen.has(id)) continue;
     seen.add(id);
 
-    const imageList = osP
-      ? osP.images.map((img) => ({ uri: img.url })).filter((img) => img.uri.length > 0)
-      : [];
+    const imageList = osP ? buildHomepageProductImages(osP.images) : [];
     const pricing = osP ? resolveProductPricing(osP, pricingMap) : null;
     const priceValue = pricing ? pricing.displayPrice : sale.priceUsdCents / 100;
 
@@ -857,7 +869,7 @@ router.get("/homepage/best-sellers", async (req, res) => {
       if (seen.has(osP.id)) continue;
       seen.add(osP.id);
 
-      const imageList = osP.images.map((img) => ({ uri: img.url })).filter((img) => img.uri.length > 0);
+      const imageList = buildHomepageProductImages(osP.images);
       const { displayPrice, discountPriceValue, discountPriceAed } = resolveProductPricing(osP, pricingMap);
       entries.push({
         id: osP.id,
@@ -1068,7 +1080,7 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
     if (seen.has(osP.id)) continue;
     seen.add(osP.id);
 
-    const imageList = osP.images.map((img) => ({ uri: img.url })).filter((img) => img.uri.length > 0);
+    const imageList = buildHomepageProductImages(osP.images);
     const { displayPrice, discountPriceValue, discountPriceAed } = resolveProductPricing(osP, pricingMap);
     entries.push({
       id: osP.id,
@@ -1102,7 +1114,7 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
     if (seen.has(osP.id)) continue;
     seen.add(osP.id);
 
-    const imageList = osP.images.map((img) => ({ uri: img.url })).filter((img) => img.uri.length > 0);
+    const imageList = buildHomepageProductImages(osP.images);
     const { displayPrice, discountPriceValue, discountPriceAed } = resolveProductPricing(osP, pricingMap);
     entries.push({
       id: osP.id,
@@ -1134,7 +1146,7 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
     if (seen.has(osP.id)) continue;
     seen.add(osP.id);
 
-    const imageList = osP.images.map((img) => ({ uri: img.url })).filter((img) => img.uri.length > 0);
+    const imageList = buildHomepageProductImages(osP.images);
     const { displayPrice, discountPriceValue, discountPriceAed } = resolveProductPricing(osP, pricingMap);
     entries.push({
       id: osP.id,

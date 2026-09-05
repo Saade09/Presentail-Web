@@ -35,6 +35,26 @@ describe("isOsStorageUrl", () => {
   });
 });
 
+describe("server-produced OS image proxy URLs", () => {
+  const proxied = "/api/img/proxy?url=https%3A%2F%2Fos.presentail.com%2Fapi%2Fstorage%2Fpublic-objects%2Fa.png&w=400&f=webp";
+
+  it("rewrites width and format without nesting the proxy", () => {
+    const result = buildOsProxyUrl(proxied, 1200, "jpeg");
+    expect(result).toContain("/api/img/proxy?");
+    expect(result).not.toContain("url=%2Fapi%2Fimg%2Fproxy");
+    expect(new URL(result, "https://presentail.com").searchParams.get("w")).toBe("1200");
+    expect(new URL(result, "https://presentail.com").searchParams.get("f")).toBe("jpeg");
+  });
+
+  it("builds responsive candidates from the bounded API default", () => {
+    const result = buildOsImageSrcset(proxied);
+    expect(result?.srcset).toContain("w=400");
+    expect(result?.srcset).toContain("w=800");
+    expect(result?.srcset).toContain("w=1200");
+    expect(result?.src).toContain("w=800");
+  });
+});
+
 // ---------------------------------------------------------------------------
 // buildOsProxyUrl
 // ---------------------------------------------------------------------------

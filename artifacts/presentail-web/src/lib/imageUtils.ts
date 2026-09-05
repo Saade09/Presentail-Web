@@ -8,6 +8,7 @@ const OS_SRCSET_WIDTHS = [400, 800, 1200] as const;
 // Catalog proxy URL path prefixes (relative, served by the API server).
 const CATALOG_IMAGE_PREFIXES = [
   "/api/catalog/occasion-image/",
+  "/api/catalog/category-image/",
   "/api/catalog/brand-image/",
 ] as const;
 
@@ -126,6 +127,13 @@ export function isCatalogProxyUrl(url: string): boolean {
  * Returns the raw URL unchanged when it is not an OS storage path.
  */
 export function buildOsProxyUrl(url: string, width: number, format: "webp" | "jpeg" = "webp"): string {
+  if (url.startsWith("/api/img/proxy?")) {
+    const params = new URLSearchParams(url.slice(url.indexOf("?") + 1));
+    if (!params.has("url")) return url;
+    params.set("w", String(width));
+    params.set("f", format);
+    return `/api/img/proxy?${params.toString()}`;
+  }
   const canonical = canonicalizeOsStorageUrl(url);
   if (!canonical) return url;
   return `/api/img/proxy?url=${encodeURIComponent(canonical)}&w=${width}&f=${format}`;
@@ -147,7 +155,7 @@ export function buildOsImageSrcset(
   url: string,
   sizes = "(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 800px",
 ): { srcset: string; sizes: string; src: string } | null {
-  if (!isOsStorageUrl(url)) return null;
+  if (!isOsStorageUrl(url) && !url.startsWith("/api/img/proxy?")) return null;
 
   const srcset = OS_SRCSET_WIDTHS.map((w) => `${buildOsProxyUrl(url, w)} ${w}w`).join(", ");
   const src = buildOsProxyUrl(url, 800);
@@ -174,8 +182,15 @@ export function buildCatalogImageSrcset(
 
   // Append (or replace) w and f params. The base URL may already contain a
   // trailing slash — we append query params directly.
-  const srcset = CATALOG_SRCSET_WIDTHS.map((w) => `${url}?w=${w}&f=webp ${w}w`).join(", ");
-  const src = `${url}?w=288&f=webp`;
+  const withVariant = (width: number) => {
+    const [path, query = ""] = url.split("?", 2);
+    const params = new URLSearchParams(query);
+    params.set("w", String(width));
+    params.set("f", "webp");
+    return `${path}?${params.toString()}`;
+  };
+  const srcset = CATALOG_SRCSET_WIDTHS.map((w) => `${withVariant(w)} ${w}w`).join(", ");
+  const src = withVariant(288);
 
   return { srcset, sizes, src };
 }
@@ -199,8 +214,15 @@ export function buildCatalogHeroImageSrcset(
 ): { srcset: string; sizes: string; src: string } | null {
   if (!isCatalogProxyUrl(url)) return null;
 
-  const srcset = CATALOG_HERO_SRCSET_WIDTHS.map((w) => `${url}?w=${w}&f=webp ${w}w`).join(", ");
-  const src = `${url}?w=1200&f=webp`;
+  const withVariant = (width: number) => {
+    const [path, query = ""] = url.split("?", 2);
+    const params = new URLSearchParams(query);
+    params.set("w", String(width));
+    params.set("f", "webp");
+    return `${path}?${params.toString()}`;
+  };
+  const srcset = CATALOG_HERO_SRCSET_WIDTHS.map((w) => `${withVariant(w)} ${w}w`).join(", ");
+  const src = withVariant(1200);
 
   return { srcset, sizes, src };
 }
@@ -230,10 +252,7 @@ export function buildCategoryHeroSrcset(
   if (isCatalogProxyUrl(imgSrc)) {
     return buildCatalogHeroImageSrcset(imgSrc, sizes);
   }
-  if (isOsStorageUrl(imgSrc)) {
-    return buildOsImageSrcset(imgSrc, sizes);
-  }
-  return null;
+  return buildOsImageSrcset(imgSrc, sizes);
 }
 
 /**

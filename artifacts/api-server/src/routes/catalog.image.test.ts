@@ -194,10 +194,13 @@ describe("GET /api/catalog/brand-image/:filename", () => {
     );
   });
 
-  it("sets Cache-Control immutable", async () => {
+  it("uses finite public caching so replaced catalog artwork can refresh", async () => {
     const app = await buildApp();
     const res = await request(app).get("/api/catalog/brand-image/brand-logo.jpg?w=288&f=webp");
-    expect(res.headers["cache-control"]).toContain("immutable");
+    expect(res.headers["cache-control"]).toBe(
+      "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
+    );
+    expect(res.headers["cache-control"]).not.toContain("immutable");
   });
 
   it("returns X-Cache: MISS on the first request and HIT on the second", async () => {
