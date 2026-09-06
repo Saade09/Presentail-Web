@@ -1880,6 +1880,20 @@ const server = http.createServer(async (req, res) => {
       "bundles":             "bundles",
     };
 
+    // Some old WooCommerce "product categories" describe shopping occasions,
+    // not product types. Keep these separate from WC_CATEGORY_SLUG_MAP so they
+    // resolve to the topically equivalent occasion landing page instead of a
+    // category URL or the generic shop fallback.
+    const WC_CATEGORY_OCCASION_SLUG_MAP = {
+      "mothers-day":          "mothers-day",
+      "graduation":           "graduation",
+      "birthday-gifts":       "birthday",
+      "newborn":              "new-born",
+      "valentines-day-gifts": "valentines-day",
+      "christmas":            "christmas",
+      "get-well-soon":        "get-well-soon",
+    };
+
     // Matches /product-category/:slug and /product-category/:slug/page/:n/
     const productCategoryMatch = pathname.match(
       /^\/product-category\/([^/]+?)(?:\/page\/\d+)?\/?$/
@@ -1887,9 +1901,12 @@ const server = http.createServer(async (req, res) => {
     if (productCategoryMatch) {
       const wcSlug = productCategoryMatch[1];
       const presentailSlug = WC_CATEGORY_SLUG_MAP[wcSlug];
-      const target = presentailSlug
-        ? `${BASE_PATH}/en-lb/beirut/category/${encodeURIComponent(presentailSlug)}`
-        : `${BASE_PATH}/en-lb/beirut/shop`;
+      const presentailOccasion = WC_CATEGORY_OCCASION_SLUG_MAP[wcSlug];
+      const target = presentailOccasion
+        ? `${BASE_PATH}/en-lb/beirut/occasion/${encodeURIComponent(presentailOccasion)}`
+        : presentailSlug
+          ? `${BASE_PATH}/en-lb/beirut/category/${encodeURIComponent(presentailSlug)}`
+          : `${BASE_PATH}/en-lb/beirut/shop`;
       res.writeHead(301, {
         location: target,
         "cache-control": "public, max-age=31536000, immutable",
@@ -1981,6 +1998,7 @@ const server = http.createServer(async (req, res) => {
       // redirect, which stripped the slash but pointed at a path that was never
       // migrated, creating a self-redirect-into-404 loop (Aug 2026).
       "/birthday-gift-ideas-lebanon": `${BASE_PATH}/en-lb/beirut/occasion/birthday`,
+      "/lebanon/birthday-gift-ideas-lebanon-2": `${BASE_PATH}/en-lb/beirut/occasion/birthday`,
       // Legacy WooCommerce product-category page for Father's Day (/lebanon/product-category/fathers-day)
       // ranked #1 for "Father's Day Lebanon" queries but landed on the generic shop page
       // because fathers-day is not a WC category slug. 301 to the dedicated occasion page (Aug 2026).
@@ -1988,6 +2006,9 @@ const server = http.createServer(async (req, res) => {
       // Legacy WP/WC Father's Day archive page that fell through to the bare-country fallback
       // and redirected to the generic Beirut home instead of the occasion page (Aug 2026).
       "/lebanon/fathers-day-lebanon": `${BASE_PATH}/en-lb/beirut/occasion/fathers-day`,
+      "/lebanon/fathers-day-in-lebanon": `${BASE_PATH}/en-lb/beirut/occasion/fathers-day`,
+      "/dubai/24-7-flower-delivery-dubai-same-day-midnight-delivery": `${BASE_PATH}/en-ae/dubai/flower-delivery`,
+      "/lebanon/personalized-gifts-lebanon": `${BASE_PATH}/en-lb/beirut/shop`,
       // Legacy WP balloon-delivery blog post that holds organic rankings for
       // "balloon delivery beirut lebanon". Redirect to the new blog post at its
       // canonical URL so link equity is preserved and the informational
@@ -2118,9 +2139,12 @@ const server = http.createServer(async (req, res) => {
           const catMatch = rest.match(/^\/product-category\/([^/]+?)(?:\/page\/\d+)?\/?$/);
           if (catMatch) {
             const mappedCat = WC_CATEGORY_SLUG_MAP[catMatch[1]];
-            countryRedirectTarget = mappedCat
-              ? `${BASE_PATH}/${locale}/${city}/category/${encodeURIComponent(mappedCat)}`
-              : `${BASE_PATH}/${locale}/${city}/shop`;
+            const mappedOccasion = WC_CATEGORY_OCCASION_SLUG_MAP[catMatch[1]];
+            countryRedirectTarget = mappedOccasion
+              ? `${BASE_PATH}/${locale}/${city}/occasion/${encodeURIComponent(mappedOccasion)}`
+              : mappedCat
+                ? `${BASE_PATH}/${locale}/${city}/category/${encodeURIComponent(mappedCat)}`
+                : `${BASE_PATH}/${locale}/${city}/shop`;
           } else {
             // /country/product-tag/wc-tag → /locale/city/occasion/presentail-slug
             const tagMatch = rest.match(/^\/product-tag\/([^/]+?)(?:\/page\/\d+)?\/?$/);

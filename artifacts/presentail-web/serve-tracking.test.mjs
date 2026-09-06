@@ -484,6 +484,31 @@ describe("serve.mjs Section 8 — /country/product-category/:slug redirects", ()
     expect(status).toBe(301);
     expect(location).toBe("/en-lb/beirut/category/hand-bouquets");
   });
+
+  const topicalLegacyMappings = [
+    ["/lebanon/fathers-day-in-lebanon/", "/en-lb/beirut/occasion/fathers-day"],
+    ["/lebanon/product-category/mothers-day/", "/en-lb/beirut/occasion/mothers-day"],
+    ["/product-category/graduation/", "/en-lb/beirut/occasion/graduation"],
+    ["/lebanon/product-category/birthday-gifts/", "/en-lb/beirut/occasion/birthday"],
+    ["/lebanon/birthday-gift-ideas-lebanon-2/", "/en-lb/beirut/occasion/birthday"],
+    ["/lebanon/product-category/newborn/", "/en-lb/beirut/occasion/new-born"],
+    ["/dubai/product-category/valentines-day-gifts/", "/en-ae/dubai/occasion/valentines-day"],
+    ["/product-category/valentines-day-gifts/", "/en-lb/beirut/occasion/valentines-day"],
+    ["/abudhabi/product-category/flowers/", "/en-ae/abu-dhabi/category/hand-bouquets"],
+    ["/dubai/24-7-flower-delivery-dubai-same-day-midnight-delivery/", "/en-ae/dubai/flower-delivery"],
+    ["/lebanon/personalized-gifts-lebanon/", "/en-lb/beirut/shop"],
+    ["/lebanon/product-category/christmas/", "/en-lb/beirut/occasion/christmas"],
+    ["/lebanon/product-category/get-well-soon/", "/en-lb/beirut/occasion/get-well-soon"],
+  ];
+
+  it.each(topicalLegacyMappings)(
+    "maps topical legacy URL %s to %s",
+    async (legacyPath, expectedLocation) => {
+      const { status, location } = await get(serverPort, legacyPath);
+      expect(status).toBe(301);
+      expect(location).toBe(expectedLocation);
+    },
+  );
 });
 
 // ---------------------------------------------------------------------------

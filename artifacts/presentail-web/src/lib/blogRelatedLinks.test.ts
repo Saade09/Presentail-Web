@@ -20,7 +20,7 @@ const UNDER_LINKED_SLUGS = [
 ] as const;
 
 describe("BLOG_RELATED_SLUGS", () => {
-  it("gives every formerly under-linked article two or three inbound article links", () => {
+  it("gives every formerly under-linked article two to four inbound article links", () => {
     const inbound = new Map<string, number>();
     for (const targets of Object.values(BLOG_RELATED_SLUGS)) {
       for (const target of targets) inbound.set(target, (inbound.get(target) ?? 0) + 1);
@@ -28,7 +28,7 @@ describe("BLOG_RELATED_SLUGS", () => {
 
     for (const slug of UNDER_LINKED_SLUGS) {
       expect(inbound.get(slug), slug).toBeGreaterThanOrEqual(2);
-      expect(inbound.get(slug), slug).toBeLessThanOrEqual(3);
+      expect(inbound.get(slug), slug).toBeLessThanOrEqual(4);
     }
   });
 });

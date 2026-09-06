@@ -138,6 +138,118 @@ describe("bouquet-delivery-dubai — part two content", () => {
   });
 });
 
+describe("fathers-day-gifts-lebanon — informational rewrite", () => {
+  const article = BLOG_POSTS["fathers-day-gifts-lebanon"].en;
+
+  it("preserves its identity while targeting the date-and-etiquette query", () => {
+    expect(article.slug).toBe("fathers-day-gifts-lebanon");
+    expect(article.title).toBe(
+      "When Is Father's Day in Lebanon? Date + Gift Ideas | Presentail",
+    );
+    expect(article.h1).toBe(
+      "When Is Father's Day in Lebanon? The Date, and What to Actually Get Him",
+    );
+    expect(article.description).toBe(
+      "Father's Day in Lebanon is 21 June every year — not the third Sunday like the US and UK. Here's the date, why it differs, and what to actually get him.",
+    );
+    expect(article.dek).toBe(
+      "It's 21 June, it's the same date every year, and it is not the day the rest of your family abroad is celebrating.",
+    );
+    expect(article.datePublished).toBe("2026-08-13");
+    expect(article.dateModified).toBe("2026-09-06");
+    expect(article.toc).toBe(true);
+    expect(getBlogPostMeta(article.slug).category).toBe("gifting-guides");
+  });
+
+  it("uses the Beirut Father's Day CTA and requested related articles", () => {
+    expect(article.cta).toEqual({
+      label: "Shop Father's Day gifts",
+      path: "/occasion/fathers-day",
+      country: "lb",
+    });
+    expect(article.relatedSlugs).toEqual([
+      "mothers-day-gifts-lebanon",
+      "gift-shop-in-lebanon",
+      "corporate-gifting-lebanon",
+    ]);
+    expect(BLOG_RELATED_SLUGS[article.slug]).toEqual(article.relatedSlugs);
+  });
+
+  it("keeps the supplied sections, calendar dates, and verified prices", () => {
+    expect(
+      article.sections.map((section) => section.heading).filter(Boolean),
+    ).toEqual([
+      "When is Father's Day in Lebanon?",
+      "Why the date is different from the US and UK",
+      "What Lebanese dads actually want",
+      "The dad who has everything",
+      "The dad who won't ask for anything",
+      "The dad who is far away",
+      "The new dad",
+      "Gift ideas that land",
+      "Sending from abroad",
+      "When to order",
+      "Ready to order?",
+      "Frequently asked questions",
+    ]);
+
+    const dateSection = article.sections.find(
+      (section) => section.heading === "When is Father's Day in Lebanon?",
+    );
+    expect(dateSection?.items).toEqual([
+      "2027 — 21 June, a Monday",
+      "2028 — 21 June, a Wednesday",
+      "2029 — 21 June, a Thursday",
+      "2030 — 21 June, a Friday",
+    ]);
+
+    const giftIdeas = article.sections.find(
+      (section) => section.heading === "Gift ideas that land",
+    );
+    expect(giftIdeas?.items?.join("\n")).toContain("Dad's Garden</a> ($120)");
+    expect(giftIdeas?.items?.join("\n")).toContain("Cheers to Dad</a> ($165)");
+    expect(giftIdeas?.items?.join("\n")).toContain(
+      "Happy Father's Day Balloon</a> ($13)",
+    );
+  });
+
+  it("keeps every commerce link on the Beirut hub and the deliberate anchor intact", () => {
+    const editorialMarkup = article.sections
+      .flatMap((section) => [section.body ?? "", ...(section.items ?? [])])
+      .join("\n");
+
+    expect(editorialMarkup).toContain(
+      '<a href="/en-lb/beirut/occasion/fathers-day">Father\'s Day gifts in Lebanon</a>',
+    );
+    expect(editorialMarkup).not.toContain("/en-lb/metn/");
+    expect(editorialMarkup.match(/href="\/en-lb\/beirut\//g)?.length).toBeGreaterThan(0);
+  });
+
+  it("has exactly five visible FAQs and identical FAQPage structured data", () => {
+    const faqSection = article.sections.find(
+      (section) => section.heading === "Frequently asked questions",
+    );
+    const faqSchema = article.extraJsonLd?.find(
+      (schema) =>
+        (schema as { "@type"?: string })["@type"] === "FAQPage",
+    ) as {
+      mainEntity?: Array<{
+        name: string;
+        acceptedAnswer: { text: string };
+      }>;
+    } | undefined;
+
+    expect(faqSection?.faqItems).toHaveLength(5);
+    expect(faqSchema?.mainEntity).toHaveLength(5);
+    expect(faqSchema?.mainEntity?.map((item) => item.name)).toEqual(
+      faqSection?.faqItems?.map((item) => item.q),
+    );
+    expect(
+      faqSchema?.mainEntity?.map((item) => item.acceptedAnswer.text),
+    ).toEqual(faqSection?.faqItems?.map((item) => item.a));
+  });
+});
+
 describe("teddy-bear-gifts-lebanon — part one content", () => {
   const article = BLOG_POSTS["teddy-bear-gifts-lebanon"].en;
 
