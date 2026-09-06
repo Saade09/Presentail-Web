@@ -16,9 +16,8 @@
  * (e.g. product.imageWidth / product.imageHeight); defaults to 400 × 400 so
  * the browser reserves layout space and avoids CLS even without explicit data.
  *
- * Proxy retry: when the proxy URL fails to load, the component silently retries
- * with the original (non-proxied) OS image URL before showing any fallback.
- * The shimmer stays visible during the retry — no flash of grey between attempts.
+ * Proxy failures never fall back to the original OS object-storage URL: doing so
+ * would turn a transient proxy failure into an unbounded multi-megabyte download.
  */
 
 import { useState, useLayoutEffect, useEffect, useRef, type ReactNode } from "react";
@@ -70,7 +69,6 @@ export function ProductImage({
 }: ProductImageProps) {
   const [loaded, setLoaded] = useState(() => priority || loadedUrls.has(src));
   const [failed, setFailed] = useState(false);
-  const [retrying, setRetrying] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
   const loadedRef = useRef(loaded);
   loadedRef.current = loaded;
@@ -87,7 +85,7 @@ export function ProductImage({
       setLoaded(true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [src, retrying]);
+  }, [src]);
 
   // Bounded failsafe: no card may stay on the gray shimmer indefinitely.
   // After LOAD_FAILSAFE_MS, resolve from the element's actual state:
@@ -103,11 +101,7 @@ export function ProductImage({
       if (img && img.complete && img.naturalWidth === 0) {
         // Load finished with no data — a genuine failure the error handler
         // missed. Route through the same retry/fallback logic as onError.
-        if (!retrying && (osProps?.src ?? catalogProps?.src ?? src) !== src) {
-          setRetrying(true);
-        } else {
-          setFailed(true);
-        }
+        setFailed(true);
         return;
       }
       loadedUrls.add(src);
@@ -115,7 +109,7 @@ export function ProductImage({
     }, LOAD_FAILSAFE_MS);
     return () => window.clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [src, retrying, loaded, failed]);
+  }, [src, loaded, failed]);
 
   const alt = buildProductImageAlt(product, locale, cityName, { decorative });
   const resolvedFallback = fallback ?? (
@@ -137,41 +131,6 @@ export function ProductImage({
 
   if (failed) {
     return <>{resolvedFallback}</>;
-  }
-
-  // Retry path: proxy URL failed but the raw OS URL may still be reachable.
-  // Render a plain <img> pointing directly at `src` (no <picture>/<source>
-  // wrapper) while keeping the shimmer visible until the raw URL loads or also
-  // fails.
-  if (retrying) {
-    return (
-      <div className={`relative w-full h-full ${containerClassName ?? ""}`}>
-        {!loaded && (
-          <div className="absolute inset-0 animate-shimmer rounded-[inherit]" />
-        )}
-        <img
-          ref={imgRef}
-          src={src}
-          alt={alt}
-          width={width}
-          height={height}
-          loading={priority ? "eager" : "lazy"}
-          decoding={priority ? "sync" : "async"}
-          {...(priority ? { fetchPriority: "high" } : {})}
-          className={[
-            "w-full h-full",
-            priority ? "" : "transition-opacity duration-500",
-            loaded ? "opacity-100" : "opacity-0",
-            className ?? "",
-          ].join(" ")}
-          onLoad={() => {
-            loadedUrls.add(src);
-            setLoaded(true);
-          }}
-          onError={() => setFailed(true)}
-        />
-      </div>
-    );
   }
 
   return (
@@ -207,13 +166,7 @@ export function ProductImage({
             setLoaded(true);
           }}
           onError={() => {
-            // When the proxy URL differs from the raw src, silently retry with
-            // the original URL before giving up and showing the fallback.
-            if (resolvedSrc !== src) {
-              setRetrying(true);
-            } else {
-              setFailed(true);
-            }
+            setFailed(true);
           }}
         />
       </picture>

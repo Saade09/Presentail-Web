@@ -10,6 +10,7 @@ import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 import { API_BASE } from "@/lib/stripe";
+import { resolveWcBrandImageUrl } from "@/lib/woo";
 
 export type WooBrand = {
   id: string;
@@ -35,7 +36,11 @@ export function BrandsCarousel() {
       const res = await fetch(`${API_BASE}/api/woo/brands`, { headers });
       if (!res.ok) return { brands: [] as WooBrand[] };
       const json = await res.json() as { ok?: boolean; brands?: WooBrand[] };
-      return { brands: Array.isArray(json.brands) ? json.brands : [] };
+      return {
+        brands: Array.isArray(json.brands)
+          ? json.brands.map(resolveWcBrandImageUrl)
+          : [],
+      };
     },
     staleTime: 10 * 60 * 1000,
   });

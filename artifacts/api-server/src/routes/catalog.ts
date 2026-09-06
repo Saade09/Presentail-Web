@@ -16,6 +16,7 @@ import { getOsBrandProductCounts, getOsBrands, getOsCategories, getOsCategoryPro
 import { getRankingConfig } from "./homepage";
 import { scoreCollections, getCollectionClickScores } from "../lib/collectionRanking";
 import { transformImage, resolveWidth, resolveFormat, resolveQuality } from "../lib/imageTransform";
+import { buildCatalogProductImageUrl, CATALOG_CARD_IMAGE_WIDTH } from "../lib/catalogProductImagePolicy";
 import { db } from "@workspace/db";
 import { plantEnvironmentCacheTable } from "@workspace/db/schema";
 import { logger } from "../lib/logger";
@@ -141,7 +142,7 @@ function toBrandImageProxyUrl(url: string | null | undefined): string | null {
       return `/api/catalog/brand-image/${filename}`;
     }
   }
-  return url;
+  return buildCatalogProductImageUrl(url, CATALOG_CARD_IMAGE_WIDTH);
 }
 
 router.get("/catalog/brand-image/:filename", async (req, res) => {

@@ -96,3 +96,4 @@
 - [Mobile publish cache ownership](mobile-publish-cache-ownership.md) — one service owns shared output; cache only on disk, and isolate Metro processes so clean builds cannot inherit memory.
 - [Upload credential scanning](upload-credential-scanning.md) — scan ignored upload/scratch contents, including pasted text; report paths and finding types only, never values.
 - [Publish artifact cache keys](publish-artifact-cache-keys.md) — scope source/env inputs per artifact; mobile keys must include resolved deployment identity to prevent stale Expo URLs.
+- [Catalog display image bounds](catalog-display-image-bounds.md) — cards use 400px defaults, galleries 1200px; clients must never unwrap failed display proxies to raw OS storage.

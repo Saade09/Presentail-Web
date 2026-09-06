@@ -54,6 +54,11 @@ import { getProductSocialShare, rowToProductSocialOverrides } from "../lib/produ
 import { buildProductSocialVersion, selectProductSocialImage } from "../lib/productSocialShare";
 import type { WooOrderPayload } from "../lib/wooOrders";
 import type { WooStoreConfig } from "../lib/wooStore";
+import {
+  buildCatalogProductImageUrl,
+  CATALOG_CARD_IMAGE_WIDTH,
+  PRODUCT_GALLERY_IMAGE_WIDTH,
+} from "../lib/catalogProductImagePolicy";
 
 // Normalise a product name for comparison: decode entities, lowercase,
 // collapse whitespace. Used to make sure the image we attach to the Slack
@@ -535,11 +540,15 @@ async function applyProductNameTranslations<
 
 export function transformProduct(p: WcProduct, currencySymbol = "$") {
   const price = parseFloat(p.price ?? "") || 0;
-  const imageList = (p.images ?? [])
+  const rawImageUrls = (p.images ?? [])
     .map((img) => img?.src)
-    .filter((src): src is string => typeof src === "string" && src.length > 0)
-    .map((src) => ({ uri: src }));
-  const image = imageList[0] ?? null;
+    .filter((src): src is string => typeof src === "string" && src.length > 0);
+  const imageList = rawImageUrls.map((src) => ({
+    uri: buildCatalogProductImageUrl(src, PRODUCT_GALLERY_IMAGE_WIDTH),
+  }));
+  const image = rawImageUrls[0]
+    ? { uri: buildCatalogProductImageUrl(rawImageUrls[0], CATALOG_CARD_IMAGE_WIDTH) }
+    : null;
   const formattedPrice = currencySymbol.length > 1
     ? `${price.toLocaleString()} ${currencySymbol}`
     : `${currencySymbol}${price.toLocaleString()}`;
@@ -600,8 +609,12 @@ router.get("/woo/brands", (_req, res) => {
         id: b.slug,
         name: decodeHtmlEntities(b.name),
         slug: b.slug,
-        image: b.image ?? null,
-        cover_image,
+        image: b.image
+          ? buildCatalogProductImageUrl(b.image, CATALOG_CARD_IMAGE_WIDTH)
+          : null,
+        cover_image: cover_image
+          ? buildCatalogProductImageUrl(cover_image, PRODUCT_GALLERY_IMAGE_WIDTH)
+          : null,
       };
     }),
   });
@@ -624,10 +637,15 @@ router.get("/woo/brand-products", async (req, res) => {
   const brandEntry = osBrands?.find((b) => b.slug === brandSlug);
   const rawBrandEntry = rawBrands?.find((b: OSCatalogAttributeBrand) => b.slug === brandSlug);
   const brandName = brandEntry ? decodeHtmlEntities(brandEntry.name) : brandSlug;
-  const brandImage = brandEntry?.image ?? null;
+  const brandImage = brandEntry?.image
+    ? buildCatalogProductImageUrl(brandEntry.image, CATALOG_CARD_IMAGE_WIDTH)
+    : null;
   const brandDescription = brandEntry?.description ? decodeHtmlEntities(brandEntry.description) : null;
-  const brandCoverImage: string | null =
+  const rawBrandCoverImage: string | null =
     rawBrandEntry?.banner_image_url ?? rawBrandEntry?.cover_image ?? rawBrandEntry?.image_public_url ?? null;
+  const brandCoverImage = rawBrandCoverImage
+    ? buildCatalogProductImageUrl(rawBrandCoverImage, PRODUCT_GALLERY_IMAGE_WIDTH)
+    : null;
 
   const sortMode = readSortMode(req);
   const browseFilter: DeliveryFilter = { countryCode: filter.countryCode, cityId: null };
@@ -1000,7 +1018,7 @@ router.get("/woo/product", async (req, res) => {
     await getProductSocialShare(slug).catch(() => null),
   );
   const socialSelection = selectProductSocialImage(
-    { images: enrichedProduct.images.map((image) => ({ url: image.uri })) },
+    { images: osProduct.images.map((image) => ({ url: image.url })) },
     socialOverrides,
   );
   const socialShareVersion = buildProductSocialVersion(
@@ -2680,7 +2698,13 @@ router.get("/woo/search", async (req, res) => {
   const matchingBrands = osBrands
     .filter((b) => decodeHtmlEntities(b.name).toLowerCase().includes(lower))
     .slice(0, 5)
-    .map((b) => ({ slug: b.slug, name: decodeHtmlEntities(b.name), image: b.image ?? null }));
+    .map((b) => ({
+      slug: b.slug,
+      name: decodeHtmlEntities(b.name),
+      image: b.image
+        ? buildCatalogProductImageUrl(b.image, CATALOG_CARD_IMAGE_WIDTH)
+        : null,
+    }));
 
   return res.json({ ok: true, products: matchingProducts, categories: matchingCategories, occasions: matchingOccasions, brands: matchingBrands });
 });

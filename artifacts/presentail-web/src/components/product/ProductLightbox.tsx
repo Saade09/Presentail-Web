@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut } from "lucide-react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/contexts/LocaleContext";
-import { buildOsProxyUrl, buildOsImageSrcset, isOsStorageUrl } from "@/lib/imageUtils";
+import { buildOsProxyUrl, buildOsImageSrcset } from "@/lib/imageUtils";
 
 type Image = { uri: string };
 
@@ -274,14 +274,14 @@ export function ProductLightbox({
             {/* Serve optimized WebP via the image proxy; raw URI is the JPEG
                 fallback for non-OS-storage URLs (e.g. legacy Woo images). */}
             <picture>
-              {isOsStorageUrl(current.uri) && (() => {
+              {(() => {
                 const srcset = buildOsImageSrcset(current.uri, "100vw");
                 return srcset ? (
                   <source type="image/webp" srcSet={srcset.srcset} sizes="100vw" />
                 ) : null;
               })()}
               <img
-                src={isOsStorageUrl(current.uri) ? buildOsProxyUrl(current.uri, 1600, "jpeg") : current.uri}
+                src={buildOsProxyUrl(current.uri, 1600, "jpeg")}
                 alt={productName}
                 draggable={false}
                 className={cn(
@@ -335,7 +335,7 @@ export function ProductLightbox({
                     data-testid={`lightbox-thumb-${i}`}
                   >
                     <img
-                      src={isOsStorageUrl(img.uri) ? buildOsProxyUrl(img.uri, 160) : img.uri}
+                        src={buildOsProxyUrl(img.uri, 160)}
                       alt={`${productName} — image ${i + 1}`}
                       className="w-full h-full object-cover"
                     />

@@ -24,6 +24,32 @@ export type WooProduct = {
   isBestSeller?: boolean;
 };
 
+function absoluteApiImageUri(uri: string): string {
+  if (!uri.startsWith("/api/")) return uri;
+  return `${API_BASE.replace(/\/$/, "")}${uri}`;
+}
+
+function absoluteOptionalApiImageUri(uri: string | null | undefined): string | null {
+  return uri ? absoluteApiImageUri(uri) : null;
+}
+
+export function resolveWooProductImageUrls(product: WooProduct): WooProduct {
+  return {
+    ...product,
+    image: product.image?.uri
+      ? { ...product.image, uri: absoluteApiImageUri(product.image.uri) }
+      : product.image,
+    images: product.images?.map((image) => ({
+      ...image,
+      uri: absoluteApiImageUri(image.uri),
+    })),
+  };
+}
+
+function resolveWooProductList(products: WooProduct[]): WooProduct[] {
+  return products.map(resolveWooProductImageUrls);
+}
+
 export type ProductPricingEntry = {
   discountPriceUsd: number | null;
   discountPriceAed: number | null;
@@ -115,7 +141,7 @@ export async function fetchCategoryProducts(
     );
     const json = await res.json();
     if (json.ok && Array.isArray(json.products)) {
-      return { products: json.products, categoryName: json.categoryName ?? slug };
+      return { products: resolveWooProductList(json.products), categoryName: json.categoryName ?? slug };
     }
     return { products: [], categoryName: slug };
   } catch {
@@ -137,7 +163,12 @@ export async function fetchOccasionProducts(
       { headers: storeHeaders(filter) }
     );
     const json = await res.json();
-    if (json.ok && Array.isArray(json.groups)) return json.groups;
+    if (json.ok && Array.isArray(json.groups)) {
+      return json.groups.map((group: OccasionGroup) => ({
+        ...group,
+        products: resolveWooProductList(group.products),
+      }));
+    }
     return [];
   } catch {
     return [];
@@ -168,11 +199,11 @@ export async function fetchBrandProducts(
     const json = await res.json();
     if (json.ok && Array.isArray(json.products)) {
       return {
-        products: json.products,
-        brandImage: json.brandImage ?? null,
+        products: resolveWooProductList(json.products),
+        brandImage: absoluteOptionalApiImageUri(json.brandImage),
         brandName: typeof json.brandName === "string" ? json.brandName : null,
         brandDescription: typeof json.brandDescription === "string" ? json.brandDescription : null,
-        brandCoverImage: typeof json.brandCoverImage === "string" ? json.brandCoverImage : null,
+        brandCoverImage: absoluteOptionalApiImageUri(json.brandCoverImage),
       };
     }
     return { products: [], brandImage: null, brandName: null, brandDescription: null, brandCoverImage: null };
@@ -199,7 +230,7 @@ export async function fetchWooProducts(filter?: DeliveryFilter): Promise<WooProd
     if (!res.ok) return { ok: false };
     const json = await res.json();
     if (json.ok && Array.isArray(json.products)) {
-      return { ok: true, products: json.products };
+      return { ok: true, products: resolveWooProductList(json.products) };
     }
     return { ok: false };
   } catch {
@@ -297,6 +328,13 @@ export type WcBrand = {
   count: number;
   image: string | null;
 };
+
+export function resolveWcBrandImageUrl<T extends { image: string | null }>(brand: T): T {
+  return {
+    ...brand,
+    image: absoluteOptionalApiImageUri(brand.image),
+  };
+}
 
 // Mobile icon fallback map for OS-only categories that have no hardcoded entry.
 // Mirrors the OS_CATEGORY_ICONS map on the API server so the chip renders a
