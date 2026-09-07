@@ -852,7 +852,6 @@ function CheckoutScreen() {
   }, [payMethod, walletSupported]);
 
 
-
   // Maps known Stripe decline codes to plain-language, actionable messages.
   // stripe-react-native exposes the decline code in error.code for card declines.
   // Returns null for unrecognised codes so the caller falls back to the generic message.

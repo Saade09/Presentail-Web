@@ -6,7 +6,7 @@
  * - per-country scheduled-delivery time slots and their cutoffs
  * - the country-aware "current local hour" helper (Asia/Beirut for LB & CY,
  *   Asia/Dubai for AE), DST-aware for Beirut
- * - the express-availability window (8 AM – 10 PM in the recipient country)
+ * - the express-availability window (8 AM – 1 AM in the recipient country)
  * - the cart day-list builder and the "format the selected delivery row"
  *   helper used by mini-cart / full-cart
  *
@@ -602,9 +602,9 @@ export function firstAvailableDay(
 // ---------------------------------------------------------------------------
 
 /**
- * Express Delivery (1–3 hrs) is offered only between 8 AM and 10 PM in
- * the recipient country's local time. Both web and mobile use this rule
- * to gate the express option.
+ * Express Delivery (1–3 hrs) is available from 8 AM until 10 PM
+ * in the recipient country's local time. Both web and mobile use this
+ * rule to gate the express option.
  */
 export const EXPRESS_OPEN_HOUR = 8;
 export const EXPRESS_CLOSE_HOUR = 22;
