@@ -30,6 +30,8 @@
 //   - Exact flavour/size catalogue beyond the two confirmed product names.
 //   - Whether COD is available for all delivery cities (confirmed for
 //     Beirut/LB market overall; per-city COD not individually verified).
+//   - Balloon float times, on-site or venue setup, hospital delivery,
+//     personalisation lead times, and maximum balloon arrangement sizes.
 /* eslint-disable max-len */
 
 /**
@@ -214,6 +216,7 @@ export const CATEGORY_SEO_CONTENT = {
               { label: "Foil & mylar balloons", href: "/category/balloons" },
               { label: "Balloon bouquets", href: "/category/balloons" },
               { label: "Number & letter balloons", href: "/category/balloons" },
+              { label: "Balloon decorations & arrangements", href: "/category/balloon-arrangements" },
             ],
           },
           {
@@ -276,6 +279,57 @@ export const CATEGORY_SEO_CONTENT = {
           {
             q: "What types of balloons do you offer?",
             a: "Presentail offers helium balloons, foil and mylar balloons in shapes and characters, curated balloon bouquets, and number and letter balloons for milestone celebrations. Browse this page for the current range.",
+          },
+        ],
+      },
+      "balloon-arrangements": {
+        title: "Balloon Decorations & Arrangements in Beirut | Presentail",
+        metaDescription:
+          "Balloon arrangements and decoration setups delivered in Beirut — birthday displays, newborn welcome setups and personalised designs. Same-day delivery when you order before midday.",
+        h1: "Balloon Decorations & Arrangements in Beirut",
+        intro:
+          "Presentail delivers complete balloon arrangements across Beirut — birthday displays, newborn welcome setups and personalised designs, delivered assembled and ready to stand. Order before midday for same-day delivery in Hamra, Achrafieh, Gemmayzeh, Verdun and beyond, or schedule up to 30 days ahead and choose a two-hour delivery window at checkout.",
+        sections: [
+          {
+            heading: "Birthday Balloon Decorations",
+            body: "Themed birthday setups built around a colour scheme and finished with number and letter balloons — from playful designs for a child's party to grand celebration displays for a milestone year. Each arrangement arrives inflated and assembled, so nothing needs putting together on the day.",
+            links: [
+              { label: "Birthday gifts", href: "/occasion/birthday" },
+              { label: "Balloons", href: "/category/balloons" },
+            ],
+          },
+          {
+            heading: "Newborn & Baby Welcome Balloon Setups",
+            body: "Welcome a new arrival with a balloon setup in blue or pink, including personalised designs that carry the baby's name. These are full displays rather than a handful of balloons, made to greet parents coming home or to mark the announcement.",
+            links: [
+              { label: "Newborn gifts", href: "/occasion/new-born" },
+              { label: "Balloons", href: "/category/balloons" },
+            ],
+          },
+          {
+            heading: "Arrangements or Single Balloons?",
+            body: "A balloon arrangement is a complete, assembled setup designed around one occasion. If you're after individual helium balloons, foil hearts, chrome bundles or a simple balloon bouquet to pair with flowers or a cake, browse the main balloons collection instead.",
+            links: [
+              { label: "Balloons", href: "/category/balloons" },
+            ],
+          },
+        ],
+        faqs: [
+          {
+            q: "Can I get same-day balloon arrangement delivery in Beirut?",
+            a: "Yes — order before midday and your balloon arrangement is delivered the same day in Beirut. Orders placed after midday are scheduled for the next available delivery window.",
+          },
+          {
+            q: "How far in advance can I schedule a balloon arrangement?",
+            a: "You can schedule up to 30 days ahead. Choose your date and a two-hour delivery window at checkout.",
+          },
+          {
+            q: "Can I add a personalised message to a balloon arrangement?",
+            a: "Yes — add your message in the gift note field at checkout and it will be included with the delivery.",
+          },
+          {
+            q: "What's the difference between a balloon arrangement and the balloons collection?",
+            a: "Balloon arrangements are complete setups assembled around a theme or occasion. The balloons collection carries individual balloons, foil and chrome balloons, and balloon bouquets you can order on their own or add to another gift.",
           },
         ],
       },
@@ -768,6 +822,57 @@ export const CATEGORY_SEO_CONTENT = {
           },
         ],
       },
+      "balloon-arrangements": {
+        title: "ديكورات وتنسيقات البالونات في بيروت | Presentail",
+        metaDescription:
+          "تنسيقات وديكورات بالونات تُوصّل في بيروت — لاحتفالات أعياد الميلاد واستقبال المواليد وتصاميم مخصّصة. توصيل في اليوم نفسه عند الطلب قبل الظهر.",
+        h1: "ديكورات وتنسيقات البالونات في بيروت",
+        intro:
+          "تُوصّل Presentail تنسيقات بالونات متكاملة في جميع أنحاء بيروت — ديكورات لأعياد الميلاد، وتنسيقات لاستقبال المواليد، وتصاميم مخصّصة تصل مركّبة وجاهزة للعرض. اطلب قبل الظهر للتوصيل في اليوم نفسه في الحمرا والأشرفية والجميزة وفردان وما حولها، أو حدّد موعداً قبل 30 يوماً واختر نافذة توصيل مدتها ساعتان عند الدفع.",
+        sections: [
+          {
+            heading: "ديكورات بالونات أعياد الميلاد",
+            body: "تنسيقات لأعياد الميلاد مبنية حول مجموعة ألوان ومكتملة ببالونات الأرقام والحروف — من تصاميم مرحة لحفلة طفل إلى ديكورات احتفالية كبيرة لعيد ميلاد مميّز. يصل كل تنسيق منفوخاً ومركّباً، فلا حاجة إلى تجميع أي شيء في يوم المناسبة.",
+            links: [
+              { label: "هدايا عيد الميلاد", href: "/occasion/birthday" },
+              { label: "البالونات", href: "/category/balloons" },
+            ],
+          },
+          {
+            heading: "تنسيقات بالونات لاستقبال المواليد",
+            body: "استقبلوا المولود الجديد بتنسيق بالونات باللون الأزرق أو الوردي، بما في ذلك تصاميم مخصّصة تحمل اسم الطفل. هذه ديكورات متكاملة وليست مجرد مجموعة صغيرة من البالونات، صُمّمت لاستقبال الوالدين عند العودة إلى المنزل أو للاحتفال بالإعلان.",
+            links: [
+              { label: "هدايا المواليد", href: "/occasion/new-born" },
+              { label: "البالونات", href: "/category/balloons" },
+            ],
+          },
+          {
+            heading: "تنسيق متكامل أم بالونات منفردة؟",
+            body: "تنسيق البالونات هو ديكور كامل ومركّب مصمّم حول مناسبة واحدة. أما إذا كنتم تبحثون عن بالونات هيليوم منفردة، أو قلوب من الفويل، أو مجموعات كروم، أو باقة بالونات بسيطة لإرفاقها بالزهور أو الكيك، فتصفّحوا مجموعة البالونات الرئيسية.",
+            links: [
+              { label: "البالونات", href: "/category/balloons" },
+            ],
+          },
+        ],
+        faqs: [
+          {
+            q: "هل يمكنني الحصول على توصيل تنسيق بالونات في اليوم نفسه في بيروت؟",
+            a: "نعم — اطلب قبل الظهر وسيُوصّل تنسيق البالونات في اليوم نفسه في بيروت. الطلبات التي تُقدَّم بعد الظهر تُجدول لنافذة التوصيل التالية المتاحة.",
+          },
+          {
+            q: "قبل كم من الوقت يمكنني جدولة تنسيق بالونات؟",
+            a: "يمكنك تحديد الموعد قبل 30 يوماً. اختر التاريخ ونافذة توصيل مدتها ساعتان عند الدفع.",
+          },
+          {
+            q: "هل يمكنني إضافة رسالة شخصية إلى تنسيق البالونات؟",
+            a: "نعم — أضف رسالتك في حقل ملاحظة الهدية عند الدفع وستُرفق مع التوصيل.",
+          },
+          {
+            q: "ما الفرق بين تنسيق البالونات ومجموعة البالونات؟",
+            a: "تنسيقات البالونات هي ديكورات متكاملة ومركّبة حول طابع أو مناسبة. أما مجموعة البالونات فتضم بالونات منفردة، وبالونات فويل وكروم، وباقات بالونات يمكن طلبها بمفردها أو إضافتها إلى هدية أخرى.",
+          },
+        ],
+      },
     },
   },
 
@@ -919,6 +1024,57 @@ export const CATEGORY_SEO_CONTENT = {
           {
             q: "Puis-je ajouter un message personnalisé ou une carte avec le gâteau ?",
             a: "Oui — ajoutez votre message dans le champ note cadeau à la caisse et il sera inclus avec la livraison.",
+          },
+        ],
+      },
+      "balloon-arrangements": {
+        title: "Décorations et Arrangements de Ballons à Beyrouth | Presentail",
+        metaDescription:
+          "Arrangements et décors de ballons livrés à Beyrouth — anniversaires, accueils de nouveau-né et créations personnalisées. Livraison le jour même avant midi.",
+        h1: "Décorations et Arrangements de Ballons à Beyrouth",
+        intro:
+          "Presentail livre des arrangements de ballons complets dans tout Beyrouth — décors d'anniversaire, installations pour accueillir un nouveau-né et créations personnalisées, livrés assemblés et prêts à être installés. Commandez avant midi pour une livraison le jour même à Hamra, Achrafieh, Gemmayzeh, Verdun et au-delà, ou planifiez jusqu'à 30 jours à l'avance et choisissez un créneau de livraison de deux heures à la caisse.",
+        sections: [
+          {
+            heading: "Décorations de Ballons pour Anniversaire",
+            body: "Des décors d'anniversaire conçus autour d'une palette de couleurs et complétés par des ballons chiffres et lettres — des créations ludiques pour la fête d'un enfant aux grands décors pour célébrer un âge marquant. Chaque arrangement arrive gonflé et assemblé, sans rien à monter le jour même.",
+            links: [
+              { label: "Cadeaux d'anniversaire", href: "/occasion/birthday" },
+              { label: "Ballons", href: "/category/balloons" },
+            ],
+          },
+          {
+            heading: "Arrangements de Ballons pour Accueillir un Nouveau-né",
+            body: "Accueillez une nouvelle arrivée avec un décor de ballons bleu ou rose, y compris des créations personnalisées portant le prénom du bébé. Il s'agit de décors complets plutôt que de quelques ballons, conçus pour accueillir les parents à leur retour à la maison ou marquer l'annonce.",
+            links: [
+              { label: "Cadeaux pour nouveau-né", href: "/occasion/new-born" },
+              { label: "Ballons", href: "/category/balloons" },
+            ],
+          },
+          {
+            heading: "Arrangements ou Ballons à l'Unité ?",
+            body: "Un arrangement de ballons est un décor complet et assemblé, conçu autour d'une occasion. Si vous cherchez des ballons à l'hélium à l'unité, des cœurs en aluminium, des bouquets chromés ou un simple bouquet de ballons à associer à des fleurs ou un gâteau, parcourez plutôt la collection principale de ballons.",
+            links: [
+              { label: "Ballons", href: "/category/balloons" },
+            ],
+          },
+        ],
+        faqs: [
+          {
+            q: "Puis-je faire livrer un arrangement de ballons le jour même à Beyrouth ?",
+            a: "Oui — commandez avant midi et votre arrangement de ballons sera livré le jour même à Beyrouth. Les commandes passées après midi sont planifiées pour le prochain créneau de livraison disponible.",
+          },
+          {
+            q: "Combien de temps à l'avance puis-je planifier un arrangement de ballons ?",
+            a: "Vous pouvez planifier jusqu'à 30 jours à l'avance. Choisissez votre date et un créneau de livraison de deux heures à la caisse.",
+          },
+          {
+            q: "Puis-je ajouter un message personnalisé à un arrangement de ballons ?",
+            a: "Oui — ajoutez votre message dans le champ note cadeau à la caisse et il sera inclus avec la livraison.",
+          },
+          {
+            q: "Quelle est la différence entre un arrangement de ballons et la collection de ballons ?",
+            a: "Les arrangements de ballons sont des décors complets assemblés autour d'un thème ou d'une occasion. La collection de ballons comprend des ballons à l'unité, des ballons en aluminium et chromés, ainsi que des bouquets de ballons à commander seuls ou à ajouter à un autre cadeau.",
           },
         ],
       },

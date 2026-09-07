@@ -740,6 +740,20 @@ export default function Shop() {
         catalogCategory?.name ||
         category
       );
+      // Curated category pages: Home › Country › City › Shop › CategoryName.
+      // Non-curated category pages intentionally keep the compact two-level trail.
+      if (curatedCategorySeo && country && city) {
+        const entityCountryLabel = countryName(country.code, country.name);
+        const entityCityLabel = cityName(city.id, city.name);
+        const locBase = `/${language}-${country.code}/${city.id}`;
+        return [
+          home,
+          { label: entityCountryLabel, href: `/${language}-${country.code}` },
+          { label: entityCityLabel, href: locBase },
+          { label: t("nav.shop"), href: `${locBase}/shop` },
+          { label },
+        ];
+      }
       return [home, { label }];
     }
     if (occasion) {
@@ -765,7 +779,7 @@ export default function Shop() {
       return [home, { label }];
     }
     return [home, { label: brandDisplayName }];
-  }, [category, occasion, brand, t, catalogCategory, catalogOccasion, brandDisplayName, categoryLabelKey, occasionLabelKey, curatedSeo, country, city, language, countryName, cityName]);
+  }, [category, occasion, brand, t, catalogCategory, catalogOccasion, brandDisplayName, categoryLabelKey, occasionLabelKey, curatedSeo, curatedCategorySeo, country, city, language, countryName, cityName]);
 
   const shopFiltersProps = {
     priceBuckets,

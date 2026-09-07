@@ -5004,12 +5004,25 @@ function buildShopEntityHead({
     remapCityToHub,
   });
   const requestLocBase = localeBaseUrl(pathname, origin, basePath);
-  const crumbItems = [{ name: "Home", url: siteRoot }];
+  const _entityCrumbLabels = {
+    en: { home: "Home", shop: "Shop", occasions: "Occasions", faq: "Frequently Asked Questions" },
+    ar: { home: "الرئيسية", shop: "تسوّق", occasions: "المناسبات", faq: "الأسئلة الشائعة" },
+    fr: { home: "Accueil", shop: "Boutique", occasions: "Occasions", faq: "Questions Fréquentes" },
+  };
+  const entityCrumbLabels = _entityCrumbLabels[entityLang] ?? _entityCrumbLabels.en;
+  const crumbItems = [{ name: entityCrumbLabels.home, url: siteRoot }];
   // For curated occasion pages insert a country crumb between Home and City so
   // the trail reads: Home > Lebanon > Beirut > Occasions > OccasionName.
   // This mirrors the visible breadcrumb rendered client-side by Shop.tsx and
   // matches the national-level targeting of curated pages like fathers-day.
   if (curated && entityKind === "occasion" && countryLabel) {
+    const _ep = parseLocalePath(pathname);
+    if (_ep.lang && _ep.country) {
+      const countryUrl = `${origin}${cleanBase}/${_ep.lang}-${_ep.country}`;
+      crumbItems.push({ name: countryLabel, url: countryUrl });
+    }
+  }
+  if (curated && entityKind === "category" && countryLabel) {
     const _ep = parseLocalePath(pathname);
     if (_ep.lang && _ep.country) {
       const countryUrl = `${origin}${cleanBase}/${_ep.lang}-${_ep.country}`;
@@ -5023,7 +5036,10 @@ function buildShopEntityHead({
   // full trail is Home > City > Occasions > OccasionName, matching the
   // equivalent breadcrumb the category pages show for their listing page.
   if (entityKind === "occasion" && displayName) {
-    crumbItems.push({ name: "Occasions", url: `${locBase}/occasions` });
+    crumbItems.push({ name: entityCrumbLabels.occasions, url: `${locBase}/occasions` });
+  }
+  if (curated && entityKind === "category" && displayName) {
+    crumbItems.push({ name: entityCrumbLabels.shop, url: `${locBase}/shop` });
   }
   crumbItems.push({ name: displayName || altText });
   const graphNodes = [buildBreadcrumbListSchema(crumbItems)];
@@ -5145,9 +5161,23 @@ function buildShopEntityHead({
   const safeEntityDesc = escapeHtml(clampDescription(rawEntityDesc) || description);
   const safeSeoHeading = escapeHtml(seoHeading);
   const safeSeoIntro = escapeHtml(seoIntro);
-  const entityNav = locBase
-    ? `<nav><a href="${locBase}/">Home</a> › <a href="${locBase}/shop">Shop</a></nav>` // i18n-ignore — breadcrumb labels
-    : "";
+  let entityNav = "";
+  if (locBase) {
+    const currentLabel = escapeHtml(displayName || altText);
+    if (curated && entityKind === "category") {
+      const _ep = parseLocalePath(pathname);
+      const countryUrl = _ep.lang && _ep.country
+        ? `${origin}${cleanBase}/${_ep.lang}-${_ep.country}`
+        : siteRoot;
+      entityNav =
+        `<nav><a href="${siteRoot}">${escapeHtml(entityCrumbLabels.home)}</a> › ` +
+        `<a href="${countryUrl}">${escapeHtml(countryLabel || "")}</a> › ` +
+        `<a href="${locBase}">${escapeHtml(cityLabel || "")}</a> › ` +
+        `<a href="${locBase}/shop">${escapeHtml(entityCrumbLabels.shop)}</a> › ${currentLabel}</nav>`;
+    } else {
+      entityNav = `<nav><a href="${locBase}/">${escapeHtml(entityCrumbLabels.home)}</a> › <a href="${locBase}/shop">${escapeHtml(entityCrumbLabels.shop)}</a></nav>`;
+    }
+  }
   // Add FAQ questions as h2+h3 headings so pages with multiple sections have
   // the required subheading structure for AI crawlers and the Agent Ready scan.
   let entityFaqBodyHtml = "";
@@ -5231,7 +5261,7 @@ function buildShopEntityHead({
       .join("");
     const curatedFaqHtml =
       curated.faqs.length > 0
-        ? `<h2>Frequently Asked Questions</h2>` + // i18n-ignore — curated content is EN-only
+        ? `<h2>${escapeHtml(entityCrumbLabels.faq)}</h2>` +
           curated.faqs.map(({ q, a }) => `<h3>${escapeHtml(q)}</h3><p>${escapeHtml(a)}</p>`).join("")
         : "";
     curatedBodyHtml =

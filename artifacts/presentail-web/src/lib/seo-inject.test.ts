@@ -1004,6 +1004,97 @@ describe("injectSeoTagsAsync — /category/:slug (clean path)", () => {
     }
   });
 
+  it("renders curated Beirut balloon-arrangements copy, crawlable cross-links, FAQ schema, and matching five-level breadcrumbs", async () => {
+    const ROOT_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body><div id="root"></div></body></html>`;
+    const { CATEGORY_SEO_CONTENT, getCategorySeoContent } = await import("../../src/data/categorySeoContent.mjs");
+    const curated = getCategorySeoContent({
+      country: "lb",
+      city: "beirut",
+      slug: "balloon-arrangements",
+      lang: "en",
+    });
+    expect(curated).toBeTruthy();
+    if (!curated) throw new Error('Missing curated balloon-arrangements entry in CATEGORY_SEO_CONTENT["en"]["lb/beirut"]');
+
+    expect(curated).toMatchObject({
+      title: "Balloon Decorations & Arrangements in Beirut | Presentail",
+      metaDescription: "Balloon arrangements and decoration setups delivered in Beirut — birthday displays, newborn welcome setups and personalised designs. Same-day delivery when you order before midday.",
+      h1: "Balloon Decorations & Arrangements in Beirut",
+    });
+    expect(curated.sections.map((section: { heading: string }) => section.heading)).toEqual([
+      "Birthday Balloon Decorations",
+      "Newborn & Baby Welcome Balloon Setups",
+      "Arrangements or Single Balloons?",
+    ]);
+    expect(curated.faqs).toEqual([
+      {
+        q: "Can I get same-day balloon arrangement delivery in Beirut?",
+        a: "Yes — order before midday and your balloon arrangement is delivered the same day in Beirut. Orders placed after midday are scheduled for the next available delivery window.",
+      },
+      {
+        q: "How far in advance can I schedule a balloon arrangement?",
+        a: "You can schedule up to 30 days ahead. Choose your date and a two-hour delivery window at checkout.",
+      },
+      {
+        q: "Can I add a personalised message to a balloon arrangement?",
+        a: "Yes — add your message in the gift note field at checkout and it will be included with the delivery.",
+      },
+      {
+        q: "What's the difference between a balloon arrangement and the balloons collection?",
+        a: "Balloon arrangements are complete setups assembled around a theme or occasion. The balloons collection carries individual balloons, foil and chrome balloons, and balloon bouquets you can order on their own or add to another gift.",
+      },
+    ]);
+    for (const locale of ["en", "ar", "fr"]) {
+      expect(CATEGORY_SEO_CONTENT[locale]["lb/beirut"]["balloon-arrangements"].faqs).toHaveLength(4);
+    }
+    const balloonsTypeLinks = CATEGORY_SEO_CONTENT.en["lb/beirut"].balloons.sections[0].links;
+    expect(balloonsTypeLinks).toContainEqual({
+      label: "Balloon decorations & arrangements",
+      href: "/category/balloon-arrangements",
+    });
+    expect(curated.sections[1].links).toContainEqual({
+      label: "Newborn gifts",
+      href: "/occasion/new-born",
+    });
+
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/category-products")) {
+        return {
+          ok: true,
+          json: async () => ({ ok: true, count: 8, products: [{ name: "Birthday Balloon Display", id: "birthday-balloon-display" }] }),
+        };
+      }
+      if (u.includes("/api/woo/category")) {
+        return {
+          ok: true,
+          json: async () => ({ ok: true, category: { name: "Balloon Arrangements", description: "", image: null } }),
+        };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    }));
+
+    const out = await injectSeoTagsAsync(ROOT_HTML, "/en-lb/beirut/category/balloon-arrangements", CLEAN_PATH_OPTS);
+    expect(out).toContain("<title>Balloon Decorations &amp; Arrangements in Beirut | Presentail</title>");
+    expect(out).toContain('href="https://presentail.test/en-lb/beirut/category/balloons"');
+    expect(out).toContain('href="https://presentail.test/en-lb/beirut/occasion/new-born"');
+    expect(out).toContain(
+      '<nav><a href="https://presentail.test">Home</a> › <a href="https://presentail.test/en-lb">Lebanon</a> › <a href="https://presentail.test/en-lb/beirut">Beirut</a> › <a href="https://presentail.test/en-lb/beirut/shop">Shop</a> › Balloon Arrangements</nav>',
+    );
+
+    const nodes = extractJsonLd(out);
+    const faq = byType(nodes, "FAQPage");
+    expect(faq.mainEntity).toHaveLength(4);
+    const breadcrumb = byType(nodes, "BreadcrumbList");
+    expect(breadcrumb.itemListElement.map((item: { item?: { name?: string }; name?: string }) => item.item?.name ?? item.name)).toEqual([
+      "Home",
+      "Lebanon",
+      "Beirut",
+      "Shop",
+      "Balloon Arrangements",
+    ]);
+  });
+
   it("renders the visible curated body + matching FAQPage JSON-LD for /en-ae/dubai/category/balloons (anti-cloaking parity)", async () => {
     const ROOT_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body><div id="root"></div></body></html>`;
     const { getCategorySeoContent } = await import("../../src/data/categorySeoContent.mjs");
@@ -5761,11 +5852,13 @@ describe("JSON-LD — BreadcrumbList on brand / category / occasion pages", () =
     vi.stubGlobal("fetch", fetchMock);
     const out = await injectSeoTagsAsync(HTML, "/en-lb/beirut/category/balloons", OPTS);
     const blocks = extractJsonLd(out);
-    // BreadcrumbList: Home > Beirut > Balloons
+    // Curated category breadcrumb: Home > Lebanon > Beirut > Shop > Balloons
     const crumb = byType(blocks, "BreadcrumbList");
     expect(crumb.itemListElement.map((i: any) => i.name)).toEqual([
       "Home",
+      "Lebanon",
       "Beirut",
+      "Shop",
       "Balloons",
     ]);
     // ItemList: in-stock balloon products are visible to Google
