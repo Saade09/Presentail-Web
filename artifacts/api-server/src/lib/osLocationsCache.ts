@@ -371,8 +371,12 @@ function filterValidOsSlots(slots: OSTimeSlot[], cityId?: string): OSTimeSlot[] 
       // Pass cityId so isMidnightEligibleCity() gates the normalisation to
       // Beirut/Metn only — avoids false-positive matches on non-midnight cities
       // that happen to have 23:00-01:00 start/end hours.
-      if (isMidnightSlot(s, cityId) && s.extraFee !== MIDNIGHT_FEE_USD) {
-        return { ...s, extraFee: MIDNIGHT_FEE_USD };
+      if (isMidnightSlot(s, cityId)) {
+        return {
+          ...s,
+          serviceType: "midnight",
+          extraFee: MIDNIGHT_FEE_USD,
+        };
       }
       return s;
     });
@@ -900,16 +904,31 @@ function applySharedLocationsSnapshot(
   if (snapshot.version !== 1 || !Array.isArray(snapshot.countries)) {
     throw new Error("Unsupported OS locations shared snapshot");
   }
-  cachedCountries = snapshot.countries;
-  cityIndex = buildCityIndex(snapshot.countries);
+  const countries = snapshot.countries.map((country) => ({
+    ...country,
+    cities: country.cities.map((city) => ({
+      ...city,
+      timeSlots: filterValidOsSlots(city.timeSlots, city.id),
+      slotsByDay: city.slotsByDay
+        ? Object.fromEntries(
+            Object.entries(city.slotsByDay).map(([day, slots]) => [
+              day,
+              filterValidOsSlots(slots, city.id),
+            ]),
+          )
+        : undefined,
+    })),
+  }));
+  cachedCountries = countries;
+  cityIndex = buildCityIndex(countries);
   locationsDataStatus = snapshot.status;
-  const sig = locationsSignature(snapshot.countries);
+  const sig = locationsSignature(countries);
   if (lastLocationsSignature !== null && lastLocationsSignature !== sig) {
     locationsChangedFlag = true;
   }
   lastLocationsSignature = sig;
   logger.info(
-    { countryCount: snapshot.countries.length },
+    { countryCount: countries.length },
     "osLocationsCache: hydrated shared snapshot",
   );
 }

@@ -176,6 +176,76 @@ describe("fetchOsLocations — Cyprus/legacy merge", () => {
     expect(beirut.operationsConfigConsistent).toBe(true);
   });
 
+  it("keeps newly added weekday slots that have not reached the ext feed yet", async () => {
+    const extBody = {
+      countries: [{
+        code: "AE",
+        name: "United Arab Emirates",
+        cities: [{
+          id: 1,
+          slug: "dubai",
+          name: "Dubai",
+          timeSlots: [{
+            label: "9:00 AM – 2:00 PM",
+            slotId: "day",
+            startHour: 9,
+            endHour: 14,
+            cutoffHour: 9,
+          }],
+        }],
+      }],
+    };
+    const legacyBody = {
+      countries: [{
+        code: "AE",
+        name: "United Arab Emirates",
+        cities: [{
+          id: "dubai",
+          slug: "dubai",
+          name: "Dubai",
+          delivery_slots: [
+            {
+              id: "day",
+              day_of_week: 1,
+              label: "9:00 AM – 2:00 PM",
+              start_time: "09:00:00",
+              end_time: "14:00:00",
+              cutoff_time: "09:00:00",
+              enabled: true,
+            },
+            {
+              id: "midnight",
+              day_of_week: 1,
+              label: "Midnight",
+              start_time: "23:00:00",
+              end_time: "01:00:00",
+              cutoff_time: "22:00:00",
+              extra_fee: 20,
+              service_type: "midnight",
+              enabled: true,
+            },
+          ],
+        }],
+      }],
+    };
+    vi.stubGlobal("fetch", vi.fn((url: string) =>
+      Promise.resolve(jsonResponse(url.includes("-ext") ? extBody : legacyBody)),
+    ));
+
+    const result = await fetchOsLocations(config);
+    const dubai = result.countries[0]!.cities[0]!;
+    expect(dubai.slotsByDay?.monday).toHaveLength(2);
+    expect(dubai.slotsByDay?.monday?.[1]).toEqual(
+      expect.objectContaining({
+        slotId: "midnight",
+        startHour: 23,
+        endHour: 1,
+        serviceType: "midnight",
+      }),
+    );
+    expect(dubai.timeSlots?.some((slot) => slot.slotId === "midnight")).toBe(true);
+  });
+
   it("marks contradictory matching operational feeds as inconsistent", async () => {
     const extBody = {
       countries: [{

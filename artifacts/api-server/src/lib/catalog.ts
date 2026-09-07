@@ -896,5 +896,5 @@ export function resolveMidnightWindow(opts: {
     cityId: opts.cityId,
   });
   if (!resolvedSlot || !isMidnightSlot(resolvedSlot, opts.cityId)) return undefined;
-  return midnightWindowForOccasionDate(opts.deliveryDate);
+  return midnightWindowForOccasionDate(opts.deliveryDate, country);
 }

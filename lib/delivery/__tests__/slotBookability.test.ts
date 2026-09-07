@@ -283,9 +283,11 @@ describe("Premium Midnight occasion-date semantics", () => {
     cutoffHour: 22,
   };
 
-  it("is restricted to canonical Beirut and Metn without label matching", () => {
+  it("is restricted to configured Lebanon and UAE cities without label matching", () => {
     expect(isMidnightEligibleCity("lb-beirut")).toBe(true);
     expect(isMidnightEligibleCity("lb-metn")).toBe(true);
+    expect(isMidnightEligibleCity("ae-dubai")).toBe(true);
+    expect(isMidnightEligibleCity("ae-abu-dhabi")).toBe(true);
     expect(isMidnightEligibleCity("lb-baabda")).toBe(false);
     expect(isMidnightSlot(MIDNIGHT, "lb-beirut")).toBe(true);
     expect(isMidnightSlot({ ...MIDNIGHT, label: "Livraison de minuit" }, "lb-metn")).toBe(true);
@@ -307,6 +309,15 @@ describe("Premium Midnight occasion-date semantics", () => {
       timeZone: "Asia/Beirut",
       start: "2027-01-01T21:00:00.000Z",
       end: "2027-01-01T23:00:00.000Z",
+    });
+  });
+
+  it("uses Dubai local time for UAE Midnight windows", () => {
+    expect(midnightWindowForOccasionDate("2026-08-20", "AE")).toEqual({
+      occasionDate: "2026-08-20",
+      timeZone: "Asia/Dubai",
+      start: "2026-08-20T19:00:00.000Z",
+      end: "2026-08-20T21:00:00.000Z",
     });
   });
 

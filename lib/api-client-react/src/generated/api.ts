@@ -457,9 +457,11 @@ export function useGetSeoAuditHistory<
 /**
  * Fetches an image from Presentail OS storage (`os.presentail.com/api/storage/`),
 resizes it to the requested pixel width, and returns it as WebP (or JPEG).
-Results are cached server-side in an LRU cache and returned with a
-one-year immutable `Cache-Control` header so repeat requests are served
-instantly by the browser and any CDN in front of the API.
+Results are cached server-side in a bounded LRU cache. Identical cold
+requests are coalesced, source bodies and transform concurrency are
+bounded, and transient network/502/503/504 failures receive one retry.
+Successful responses use a one-day browser TTL and seven-day shared
+cache TTL with stale-while-revalidate because OS paths may be replaced.
 
 Only URLs whose host is `os.presentail.com` and whose path begins with
 `/api/storage/` are accepted — all other origins are rejected with 400

@@ -23,4 +23,6 @@ export interface DeliveryTimeSlot {
   sameDayEnabled?: boolean;
   /** Whether this slot is available for next-day delivery. Absent means eligible for all dates. */
   nextDayEnabled?: boolean;
+  /** Stable Presentail OS service identity for premium delivery services, such as "midnight". Consumers must not infer this from the translated display label. */
+  serviceType?: string;
 }

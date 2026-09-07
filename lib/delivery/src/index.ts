@@ -86,7 +86,12 @@ export type TimeSlot = {
 };
 
 /** Premium Midnight delivery is deliberately restricted to these canonical zones. */
-export const MIDNIGHT_ELIGIBLE_CITY_IDS = ["lb-beirut", "lb-metn"] as const;
+export const MIDNIGHT_ELIGIBLE_CITY_IDS = [
+  "lb-beirut",
+  "lb-metn",
+  "ae-dubai",
+  "ae-abu-dhabi",
+] as const;
 export const MIDNIGHT_FEE_USD = 20;
 export const MIDNIGHT_START_HOUR = 23;
 export const MIDNIGHT_END_HOUR = 1;
@@ -852,7 +857,7 @@ export function isSlotStillBookable(opts: {
   const dateIso = opts.deliveryDate || todayIso;
 
   if (isMidnightSlot(opts.slot, opts.cityId)) {
-    const window = midnightWindowForOccasionDate(dateIso);
+    const window = midnightWindowForOccasionDate(dateIso, opts.countryCode);
     if (now.getTime() >= new Date(window.end).getTime()) {
       return { bookable: false, reason: "slot_window_ended" };
     }
@@ -934,7 +939,7 @@ export function isSlotStillBookable(opts: {
 export type MidnightWindow = {
   /** Selected delivery date: the market-local calendar date on which 23:00 starts. */
   occasionDate: string;
-  timeZone: "Asia/Beirut";
+  timeZone: string;
   /** UTC ISO instant for 23:00 on the selected delivery date. */
   start: string;
   /** UTC ISO instant for 01:00 on the following calendar day. */
@@ -1013,8 +1018,11 @@ function localWallClockToUtc(
  * but the selected date is now the window's START date: selecting Thursday
  * means Thursday 23:00 through Friday 01:00 Beirut time.
  */
-export function midnightWindowForOccasionDate(occasionDate: string): MidnightWindow {
-  const timeZone = "Asia/Beirut" as const;
+export function midnightWindowForOccasionDate(
+  occasionDate: string,
+  countryCode?: string | null,
+): MidnightWindow {
+  const timeZone = countryTimeZone(countryCode);
   const followingDate = addIsoDays(occasionDate, 1);
   return {
     occasionDate,

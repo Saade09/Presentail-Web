@@ -27,3 +27,18 @@ the other endpoint has it. Legacy city normalisation quirks worth remembering:
 city `id` is a string slug (not numeric) so `OSCity.id` gets a numeric
 placeholder while the real value flows through `slug`; `isActive` may only be
 present as snake_case `is_active` on some deployments.
+
+For cities present in both feeds, the legacy feed's per-weekday
+`delivery_slots` membership is authoritative. The ext feed can lag newly added
+slot IDs even while the OS admin and legacy endpoint already expose them.
+Merge the union of slot IDs, enriching matches with ext fields; do not use the
+ext flat slot list as an allowlist for weekday schedules.
+
+**Why:** UAE Midnight rows and updated future-weekday windows were present in
+the OS admin/legacy feed but disappeared from the storefront because the merge
+filtered every legacy slot not yet listed by ext.
+
+**How to apply:** Keep ext authoritative for country/city membership and richer
+city settings, while treating legacy `slotsByDay` as authoritative for each
+weekday's slot membership. Reapply canonical slot normalization when hydrating
+shared snapshots so cached rows follow current service rules too.

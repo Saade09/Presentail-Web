@@ -116,9 +116,11 @@ export const GetSeoAuditHistoryResponse = zod.object({
 /**
  * Fetches an image from Presentail OS storage (`os.presentail.com/api/storage/`),
 resizes it to the requested pixel width, and returns it as WebP (or JPEG).
-Results are cached server-side in an LRU cache and returned with a
-one-year immutable `Cache-Control` header so repeat requests are served
-instantly by the browser and any CDN in front of the API.
+Results are cached server-side in a bounded LRU cache. Identical cold
+requests are coalesced, source bodies and transform concurrency are
+bounded, and transient network/502/503/504 failures receive one retry.
+Successful responses use a one-day browser TTL and seven-day shared
+cache TTL with stale-while-revalidate because OS paths may be replaced.
 
 Only URLs whose host is `os.presentail.com` and whose path begins with
 `/api/storage/` are accepted — all other origins are rejected with 400
@@ -857,9 +859,6 @@ export const RecordAnalyticsEventBody = zod.object({
       "landmark_district_auto_changed",
       "landmark_selection_removed",
       "landmark_order_completed",
-      "nav_menu_row_clicked",
-      "nav_menu_tile_clicked",
-      "nav_menu_view_all_clicked",
     ])
     .describe(
       "Allowlisted analytics event name. Adding a new event requires a\nspec change so we never log unbounded user-controlled strings.\n\nThe four `cart_viewed` \/ `checkout_started` \/\n`payment_method_selected` \/ `order_placed` events form the\nbroader purchase funnel that the server-side\n`checkoutPurchaseFunnelMonitor` evaluates step-to-step so we\nnotice when any single step collapses.\n\n`web_vital` events carry real-user Core Web Vital measurements\n(LCP, INP, CLS, TTFB, FCP). The metric name is stored in `action`\nand the raw value (ms for timing metrics, unitless for CLS) in\n`metricValue`. The server-side `webVitalsMonitor` evaluates the\nprior UTC day's LCP median and alerts via Slack when it crosses\nthe configured threshold.\n\n`mobile_ttid` events carry time-to-interactive measurements for\nkey mobile screens (home, product, brand, category, occasion). The\nscreen name is stored in `action` and the elapsed time in ms in\n`metricValue`. The same `webVitalsMonitor` daily digest includes\nmobile TTID rows so web and mobile performance are visible in a\nsingle Slack message.\n\n`geo_currency_fallback` is recorded server-side whenever the IP\ngeolocation lookup for `\/api\/geo\/currency` fails on both providers\n(ipapi.co and ipwho.is), causing the shopper to be silently shown\nUSD prices. The `geoCurrencyFallbackMonitor` counts these events\nper hour and fires a Slack alert when the count exceeds the\nconfigured threshold.\n\n`payment_wallet_opened` is emitted when the native wallet sheet\n(Apple Pay \/ Google Pay) successfully opens on web or mobile. The\n`action` field carries `apple_pay` or `google_pay` on both web\nand mobile (determined by the browser \/ platform at confirmation time).\n\n`payment_wallet_fallback` is emitted when the wallet sheet could\nnot be opened and the checkout silently falls back to the card\nform. The `errorCode` field carries the reason:\n`constructor_failed` (web — PaymentRequest constructor threw),\n`show_failed` (web — pr.show() threw synchronously), or\n`not_available` (mobile — isPlatformPaySupported returned false).\n\n`product_lifecycle_410` is recorded by `serve.mjs` whenever a\nproduct URL returns HTTP 410 Gone because the product slug is\nabsent from `scripts\/productRedirects.mjs` (product discontinued\nwith no redirect entry). The `productId` field carries the slug.\nThe server-side `productLifecycle410Monitor` queries these events\ndaily and fires a Slack alert listing all affected slugs so ops\ncan add redirect entries before link equity is permanently lost.\n",
@@ -1025,20 +1024,6 @@ export const RecordAnalyticsEventBody = zod.object({
     .optional()
     .describe(
       "For `recommended_product_clicked` events: 1-based position of\nthe clicked product in the recommendations row shown on the\nunavailable-in-city page.\n",
-    ),
-  locale: zod
-    .string()
-    .max(8)
-    .optional()
-    .describe(
-      "For `nav_menu_*` events: the active UI language code (e.g. `en`, `ar`, `fr`, `el`).\n",
-    ),
-  country: zod
-    .string()
-    .max(8)
-    .optional()
-    .describe(
-      "For `nav_menu_*` events: the active delivery country code (e.g. `LB`, `AE`, `CY`).\n",
     ),
 });
 
@@ -2666,6 +2651,12 @@ export const GetDeliveryLocationsResponse = zod.object({
                   .describe(
                     "Whether this slot is available for next-day delivery. Absent means eligible for all dates.",
                   ),
+                serviceType: zod
+                  .string()
+                  .optional()
+                  .describe(
+                    'Stable Presentail OS service identity for premium delivery services, such as \"midnight\". Consumers must not infer this from the translated display label.',
+                  ),
               }),
             )
             .describe(
@@ -2722,6 +2713,12 @@ export const GetDeliveryLocationsResponse = zod.object({
                     .optional()
                     .describe(
                       "Whether this slot is available for next-day delivery. Absent means eligible for all dates.",
+                    ),
+                  serviceType: zod
+                    .string()
+                    .optional()
+                    .describe(
+                      'Stable Presentail OS service identity for premium delivery services, such as \"midnight\". Consumers must not infer this from the translated display label.',
                     ),
                 }),
               ),
@@ -2838,6 +2835,12 @@ export const GetCatalogOccasionsResponse = zod.object({
         .number()
         .describe(
           "Number of in-stock products tagged with this occasion across all supported countries.",
+        ),
+      featured: zod
+        .boolean()
+        .optional()
+        .describe(
+          "Whether this occasion is marked as featured in the OS admin.",
         ),
     }),
   ),

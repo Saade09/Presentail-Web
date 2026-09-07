@@ -215,6 +215,18 @@ function enrichSlot(primary: OSTimeSlot, legacySlots: OSTimeSlot[]): OSTimeSlot 
   return legacy ? { ...legacy, ...primary } : primary;
 }
 
+function mergeSlots(primarySlots: OSTimeSlot[], legacySlots: OSTimeSlot[]): OSTimeSlot[] {
+  return [
+    ...primarySlots.map((slot) => enrichSlot(slot, legacySlots)),
+    ...legacySlots
+      .filter(
+        (legacySlot) =>
+          !primarySlots.some((primarySlot) => slotsMatch(primarySlot, legacySlot)),
+      )
+      .map((slot) => enrichSlot(slot, primarySlots)),
+  ];
+}
+
 function slotFeedsConflict(primary: OSTimeSlot, legacy: OSTimeSlot): boolean {
   const fields: Array<keyof OSTimeSlot> = [
     "cutoffHour",
@@ -232,10 +244,11 @@ function slotFeedsConflict(primary: OSTimeSlot, legacy: OSTimeSlot): boolean {
 }
 
 /**
- * The ext endpoint owns which countries/cities/slots currently exist, while
- * the legacy endpoint still carries minute precision and per-day flags that
- * some ext deployments omit. Enrich only matching ext entities; never revive
- * a city or slot that the primary feed removed.
+ * The ext endpoint owns country/city membership and richer delivery settings.
+ * The legacy endpoint owns weekday slot membership and minute-accurate
+ * scheduling fields. This distinction matters while the two OS feeds roll out
+ * updates at different times: a newly added weekday slot can be present in the
+ * admin/legacy feed before the ext feed includes its ID.
  */
 function enrichPrimaryCountry(
   primary: OSCountry,
@@ -258,34 +271,22 @@ function enrichPrimaryCountry(
 
       const primarySlots = city.timeSlots ?? [];
       const legacySlots = legacyCity.timeSlots ?? [];
-      const timeSlots = primarySlots.map((slot) =>
-        enrichSlot(slot, legacySlots),
-      );
-      const slotsByDay = city.slotsByDay
+      const timeSlots = mergeSlots(primarySlots, legacySlots);
+      const slotsByDay = legacyCity.slotsByDay
+        ? Object.fromEntries(
+            Object.entries(legacyCity.slotsByDay).map(([day, slots]) => [
+              day,
+              mergeSlots(city.slotsByDay?.[day] ?? [], slots),
+            ]),
+          )
+        : city.slotsByDay
         ? Object.fromEntries(
             Object.entries(city.slotsByDay).map(([day, slots]) => [
               day,
-              slots.map((slot) =>
-                enrichSlot(slot, legacyCity.slotsByDay?.[day] ?? legacySlots),
-              ),
+              slots.map((slot) => enrichSlot(slot, legacySlots)),
             ]),
           )
-        : primarySlots.length > 0 && legacyCity.slotsByDay
-          ? Object.fromEntries(
-              Object.entries(legacyCity.slotsByDay)
-                .map(([day, slots]) => [
-                  day,
-                  slots
-                    .filter((legacySlot) =>
-                      primarySlots.some((slot) =>
-                        slotsMatch(slot, legacySlot),
-                      ),
-                    )
-                    .map((slot) => enrichSlot(slot, primarySlots)),
-                ])
-                .filter(([, slots]) => (slots as OSTimeSlot[]).length > 0),
-            )
-          : undefined;
+        : undefined;
 
       const cityCutoffConflict =
         city.sameDayCutoffHour !== undefined &&

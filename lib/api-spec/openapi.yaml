@@ -3298,6 +3298,9 @@ components:
         nextDayEnabled:
           type: boolean
           description: Whether this slot is available for next-day delivery. Absent means eligible for all dates.
+        serviceType:
+          type: string
+          description: Stable Presentail OS service identity for premium delivery services, such as "midnight". Consumers must not infer this from the translated display label.
       required:
         - label
     DeliveryCity:

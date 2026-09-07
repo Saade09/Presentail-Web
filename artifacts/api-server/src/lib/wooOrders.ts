@@ -849,7 +849,11 @@ export async function recordSuccessfulWcOrder(input: {
     })();
     const authoritativeMidnightWin =
       isMidnight && body.deliveryDate
-        ? midnightWin ?? midnightWindowForOccasionDate(body.deliveryDate)
+        ? midnightWin ??
+          midnightWindowForOccasionDate(
+            body.deliveryDate,
+            countryForDistrict(body.district ?? "Beirut"),
+          )
         : undefined;
 
     // For non-midnight standard orders, resolve a window from city slots (or a
@@ -1416,7 +1420,11 @@ export async function attemptCreateOsOrder(
     Boolean(bookedSlot && isMidnightSlot(bookedSlot, body.cityId ?? undefined));
   const midnightWindow =
     isMidnightOrder && body.deliveryDate
-      ? resolvedMidnightWindow ?? midnightWindowForOccasionDate(body.deliveryDate)
+      ? resolvedMidnightWindow ??
+        midnightWindowForOccasionDate(
+          body.deliveryDate,
+          countryForDistrict(body.district ?? "Beirut"),
+        )
       : undefined;
 
   // Fallback window for standard orders with no delivery slot.

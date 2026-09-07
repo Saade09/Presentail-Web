@@ -603,7 +603,10 @@ export default function OrderConfirmed() {
     ) {
       return null;
     }
-    const window = midnightWindowForOccasionDate(confirmedOrder.deliveryDate);
+    const window = midnightWindowForOccasionDate(
+      confirmedOrder.deliveryDate,
+      confirmedOrder.cityId?.startsWith("ae-") ? "AE" : "LB",
+    );
     const formatEndpoint = (iso: string) =>
       new Date(iso).toLocaleString(language, {
         timeZone: window.timeZone,

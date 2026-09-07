@@ -129,8 +129,9 @@ describe("isMidnightEligibleCity", () => {
   it("returns false for lb-north", () => {
     expect(isMidnightEligibleCity("lb-north")).toBe(false);
   });
-  it("returns false for ae-dubai", () => {
-    expect(isMidnightEligibleCity("ae-dubai")).toBe(false);
+  it("returns true for UAE Midnight cities", () => {
+    expect(isMidnightEligibleCity("ae-dubai")).toBe(true);
+    expect(isMidnightEligibleCity("ae-abu-dhabi")).toBe(true);
   });
   it("returns false for undefined", () => {
     expect(isMidnightEligibleCity(undefined)).toBe(false);
@@ -163,7 +164,7 @@ describe("isMidnightSlot", () => {
     ).toBe(false);
   });
   it("returns false for a midnight-hour slot on a non-eligible city", () => {
-    expect(isMidnightSlot(MIDNIGHT_SLOT, "ae-dubai")).toBe(false);
+    expect(isMidnightSlot(MIDNIGHT_SLOT, "lb-north")).toBe(false);
   });
 });
 

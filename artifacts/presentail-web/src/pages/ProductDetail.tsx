@@ -28,6 +28,7 @@ import { TrustpilotMicroWidget } from "@/components/product/TrustpilotMicroWidge
 import { SecurePaymentsTrustpilotCard } from "@/components/product/SecurePaymentsTrustpilotCard";
 import { ProductTabs } from "@/components/product/ProductTabs";
 import { ScheduleInlinePanel } from "@/components/product/ScheduleInlinePanel";
+import { citySlotsForDate } from "@/components/delivery/citySlotsForDate";
 import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
 import { buildProductViewModel } from "@/components/product/productViewModel";
 import { FormattedPrice } from "@/components/FormattedPrice";
@@ -139,11 +140,11 @@ export default function ProductDetail() {
   );
   const citySlotsByDay = city?.slotsByDay as Record<string, TimeSlot[]> | undefined;
   const standardEligible = useMemo(() => {
-    const slots = cityTimeSlots;
+    const today = getLocalIso(countryCode);
+    const slots = citySlotsForDate(cityTimeSlots, citySlotsByDay, today);
     const h = getCountryHour(countryCode);
-    const today = new Date().toISOString().slice(0, 10);
     return firstAvailableDay(today, slots, h, today) !== null;
-  }, [cityTimeSlots, countryCode]);
+  }, [cityTimeSlots, citySlotsByDay, countryCode]);
 
   // Local UI choice for the radio.
   // Default to "scheduled" (free standard delivery) when it is eligible.
