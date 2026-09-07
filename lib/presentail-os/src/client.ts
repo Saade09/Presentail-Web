@@ -227,6 +227,37 @@ function mergeSlots(primarySlots: OSTimeSlot[], legacySlots: OSTimeSlot[]): OSTi
   ];
 }
 
+/**
+ * UAE storefront scheduling is configured as one shared daily offer in OS.
+ * During the rollout, the legacy feed exposed the complete offer on Monday
+ * but retained an older four-window schedule for the remaining weekdays.
+ * Choose the most complete OS weekday as the canonical schedule and expose it
+ * for every weekday; this keeps the storefront aligned with the offer OS shows
+ * today without hardcoding labels, fees, or slot identities.
+ */
+function applySharedUaeSchedule(
+  countryCode: string | undefined,
+  timeSlots: OSTimeSlot[],
+  slotsByDay: Record<string, OSTimeSlot[]> | undefined,
+): { timeSlots: OSTimeSlot[]; slotsByDay?: Record<string, OSTimeSlot[]> } {
+  if (String(countryCode ?? "").toUpperCase() !== "AE" || !slotsByDay) {
+    return { timeSlots, slotsByDay };
+  }
+
+  const canonical = Object.values(slotsByDay).reduce<OSTimeSlot[]>(
+    (best, slots) => (slots.length > best.length ? slots : best),
+    [],
+  );
+  if (canonical.length === 0) return { timeSlots, slotsByDay };
+
+  return {
+    timeSlots: canonical,
+    slotsByDay: Object.fromEntries(
+      WEEKDAY_NAMES.map((day) => [day, canonical]),
+    ),
+  };
+}
+
 function slotFeedsConflict(primary: OSTimeSlot, legacy: OSTimeSlot): boolean {
   const fields: Array<keyof OSTimeSlot> = [
     "cutoffHour",
@@ -306,13 +337,21 @@ function enrichPrimaryCountry(
         return legacySlot ? slotFeedsConflict(slot, legacySlot) : false;
       });
 
+      const sharedSchedule = applySharedUaeSchedule(
+        primary.code,
+        timeSlots,
+        slotsByDay,
+      );
+
       return {
         ...legacyCity,
         ...city,
         sameDayCutoffMinute:
           city.sameDayCutoffMinute ?? legacyCity.sameDayCutoffMinute,
-        timeSlots,
-        ...(slotsByDay ? { slotsByDay } : {}),
+        timeSlots: sharedSchedule.timeSlots,
+        ...(sharedSchedule.slotsByDay
+          ? { slotsByDay: sharedSchedule.slotsByDay }
+          : {}),
         operationsConfigConsistent:
           !cityCutoffConflict && !expressConflict && !slotConflict,
       };

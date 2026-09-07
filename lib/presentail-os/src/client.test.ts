@@ -246,6 +246,52 @@ describe("fetchOsLocations — Cyprus/legacy merge", () => {
     expect(dubai.timeSlots?.some((slot) => slot.slotId === "midnight")).toBe(true);
   });
 
+  it("uses the most complete OS UAE schedule for every weekday", async () => {
+    const extBody = {
+      countries: [{
+        code: "AE",
+        name: "United Arab Emirates",
+        cities: [{
+          id: 1,
+          slug: "dubai",
+          name: "Dubai",
+          timeSlots: [],
+        }],
+      }],
+    };
+    const legacyBody = {
+      countries: [{
+        code: "AE",
+        name: "United Arab Emirates",
+        cities: [{
+          id: "dubai",
+          slug: "dubai",
+          name: "Dubai",
+          delivery_slots: [
+            ...["monday"].flatMap(() => [
+              { id: "morning", day_of_week: 1, label: "Morning", start_time: "09:00", end_time: "14:00", cutoff_time: "09:00" },
+              { id: "afternoon", day_of_week: 1, label: "Afternoon", start_time: "14:00", end_time: "18:00", cutoff_time: "14:00" },
+              { id: "evening", day_of_week: 1, label: "Evening", start_time: "18:00", end_time: "22:00", cutoff_time: "18:00" },
+              { id: "night", day_of_week: 1, label: "Night", start_time: "21:00", end_time: "23:00", cutoff_time: "21:00", fee_override: 5 },
+              { id: "midnight", day_of_week: 1, label: "Midnight", start_time: "23:00", end_time: "01:00", cutoff_time: "23:00", fee_override: 20, service_type: "midnight" },
+            ]),
+            { id: "old-morning", day_of_week: 2, label: "Morning", start_time: "10:00", end_time: "12:00" },
+            { id: "old-afternoon", day_of_week: 2, label: "Afternoon", start_time: "12:00", end_time: "14:00" },
+          ],
+        }],
+      }],
+    };
+    vi.stubGlobal("fetch", vi.fn((url: string) =>
+      Promise.resolve(jsonResponse(url.includes("-ext") ? extBody : legacyBody)),
+    ));
+
+    const result = await fetchOsLocations(config);
+    const dubai = result.countries[0]!.cities[0]!;
+    expect(dubai.slotsByDay?.monday).toHaveLength(5);
+    expect(dubai.slotsByDay?.tuesday).toEqual(dubai.slotsByDay?.monday);
+    expect(dubai.timeSlots).toEqual(dubai.slotsByDay?.monday);
+  });
+
   it("marks contradictory matching operational feeds as inconsistent", async () => {
     const extBody = {
       countries: [{
