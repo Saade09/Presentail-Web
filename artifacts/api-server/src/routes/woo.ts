@@ -1354,7 +1354,7 @@ router.post("/woo/order", async (req, res) => {
   //    With the /checkout/payment-intent guard in place, this path should
   //    never trigger for new orders — it is only a safety net for edge cases
   //    (server-restart recovery, webhook replay, historical pre-guard orders).
-  const isExpressSubmission = body.expressFee > 0;
+  const isExpressSubmission = body.expressFee > 0 || body.expressDelivery === true;
   if (!isExpressSubmission && !body.deliverySlot?.trim()) {
     if (body.paymentRef) {
       req.log?.warn?.(
@@ -1684,7 +1684,7 @@ router.post("/woo/order", async (req, res) => {
             const piCurrency = normalizeCurrency(recoveredPiDetails.currency);
             // Compute the full server-side authoritative cost for the
             // submitted delivery parameters (district, express, slot).
-            const isExpressRecovery = (body.expressFee ?? 0) > 0;
+            const isExpressRecovery = (body.expressFee ?? 0) > 0 || body.expressDelivery === true;
             const recoveredDistrict = body.district ?? "Beirut";
             const recoveredCountry = countryForDistrict(recoveredDistrict);
             // Bugs A+B: use resolveOsDeliveryConfig (city-ID lookup) when cityId
@@ -1814,7 +1814,7 @@ router.post("/woo/order", async (req, res) => {
     const cartMismatch = verifyCartMatchesSnapshot(body.items, intent.snapshot, {
       checkDelivery: true,
       submittedDistrict: body.district,
-      submittedExpressDelivery: body.expressFee > 0,
+      submittedExpressDelivery: body.expressFee > 0 || body.expressDelivery === true,
       submittedNoAddress: body.noAddress === true,
       submittedDeliverySlot: body.deliverySlot ?? "",
       submittedDeliveryCityId: body.cityId,
@@ -1928,7 +1928,7 @@ router.post("/woo/order", async (req, res) => {
     const cartMismatch = verifyCartMatchesSnapshot(body.items, intent.snapshot, {
       checkDelivery: true,
       submittedDistrict: body.district,
-      submittedExpressDelivery: body.expressFee > 0,
+      submittedExpressDelivery: body.expressFee > 0 || body.expressDelivery === true,
       submittedNoAddress: body.noAddress === true,
       submittedDeliverySlot: body.deliverySlot ?? "",
       submittedDeliveryCityId: body.cityId,
@@ -2025,7 +2025,7 @@ router.post("/woo/order", async (req, res) => {
     const cartMismatch = verifyCartMatchesSnapshot(body.items, intent.snapshot, {
       checkDelivery: true,
       submittedDistrict: body.district,
-      submittedExpressDelivery: body.expressFee > 0,
+      submittedExpressDelivery: body.expressFee > 0 || body.expressDelivery === true,
       submittedNoAddress: body.noAddress === true,
       submittedDeliverySlot: body.deliverySlot ?? "",
       submittedDeliveryCityId: body.cityId,
@@ -2131,7 +2131,7 @@ router.post("/woo/order", async (req, res) => {
     const cartMismatch = verifyCartMatchesSnapshot(body.items, intent.snapshot, {
       checkDelivery: true,
       submittedDistrict: body.district,
-      submittedExpressDelivery: body.expressFee > 0,
+      submittedExpressDelivery: body.expressFee > 0 || body.expressDelivery === true,
       submittedNoAddress: body.noAddress === true,
       submittedDeliverySlot: body.deliverySlot ?? "",
       submittedDeliveryCityId: body.cityId,

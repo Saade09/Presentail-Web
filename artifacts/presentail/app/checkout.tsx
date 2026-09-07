@@ -1120,6 +1120,9 @@ function CheckoutScreen() {
     district: district?.name ?? "",
     districtFee: fees.districtFee,
     expressFee: fees.expressFee,
+    // Belt-and-suspenders: send the explicit boolean alongside expressFee so
+    // the API can detect express even when fees are waived (e.g. promotions).
+    expressDelivery: deliveryMode === "express",
     noAddress,
     // ISO-3166 alpha-2 country codes from the customer's selected
     // country dialer. The API persists these on the WC order so tax

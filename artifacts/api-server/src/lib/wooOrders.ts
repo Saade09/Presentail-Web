@@ -243,6 +243,12 @@ export const WooOrderSchema = z.object({
   // checkout. Optional so legacy payloads (mobile app, queued reconciliation
   // rows) still validate; absent is treated as false (no opt-in) downstream.
   whatsappOptIn: z.boolean().optional(),
+  // True when the customer selected Express delivery. Mobile sends this flag
+  // explicitly; the server also derives express from expressFee > 0.
+  // Belt-and-suspenders: Zod previously stripped this field, so orders from
+  // mobile clients that sent expressDelivery but expressFee:0 would silently
+  // miss the express detection. Accepting the field closes that gap.
+  expressDelivery: z.boolean().optional(),
   appDeviceId: z.string().optional(),
   currencyCode: z.string().optional(),
   couponCode: z.string().trim().optional(),
@@ -392,10 +398,18 @@ export async function attemptCreateWcOrder(
       })
     : body.deliveryDate ?? "";
 
+  // For express orders the web checkout sends deliverySlot:"" — use "Express"
+  // as the human-readable label so WC metadata, ops notifications, and the
+  // delivery summary all show a meaningful value instead of a blank string.
+  const effectiveSlotLabel =
+    body.expressFee > 0 || body.expressDelivery === true
+      ? "Express"
+      : body.deliverySlot ?? "";
+
   const deliverySummary =
-    deliveryDateFormatted && body.deliverySlot
-      ? `${deliveryDateFormatted} · ${body.deliverySlot}`
-      : deliveryDateFormatted || body.deliverySlot || "";
+    deliveryDateFormatted && effectiveSlotLabel
+      ? `${deliveryDateFormatted} · ${effectiveSlotLabel}`
+      : deliveryDateFormatted || effectiveSlotLabel || "";
 
   const deliveryCombined = deliverySummary;
 
@@ -412,7 +426,7 @@ export async function attemptCreateWcOrder(
     { key: "qr-label", value: body.qrLabel ?? "" },
     { key: "Delivery Summary", value: deliverySummary },
     { key: "Delivery Date", value: deliveryDateFormatted },
-    { key: "Delivery Time", value: body.deliverySlot ?? "" },
+    { key: "Delivery Time", value: effectiveSlotLabel },
     { key: "Delivery District", value: body.district },
     { key: "Delivery Address", value: body.deliveryDetails },
     { key: "Recipient Name", value: recipientFullName },
@@ -423,7 +437,7 @@ export async function attemptCreateWcOrder(
   const lineItemDeliveryMeta = [
     { key: "Delivery Summary", value: deliverySummary },
     { key: "Delivery Date", value: deliveryDateFormatted },
-    { key: "Delivery Time", value: body.deliverySlot ?? "" },
+    { key: "Delivery Time", value: effectiveSlotLabel },
   ];
 
   const presentedCurrency: SupportedCurrency = normalizeCurrency(body.currencyCode);
@@ -552,7 +566,9 @@ export async function attemptCreateWcOrder(
 
   // Express surcharge: prefer OS-delivered city value; fall back to hardcoded
   // country constant when the OS cache has no data for this city yet.
-  const clientSignalledExpress = body.expressFee > 0;
+  // Belt-and-suspenders: accept the mobile `expressDelivery` boolean too so
+  // a zero-fee edge case never silently downgrades an express order.
+  const clientSignalledExpress = body.expressFee > 0 || body.expressDelivery === true;
   let expressSurchargeAppliedUsd = 0;
   if (clientSignalledExpress) {
     const districtCountry = countryForDistrict(body.district);
@@ -750,6 +766,14 @@ export async function recordSuccessfulWcOrder(input: {
     totalPaymentCents,
   } = input;
   const orderState = inputState ?? "confirmed";
+  // Normalise the stored delivery slot: the web checkout sends deliverySlot:""
+  // for express orders so the WC path always produces a null/empty slot in
+  // app_orders — making the web account page and ops email show nothing.
+  // "Express" is the canonical label when the order is express.
+  const effectiveDeliverySlot =
+    body.expressFee > 0 || body.expressDelivery === true
+      ? "Express"
+      : body.deliverySlot || null;
   const occasionRef =
     typeof body.occasion_ref === "string" && body.occasion_ref.trim()
       ? body.occasion_ref.trim()
@@ -899,7 +923,7 @@ export async function recordSuccessfulWcOrder(input: {
         deviceId: appDeviceId,
         recipientName: recipientName || null,
         deliveryDate: body.deliveryDate ?? null,
-        deliverySlot: body.deliverySlot ?? null,
+        deliverySlot: effectiveDeliverySlot,
         state: orderState,
         platform: platform ?? null,
         totalUsdCents: totalUsdCents ?? null,
@@ -944,7 +968,7 @@ export async function recordSuccessfulWcOrder(input: {
           deviceId: appDeviceId,
           recipientName: recipientName || null,
           deliveryDate: body.deliveryDate ?? null,
-          deliverySlot: body.deliverySlot ?? null,
+          deliverySlot: effectiveDeliverySlot,
           // Only promote state forward: payment_failed → confirmed is
           // allowed (shopper retried and succeeded), but never go backward.
           // Use a SQL CASE to guard: update only when incoming state is
@@ -1006,7 +1030,7 @@ export async function recordSuccessfulWcOrder(input: {
     deliveryDistrict,
     deliveryAddress,
     deliveryDate: body.deliveryDate ?? null,
-    deliverySlot: body.deliverySlot ?? null,
+    deliverySlot: effectiveDeliverySlot,
     lineItemsJson: lineItems && lineItems.length > 0 ? JSON.stringify(lineItems) : null,
     totalUsdCents: totalUsdCents ?? null,
     paymentMethod,
@@ -1026,7 +1050,7 @@ export async function recordSuccessfulWcOrder(input: {
     recipientName: recipientName || null,
     recipientPhone,
     deliveryDate: body.deliveryDate ?? null,
-    deliverySlot: body.deliverySlot ?? null,
+    deliverySlot: effectiveDeliverySlot,
     deliveryDistrict,
     deliveryAddress,
     cardMessage,
@@ -1341,7 +1365,9 @@ export async function attemptCreateOsOrder(
     );
   }
 
-  const clientSignalledExpress = body.expressFee > 0;
+  // Belt-and-suspenders: accept mobile `expressDelivery` boolean so a
+  // zero-fee edge case never silently downgrades an express order.
+  const clientSignalledExpress = body.expressFee > 0 || body.expressDelivery === true;
   let expressSurchargeAppliedUsd = 0;
   if (clientSignalledExpress) {
     if (opts.preVerifiedFees?.expressFeeUsd !== undefined) {
@@ -1512,6 +1538,10 @@ export async function attemptCreateOsOrder(
       address: askRecipient.address,
       date: body.deliveryDate || undefined,
       slot: (() => {
+        // Express orders: always label the slot "Express" so OS shows
+        // a meaningful value instead of a fabricated 2-hour window
+        // derived from window_start.
+        if (clientSignalledExpress) return "Express";
         const fmt = (h: number) => {
           const suffix = h < 12 ? "AM" : "PM";
           const h12 = h % 12 === 0 ? 12 : h % 12;
