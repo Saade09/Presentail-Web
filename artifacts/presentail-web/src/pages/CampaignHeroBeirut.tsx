@@ -4,7 +4,7 @@ import { MapPin, Send, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/contexts/LocaleContext";
 import { buildUnsplashSrcset } from "@/lib/imageUtils";
-import { injectTrustpilotScript } from "@/lib/trustpilot";
+import { injectTrustpilotScript, pollAndLoadTrustpilotWidget } from "@/lib/trustpilot";
 
 /**
  * CampaignHeroBeirut — paid-search hero variant for the Beirut flower-delivery
@@ -374,25 +374,12 @@ export function CampaignTrustBarBeirut() {
   useEffect(() => {
     const el = tpRef.current;
     if (!el) return;
-    let pollTimer: ReturnType<typeof setTimeout> | null = null;
-    let pollAttempts = 0;
-    const MAX_POLL_ATTEMPTS = 20;
-    const POLL_INTERVAL_MS = 250;
-    const tryLoad = () => {
-      if (!window.Trustpilot) {
-        if (pollAttempts < MAX_POLL_ATTEMPTS) {
-          pollAttempts++;
-          pollTimer = setTimeout(tryLoad, POLL_INTERVAL_MS);
-        }
-        return;
-      }
-      window.Trustpilot.loadFromElement(el, true);
-    };
+
+    const { onScriptLoad, cleanup } = pollAndLoadTrustpilotWidget(el);
     // Trust bar is above the fold — load immediately, no IntersectionObserver.
-    injectTrustpilotScript(tryLoad);
-    return () => {
-      if (pollTimer !== null) clearTimeout(pollTimer);
-    };
+    injectTrustpilotScript(onScriptLoad);
+
+    return cleanup;
   }, []);
 
   const cells: { icon: ReactNode; title: string; sub: string; key: string }[] = [

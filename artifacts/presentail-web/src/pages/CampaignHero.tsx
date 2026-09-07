@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { CircleDollarSign, Clock3, ChevronDown, MapPin, Truck, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/contexts/LocaleContext";
-import { injectTrustpilotScript } from "@/lib/trustpilot";
+import { injectTrustpilotScript, pollAndLoadTrustpilotWidget } from "@/lib/trustpilot";
 
 const HERO_IMAGE_768 = `${import.meta.env.BASE_URL}campaign/flower-hero-768.webp`;
 const HERO_IMAGE_1440 = `${import.meta.env.BASE_URL}campaign/flower-hero-1440.webp`;
@@ -246,9 +246,6 @@ declare global {
   }
 }
 
-const MAX_POLL_ATTEMPTS = 20;
-const POLL_INTERVAL_MS = 250;
-
 export function CampaignTrustpilotStrip({
   onStripClick,
 }: {
@@ -261,25 +258,10 @@ export function CampaignTrustpilotStrip({
     const el = ref.current;
     if (!el) return;
 
-    let pollTimer: ReturnType<typeof setTimeout> | null = null;
-    let pollAttempts = 0;
+    const { onScriptLoad, cleanup } = pollAndLoadTrustpilotWidget(el);
+    injectTrustpilotScript(onScriptLoad);
 
-    const tryLoad = () => {
-      if (!window.Trustpilot) {
-        if (pollAttempts < MAX_POLL_ATTEMPTS) {
-          pollAttempts++;
-          pollTimer = setTimeout(tryLoad, POLL_INTERVAL_MS);
-        }
-        return;
-      }
-      window.Trustpilot.loadFromElement(el, true);
-    };
-
-    injectTrustpilotScript(tryLoad);
-
-    return () => {
-      if (pollTimer !== null) clearTimeout(pollTimer);
-    };
+    return cleanup;
   }, []);
 
   return (

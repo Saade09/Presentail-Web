@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { injectTrustpilotScript } from "@/lib/trustpilot";
+import { injectTrustpilotScript, pollAndLoadTrustpilotWidget } from "@/lib/trustpilot";
 
 declare global {
   interface Window {
@@ -16,21 +16,7 @@ export function TrustpilotCarousel({ onVisible }: { onVisible?: () => void } = {
     const el = ref.current;
     if (!el) return;
 
-    let pollTimer: ReturnType<typeof setTimeout> | null = null;
-    let pollAttempts = 0;
-    const MAX_POLL_ATTEMPTS = 20;
-    const POLL_INTERVAL_MS = 250;
-
-    const tryLoad = () => {
-      if (!window.Trustpilot) {
-        if (pollAttempts < MAX_POLL_ATTEMPTS) {
-          pollAttempts++;
-          pollTimer = setTimeout(tryLoad, POLL_INTERVAL_MS);
-        }
-        return;
-      }
-      window.Trustpilot.loadFromElement(el, true);
-    };
+    const { onScriptLoad, cleanup } = pollAndLoadTrustpilotWidget(el);
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -38,18 +24,18 @@ export function TrustpilotCarousel({ onVisible }: { onVisible?: () => void } = {
           if (entry.isIntersecting) {
             observer.disconnect();
             onVisible?.();
-            injectTrustpilotScript(tryLoad);
+            injectTrustpilotScript(onScriptLoad);
           }
         }
       },
-      { rootMargin: "200px", threshold: 0.1 },
+      { rootMargin: "200px", threshold: 0 },
     );
 
     observer.observe(el);
 
     return () => {
       observer.disconnect();
-      if (pollTimer !== null) clearTimeout(pollTimer);
+      cleanup();
     };
   }, []);
 
