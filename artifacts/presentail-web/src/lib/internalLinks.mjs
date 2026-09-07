@@ -13,9 +13,9 @@
  */
 
 /** Maximum contextual links per page (nav/breadcrumbs excluded from cap). */
-export const MAX_LINKS = 5;
+export const MAX_LINKS = 8;
 /** Maximum related-product links within the MAX_LINKS cap. */
-export const MAX_RELATED = 2;
+export const MAX_RELATED = 4;
 
 /**
  * Build the /{lang}-{country}/{city} locale base path.
@@ -147,10 +147,9 @@ export function buildInternalLinks(product, locale, context = {}) {
   // Rule 1: Primary category
   if (primaryCatSlug) {
     const catEntry = context.categories && context.categories.find((c) => c.id === primaryCatSlug);
-    const catName =
-      (catEntry && catEntry.name) ??
-      primaryCatSlug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-    add(`${base}/category/${encodeURIComponent(primaryCatSlug)}`, catName);
+    if (catEntry) {
+      add(`${base}/category/${encodeURIComponent(primaryCatSlug)}`, catEntry.name);
+    }
   }
 
   // Rule 2: First product occasion that is present in the live catalog

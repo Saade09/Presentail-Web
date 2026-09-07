@@ -1987,7 +1987,7 @@ function buildGenericBodyHtml(routeKey, { h1, description, localeBase, faqItems 
   );
 }
 
-function buildProductBodyHtml(product, { title, description, localeBase, imageUrl, cityLabel = "", lang, country, city, availableOccasions = [], pricePresentation = null, productPriceCurrencyOverride = null }) {
+function buildProductBodyHtml(product, { title, description, localeBase, imageUrl, cityLabel = "", lang, country, city, availableCategories = [], availableOccasions = [], relatedProducts = [], pricePresentation = null, productPriceCurrencyOverride = null }) {
   const rawName = typeof product.name === "string" ? product.name.trim() : "";
   const safeTitle = escapeHtml(rawName || title);
   const rawDesc = typeof product.description === "string"
@@ -2017,11 +2017,50 @@ function buildProductBodyHtml(product, { title, description, localeBase, imageUr
     ? `<p>From ${escapeHtml(pricePresentation ? `${pricePresentation.amount} ${pricePresentation.currency}` : `$${product.priceValue.toFixed(2)} USD`)} — ${inStock ? "In Stock" : "Out of Stock"}</p>` // i18n-ignore
     : (inStock ? "" : `<p>Out of Stock</p>`); // i18n-ignore
 
-  // City delivery note — emitted only when a city is known so city-less
-  // product pages don't show a dangling "Delivered to " sentence.
-  // i18n-ignore — static EN-only crawlers-only delivery note
+  const copy = {
+    en: {
+      by: "By", from: "From", inStock: "In Stock", outOfStock: "Out of Stock",
+      details: "Product Details", delivery: "Delivery in {city}", included: "What is included",
+      care: "Care and handling", occasions: "Suitable occasions",
+      deliveryText: "Delivered to {city} with reliable scheduled or same-day service when available.",
+      careText: "Prepared and packed with care; keep the gift cool, upright and away from direct sunlight until it is presented.",
+      related: "Explore related gifts",
+    },
+    ar: {
+      by: "من", from: "ابتداءً من", inStock: "متوفر", outOfStock: "غير متوفر",
+      details: "تفاصيل المنتج", delivery: "التوصيل في {city}", included: "محتويات الهدية",
+      care: "العناية والتعامل", occasions: "مناسب لـ",
+      deliveryText: "يُجهّز لتوصيل موثوق ومجدول أو في اليوم نفسه إلى {city} عند التوفر.",
+      careText: "تُحضّر الهدية وتُغلّف بعناية؛ تُحفظ باردة ومستقيمة وبعيدة عن أشعة الشمس حتى تقديمها.",
+      related: "استكشف هدايا ذات صلة",
+    },
+    fr: {
+      by: "Par", from: "À partir de", inStock: "En stock", outOfStock: "Rupture de stock",
+      details: "Détails du produit", delivery: "Livraison à {city}", included: "Ce qui est inclus",
+      care: "Soin et manipulation", occasions: "Occasions adaptées",
+      deliveryText: "Préparé pour une livraison fiable, planifiée ou le jour même à {city}, selon disponibilité.",
+      careText: "Préparé et emballé avec soin ; gardez le cadeau au frais, droit et à l’abri du soleil jusqu’à sa remise.",
+      related: "Découvrir des cadeaux similaires",
+    },
+    el: {
+      by: "Από", from: "Από", inStock: "Σε απόθεμα", outOfStock: "Εξαντλημένο",
+      details: "Λεπτομέρειες προϊόντος", delivery: "Παράδοση στην πόλη {city}", included: "Τι περιλαμβάνεται",
+      care: "Φροντίδα και χειρισμός", occasions: "Κατάλληλες περιστάσεις",
+      deliveryText: "Προετοιμάζεται για αξιόπιστη προγραμματισμένη ή αυθημερόν παράδοση στην πόλη {city}, όπου διατίθεται.",
+      careText: "Προετοιμάζεται και συσκευάζεται με φροντίδα· κρατήστε το δώρο δροσερό, όρθιο και μακριά από τον ήλιο.",
+      related: "Δείτε σχετικά δώρα",
+    },
+  }[lang] ?? null;
+  const labels = copy ?? {
+    by: "By", from: "From", inStock: "In Stock", outOfStock: "Out of Stock",
+    details: "Product details", delivery: "Delivery", included: "What is included",
+    care: "Care and handling", occasions: "Suitable occasions",
+    deliveryText: "Prepared for reliable scheduled delivery.", careText: "Prepared and packed with care.",
+    related: "Explore related gifts",
+  };
+
   const cityDeliveryHtml = cityLabel
-    ? `<p>Delivered to ${escapeHtml(cityLabel)}</p>` // i18n-ignore
+    ? `<section><h2>${escapeHtml(labels.delivery.replace("{city}", cityLabel))}</h2><p>${escapeHtml(labels.deliveryText.replace("{city}", cityLabel))}</p></section>`
     : "";
 
   const imgHtml = imageUrl
@@ -2030,11 +2069,23 @@ function buildProductBodyHtml(product, { title, description, localeBase, imageUr
   const nav = localeBase
     ? `<nav><a href="${localeBase}/">Home</a> › <a href="${localeBase}/shop">Shop</a></nav>` // i18n-ignore — breadcrumb labels
     : "";
-  // i18n-ignore — "Product Details" and "Delivery" are static EN-only headings in crawlers-only body
-  const detailsHeading = safeDesc ? `<h2>Product Details</h2>` : ""; // i18n-ignore
-  const deliveryNote =
-    `<h2>Delivery</h2>` + // i18n-ignore
-    `<p>Available for same-day and scheduled delivery with Presentail. Order before midday for same-day dispatch.</p>`; // i18n-ignore
+  const detailParts = rawDesc.split(/[•\u2022]/).map((part) => part.trim()).filter(Boolean);
+  const detailIntro = detailParts[0] || rawDesc;
+  const includedItems = detailParts.slice(1, 6);
+  const detailsHtml = detailIntro
+    ? `<section><h2>${escapeHtml(labels.details)}</h2><p>${escapeHtml(detailIntro)}</p></section>`
+    : "";
+  const includedHtml = includedItems.length
+    ? `<section><h2>${escapeHtml(labels.included)}</h2><ul>${includedItems.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></section>`
+    : "";
+  const careHtml = `<section><h2>${escapeHtml(labels.care)}</h2><p>${escapeHtml(labels.careText)}</p></section>`;
+  const validOccasions = (Array.isArray(product.occasions) ? product.occasions : [])
+    .map((slug) => availableOccasions.find((entry) => entry.id === slug))
+    .filter(Boolean)
+    .slice(0, 4);
+  const occasionsHtml = validOccasions.length
+    ? `<section><h2>${escapeHtml(labels.occasions)}</h2><p>${validOccasions.map((entry) => escapeHtml(entry.name)).join(", ")}</p></section>`
+    : "";
 
   // Contextual noscript internal-links nav — crawlers follow these to discover
   // related collection and city pages without executing JavaScript.
@@ -2068,21 +2119,21 @@ function buildProductBodyHtml(product, { title, description, localeBase, imageUr
     const links = buildInternalLinks(
       productForLinks,
       { lang, country, city: city || null, baseUrl: localeBase },
-      { brands: brandContext, occasions: availableOccasions },
+      { brands: brandContext, categories: availableCategories, occasions: availableOccasions, allProducts: relatedProducts },
     );
     if (links.length > 0) {
       const listItems = links
         .map((link) => `<li><a href="${escapeAttr(link.href)}">${escapeHtml(link.anchorText)}</a></li>`)
         .join("");
       noscriptNav =
-        `<noscript><nav aria-label="Related pages"><ul>${listItems}</ul></nav></noscript>`; // i18n-ignore — static label in crawlers-only noscript block
+        `<nav aria-label="${escapeAttr(labels.related)}"><ul>${listItems}</ul></nav>`;
     }
   }
 
   const currencyMarker = productPriceCurrencyOverride
     ? `<i data-seo-product-currency="${escapeAttr(productPriceCurrencyOverride)}" hidden></i>`
     : "";
-  return `${currencyMarker}<h1>${safeTitle}</h1><div>${imgHtml}${brandHtml}${availabilityHtml}${cityDeliveryHtml}${detailsHeading}${safeDesc ? `<p>${safeDesc}</p>` : ""}${deliveryNote}${nav}</div>${noscriptNav}`;
+  return `${currencyMarker}<article><h1>${safeTitle}</h1>${imgHtml}${brandHtml}${availabilityHtml}${cityDeliveryHtml}${detailsHtml}${includedHtml}${careHtml}${occasionsHtml}${nav}${noscriptNav}</article>`;
 }
 
 function buildSimpleEntityBodyHtml(entity, { title, description, localeBase }) {
@@ -3254,6 +3305,7 @@ export async function fetchCityProducts(
       // and its ItemList entry would point at a non-canonical URL.
       if (!name || !slug || !price || priceValue <= 0 || !imageUrl) continue;
       items.push({
+        id: slug,
         name,
         price,
         priceValue,
@@ -3264,6 +3316,10 @@ export async function fetchCityProducts(
         // i18n-ignore — crawler-facing EN alt text for the server-rendered grid
         altText: `${name} — flower & gift delivery`,
         canonicalPath: `/product/${encodeURIComponent(slug)}`,
+        category: typeof p.category === "string" ? p.category : "",
+        categories: Array.isArray(p.categories) ? p.categories : [],
+        occasions: Array.isArray(p.occasions) ? p.occasions : [],
+        totalSales: Number(p.totalSales) || 0,
       });
       if (items.length >= limit) break;
     }
@@ -4088,6 +4144,8 @@ export function buildProductHead({
   city,
   ogImageUrl,
   availableOccasions = [],
+  availableCategories = [],
+  relatedProducts = [],
   productPriceCurrencyOverride,
 }) {
   const rawName = typeof product.name === "string" ? product.name.trim() : "";
@@ -4388,6 +4446,8 @@ export function buildProductHead({
     country,
     city,
     availableOccasions,
+    availableCategories,
+    relatedProducts,
     pricePresentation,
     productPriceCurrencyOverride: nativeOverride,
   });
@@ -5932,7 +5992,9 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
       : `${parsed.country}-${parsed.city}`
     : undefined;
   const fetchOpts = {
-    lang: generic.lang,
+    // Product/catalog APIs accept base language codes, not regional BCP 47
+    // document tags such as ar-AE or fr-LB.
+    lang: parsed.lang ?? generic.lang.split("-")[0],
     countryCode,
     cityId,
     apiBaseUrl,
@@ -6047,19 +6109,49 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
               product.images.find((i) => i && typeof i.uri === "string" && i.uri)?.uri) ||
             null,
           );
-      const availableOccasions =
-        await fetchAvailableProductOccasionsForSeo({
+      const hasProductCategory =
+        typeof product.category === "string" ||
+        (Array.isArray(product.categories) && product.categories.length > 0);
+      const [availableOccasions, relatedProducts] = await Promise.all([
+        fetchAvailableProductOccasionsForSeo({
           countryCode,
           city: parsed.city,
           lang: parsed.lang ?? generic.lang,
           apiBaseUrl,
-        });
+        }),
+        hasProductCategory
+          ? fetchCityProducts(
+              apiBaseUrl,
+              countryCode,
+              cityId,
+              parsed.lang ?? generic.lang.split("-")[0],
+              { limit: 24, timeoutMs: 2500 },
+            )
+          : Promise.resolve([]),
+      ]);
+      const routableCategorySlugs = getShopCategorySlugsSync(parsed.country);
+      const productCategorySlugs = Array.isArray(product.categories)
+        ? product.categories.filter((value) => typeof value === "string")
+        : [];
+      const productCategoryNames = Array.isArray(product.categoryNames)
+        ? product.categoryNames
+        : [];
+      const availableCategories = productCategorySlugs
+        .filter((slug) => routableCategorySlugs?.has(slug))
+        .map((slug, index) => ({
+          id: slug,
+          name: typeof productCategoryNames[index] === "string"
+            ? productCategoryNames[index]
+            : slug.replace(/[-_]+/g, " ").replace(/\b\w/g, (char) => char.toUpperCase()),
+        }));
       result = buildProductHead({
         product,
         availabilityState: productState,
         imageDimensions: productImageDims,
         ogImageUrl: productOgImageUrl,
         availableOccasions,
+        availableCategories,
+        relatedProducts,
         ...headOpts,
       });
       // Emit the intra-city hreflang cluster only when this page IS the hub

@@ -182,9 +182,12 @@ describe("injectSeoTagsAsync — /product/<slug>", () => {
       "/api/catalog/occasions?countryCode=AE&city=dubai",
     );
     expect(out).toContain("<title>Velvet Rose Bouquet — Dubai | Presentail</title>");
-    expect(out).toContain(
-      'content="A dozen long-stem velvet roses, hand-tied."',
-    );
+    const description = out.match(/<meta name="description" content="([^"]+)"/)?.[1] ?? "";
+    expect(description.length).toBeGreaterThanOrEqual(120);
+    expect(description.length).toBeLessThanOrEqual(155);
+    expect(description).toContain("Velvet Rose Bouquet");
+    expect(description).toContain("Dubai");
+    expect(description).toContain("dozen long-stem velvet roses");
     expect(out).toContain(
       '<meta property="og:image" content="https://presentail.test/api/og-image/product/velvet-rose-bouquet?v=ivory-v1&amp;store=dubai"',
     );
@@ -403,6 +406,50 @@ describe("injectSeoTagsAsync — /brand/<slug>", () => {
 
 describe("injectSeoTagsAsync — French entity locale separation", () => {
   const ROOT_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body><div id="root"></div></body></html>`;
+
+  it("keeps ar-AE on the document while requesting base ar and rendering the translated product name", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const value = String(url);
+      if (value.includes("/api/woo/product?")) {
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: () => null },
+          json: async () => ({
+            ok: true,
+            contentLang: "ar",
+            product: {
+              id: "arabic-rose",
+              name: "باقة الورد الأحمر",
+              description: "اثنتا عشرة وردة حمراء مرتبة بعناية.",
+              priceValue: 50,
+              categories: [],
+              occasions: [],
+            },
+          }),
+        };
+      }
+      if (value.includes("/api/catalog/occasions")) {
+        return { ok: true, json: async () => ({ occasions: [] }) };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(
+      ROOT_HTML,
+      "/ar-ae/dubai/product/arabic-rose",
+      OPTS,
+    );
+    const productUrl = String(fetchMock.mock.calls.find(([url]) =>
+      String(url).includes("/api/woo/product?"),
+    )?.[0]);
+    expect(productUrl).toContain("lang=ar");
+    expect(productUrl).not.toContain("lang=ar-AE");
+    expect(out).toContain('<html lang="ar-AE"');
+    expect(out).toContain("<title>باقة الورد الأحمر");
+    expect(out).toContain("اثنتا عشرة وردة حمراء");
+  });
 
   it("keeps fr-LB on the document while brand SEO copy stays French", async () => {
     const fetchMock = vi.fn().mockImplementation(async (url: string) => {
@@ -7385,10 +7432,14 @@ describe("Client-side SEO builders — return shape (title, ogTitle, twitterTitl
     expect(seo.twitterTitle).toBe(seo.title);
   });
 
-  it("buildProductSeo uses shortDescription as description when it fits within 160 chars", () => {
+  it("buildProductSeo composes a bounded city-specific description from useful catalog detail", () => {
     const short = "A beautiful bouquet of fresh roses.";
     const seo = buildProductSeo({ lang: "en", productName: "Roses", city: "Dubai", country: "the UAE", shortDescription: short });
-    expect(seo.description).toBe(short);
+    expect(seo.description.length).toBeGreaterThanOrEqual(120);
+    expect(seo.description.length).toBeLessThanOrEqual(155);
+    expect(seo.description).toContain("roses");
+    expect(seo.description).toContain("Dubai");
+    expect(seo.description).toContain("beautiful bouquet");
   });
 
   it("buildProductSeo falls back to template description when shortDescription is too long", () => {
@@ -7396,6 +7447,38 @@ describe("Client-side SEO builders — return shape (title, ogTitle, twitterTitl
     const seo = buildProductSeo({ lang: "en", productName: "Roses", city: "Dubai", country: "the UAE", shortDescription: long });
     expect(seo.description).not.toBe(long);
     expect(seo.description.length).toBeGreaterThan(0);
+  });
+
+  it("buildProductSeo keeps descriptions unique across cities", () => {
+    const common = {
+      lang: "fr",
+      productName: "Bouquet de Roses",
+      country: "Liban",
+      shortDescription: "Douze roses fraîches arrangées à la main.",
+    };
+    const beirut = buildProductSeo({ ...common, city: "Beyrouth" });
+    const tripoli = buildProductSeo({ ...common, city: "Tripoli" });
+    expect(beirut.description).not.toBe(tripoli.description);
+    expect(beirut.description.length).toBeGreaterThanOrEqual(120);
+    expect(tripoli.description.length).toBeLessThanOrEqual(155);
+  });
+
+  it("buildProductSeo localizes known qualifiers and drops one before truncating a long name", () => {
+    const localized = buildProductSeo({
+      lang: "fr",
+      productName: "Roses rouges",
+      productVariant: "Flower Boxes",
+      city: "Beyrouth",
+    });
+    expect(localized.title).toContain("Boîtes de fleurs");
+    const long = buildProductSeo({
+      lang: "ar",
+      productName: "باقة زهور رومانسية فاخرة مع الشوكولاتة والدبدوب والبطاقة الشخصية",
+      productVariant: "Hand Bouquets",
+      city: "بيروت",
+    });
+    expect(long.title.length).toBeLessThanOrEqual(65);
+    expect(long.title).not.toContain("باقات يدوية");
   });
 
   it("buildProductSeo truncates a very long product name so the title stays within 65 chars", () => {
@@ -8937,6 +9020,7 @@ describe("Prerender body — product page enhancements", () => {
         occasions: [],
       },
       ...PRODUCT_HEAD_OPTS,
+      availableCategories: [{ id: "flower-boxes", name: "Flower Boxes" }],
     });
     // Only the primary (first) category is linked — internalLinks rule 1 uses categories[0].
     expect(bodyHtml).toContain("/category/flower-boxes");
@@ -8981,7 +9065,54 @@ describe("Prerender body — product page enhancements", () => {
     expect(bodyHtml).not.toContain("/occasion/");
   });
 
-  it("product body caps combined category + occasion cross-links at 5", () => {
+  it("product body emits included-item, care, occasion and related-product content", () => {
+    const { bodyHtml } = buildProductHead({
+      product: {
+        id: "rose-box",
+        name: "Rose Box",
+        description: "A hand-arranged rose box. • Twelve fresh roses • Signature wrapping",
+        image: null,
+        priceValue: 70,
+        category: "flower-boxes",
+        categories: ["flower-boxes"],
+        occasions: ["birthday"],
+      },
+      ...PRODUCT_HEAD_OPTS,
+      availableCategories: [{ id: "flower-boxes", name: "Flower Boxes" }],
+      availableOccasions: [{ id: "birthday", name: "Birthday" }],
+      relatedProducts: [
+        { id: "pink-rose-box", name: "Pink Rose Box", category: "flower-boxes", categories: ["flower-boxes"], occasions: [], totalSales: 20 },
+        { id: "unrelated-cake", name: "Chocolate Cake", category: "cakes", categories: ["cakes"], occasions: [], totalSales: 100 },
+      ],
+    });
+    expect(bodyHtml).toContain("<h2>What is included</h2>");
+    expect(bodyHtml).toContain("<li>Twelve fresh roses</li>");
+    expect(bodyHtml).toContain("<h2>Care and handling</h2>");
+    expect(bodyHtml).toContain("<h2>Suitable occasions</h2>");
+    expect(bodyHtml).toContain("/occasion/birthday");
+    expect(bodyHtml).toContain("/product/pink-rose-box");
+    expect(bodyHtml).not.toContain("/product/unrelated-cake");
+  });
+
+  it("product body does not link a category missing from routable inventory", () => {
+    const { bodyHtml } = buildProductHead({
+      product: {
+        id: "legacy-item",
+        name: "Legacy Item",
+        description: "A catalog item.",
+        image: null,
+        priceValue: 30,
+        category: "retired-collection",
+        categories: ["retired-collection"],
+        occasions: [],
+      },
+      ...PRODUCT_HEAD_OPTS,
+      availableCategories: [{ id: "flower-boxes", name: "Flower Boxes" }],
+    });
+    expect(bodyHtml).not.toContain("/category/retired-collection");
+  });
+
+  it("product body caps contextual cross-links at the expanded eight-link budget", () => {
     const { bodyHtml } = buildProductHead({
       product: {
         name: "Multi Category Product",
@@ -8996,7 +9127,7 @@ describe("Prerender body — product page enhancements", () => {
     });
     const catMatches = (bodyHtml!.match(/\/category\//g) || []).length;
     const occMatches = (bodyHtml!.match(/\/occasion\//g) || []).length;
-    expect(catMatches + occMatches).toBeLessThanOrEqual(5);
+    expect(catMatches + occMatches).toBeLessThanOrEqual(8);
   });
 
   it("product body does NOT emit city delivery when cityLabel is empty", () => {

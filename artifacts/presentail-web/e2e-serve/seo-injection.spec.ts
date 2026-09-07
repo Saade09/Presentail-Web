@@ -369,9 +369,11 @@ test.describe("Production SEO — OG/Twitter tags on a product entity page", () 
     const fallback = findSeoFallback(html);
     expect(fallback).toMatch(/<h1>[^<]+<\/h1>/);
     expect(fallback).toContain("<img ");
-    expect(fallback).toMatch(/From \$\d/);
+    expect(fallback).toMatch(/From (?:\$\d|\d[\d.]* USD)/);
     expect(fallback).toContain("<h2>Product Details</h2>");
     expect(fallback).toMatch(/<h2>Product Details<\/h2><p>[^<]+<\/p>/);
+    expect(fallback).toContain("<h2>Delivery in Beirut</h2>");
+    expect(fallback).toContain("<h2>Care and handling</h2>");
     expect(fallback).not.toContain('style="display:none"');
     expect(fallback).not.toContain('<h1 class="sr-only">');
   });

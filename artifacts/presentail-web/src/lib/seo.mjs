@@ -1064,6 +1064,73 @@ export function buildOccasionSeo({ lang, occasionName, city, country, productCou
 // the product name is shortened with an ellipsis so the city and brand suffix
 // always remain visible. This mirrors the FAQ/Contact page guardrail pattern.
 const PRODUCT_TITLE_HARD_MAX = 65;
+const PRODUCT_DESCRIPTION_MIN = 120;
+const PRODUCT_DESCRIPTION_MAX = 155;
+
+const PRODUCT_VARIANT_TRANSLATIONS = {
+  ar: {
+    "hand bouquets": "باقات يدوية",
+    "flower boxes": "صناديق زهور",
+    cakes: "كيك",
+    chocolate: "شوكولاتة",
+    plants: "نباتات",
+    balloons: "بالونات",
+    "gift baskets": "سلال هدايا",
+    "stuffed animals": "دمى محشوة",
+  },
+  fr: {
+    "hand bouquets": "Bouquets",
+    "flower boxes": "Boîtes de fleurs",
+    cakes: "Gâteaux",
+    chocolate: "Chocolat",
+    plants: "Plantes",
+    balloons: "Ballons",
+    "gift baskets": "Coffrets cadeaux",
+    "stuffed animals": "Peluches",
+  },
+};
+
+function localizeProductVariant(value, lang) {
+  if (typeof value !== "string") return "";
+  const clean = value.replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!clean) return "";
+  return PRODUCT_VARIANT_TRANSLATIONS[lang]?.[clean.toLocaleLowerCase("en")] ?? clean;
+}
+
+function clipSeoSentence(value, maxLength) {
+  const clean = String(value ?? "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (clean.length <= maxLength) return clean;
+  const clipped = clean.slice(0, maxLength - 1);
+  const boundary = clipped.lastIndexOf(" ");
+  return `${clipped.slice(0, boundary > maxLength * 0.7 ? boundary : maxLength - 1).replace(/[,:;.!?\s]+$/g, "")}…`;
+}
+
+function composeProductDescription({ lang, name, city, detail }) {
+  const templates = {
+    en: `Order ${name} for reliable gift delivery in ${city}.`,
+    ar: `اطلب ${name} مع توصيل هدايا موثوق في ${city}.`,
+    fr: `Commandez ${name} avec une livraison cadeau fiable à ${city}.`,
+    el: `Παραγγείλετε ${name} με αξιόπιστη παράδοση δώρου στην πόλη ${city}.`,
+  };
+  const endings = {
+    en: "Prepared with care by Presentail, with scheduled and same-day options where available.",
+    ar: "يُجهّز بعناية من Presentail، مع خيارات توصيل مجدولة وفي اليوم نفسه حيثما تتوفر.",
+    fr: "Préparé avec soin par Presentail, avec livraison planifiée ou le jour même selon disponibilité.",
+    el: "Ετοιμάζεται με φροντίδα από την Presentail, με προγραμματισμένη ή αυθημερόν παράδοση όπου διατίθεται.",
+  };
+  const usefulDetail = String(detail || "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  let description = `${templates[lang]} ${usefulDetail}`.trim();
+  if (description.length < PRODUCT_DESCRIPTION_MIN) {
+    description = `${description.replace(/[.!?]+$/g, "")}. ${endings[lang]}`;
+  }
+  return clipSeoSentence(description, PRODUCT_DESCRIPTION_MAX);
+}
 
 function truncateProductNameForTitle(name, maxLength) {
   if (name.length <= maxLength) return name;
@@ -1086,11 +1153,11 @@ export function buildProductSeo({
 } = {}) {
   const l = pickLang(lang);
   const name = productName ?? "";
+  const localizedVariant = localizeProductVariant(productVariant, l);
   const cleanVariant =
-    typeof productVariant === "string" &&
-    productVariant.trim() &&
-    normalizeSeoText(productVariant) !== normalizeSeoText(name)
-      ? productVariant.trim().slice(0, 24)
+    localizedVariant &&
+    normalizeSeoText(localizedVariant) !== normalizeSeoText(name)
+      ? localizedVariant.slice(0, 24)
       : "";
   const variantSuffix = cleanVariant ? ` \u00b7 ${cleanVariant}` : "";
   const titleName = `${name}${variantSuffix}`;
@@ -1098,28 +1165,35 @@ export function buildProductSeo({
   const params = { name: titleName, city: cityVal, country: country ?? "" };
   const h1Params = { name, city: cityVal, country: country ?? "" };
   const titleTpl = city ? ENTITY_TITLES.product[l] : ENTITY_TITLES_NO_CITY.product[l];
-  const descTpl = city ? ENTITY_DESCRIPTIONS.product[l] : ENTITY_DESCRIPTIONS_NO_CITY.product[l];
-  // Prefer the product's own short description when it fits within 160 chars.
   const clean = typeof shortDescription === "string" ? shortDescription.trim() : "";
-  const description = clean && clean.length <= 160 ? clean : formatTemplate(descTpl, params);
+  const descTpl = city ? ENTITY_DESCRIPTIONS.product[l] : ENTITY_DESCRIPTIONS_NO_CITY.product[l];
+  const description = city
+    ? composeProductDescription({ lang: l, name, city: cityVal, detail: clean })
+    : clean && clean.length <= 160
+      ? clean
+      : formatTemplate(descTpl, params);
 
   // Title-length guardrail: when the city-qualified title would exceed
   // PRODUCT_TITLE_HARD_MAX, truncate the product name so the " — {city} |
   // Presentail" suffix always fits. The ellipsis counts as one character.
   // No guardrail is applied to the no-city fallback (shorter by design).
   let title = formatTemplate(titleTpl, params);
+  if (city && cleanVariant && title.length > PRODUCT_TITLE_HARD_MAX) {
+    title = formatTemplate(titleTpl, { ...params, name });
+  }
   if (city && title.length > PRODUCT_TITLE_HARD_MAX) {
     // Suffix that always follows the name in the city-qualified template.
     // Keep the qualifier as well as the city/brand suffix. Removing the
     // qualifier during truncation would recreate duplicate titles for
     // same-name product variants.
-    const suffix = `${variantSuffix} \u2014 ${cityVal} | Presentail`;
+    const retainedVariantSuffix = title.includes(variantSuffix) ? variantSuffix : "";
+    const suffix = `${retainedVariantSuffix} \u2014 ${cityVal} | Presentail`;
     const maxNameLen = PRODUCT_TITLE_HARD_MAX - suffix.length - 1; // -1 for ellipsis
     if (maxNameLen > 0 && name.length > maxNameLen) {
       const truncatedName = truncateProductNameForTitle(name, maxNameLen + 1);
       title = formatTemplate(titleTpl, {
         ...params,
-        name: `${truncatedName}${variantSuffix}`,
+        name: `${truncatedName}${retainedVariantSuffix}`,
       });
     }
   }

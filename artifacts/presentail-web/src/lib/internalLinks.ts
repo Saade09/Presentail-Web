@@ -59,8 +59,8 @@ export interface InternalLinksContext {
   allProducts?: InternalLinksProduct[];
 }
 
-const MAX_LINKS = 5;
-const MAX_RELATED = 2;
+const MAX_LINKS = 8;
+const MAX_RELATED = 4;
 
 export function localeBase(lang: string, country: string, city: string | null): string {
   let base = `/${lang}-${country}`;
@@ -154,12 +154,9 @@ export function buildInternalLinks(
   // Rule 1: Primary category
   if (primaryCatSlug) {
     const catEntry = context.categories?.find((c) => c.id === primaryCatSlug);
-    const catName =
-      catEntry?.name ??
-      primaryCatSlug
-        .replace(/-/g, " ")
-        .replace(/\b\w/g, (c) => c.toUpperCase());
-    add(`${base}/category/${encodeURIComponent(primaryCatSlug)}`, catName);
+    if (catEntry) {
+      add(`${base}/category/${encodeURIComponent(primaryCatSlug)}`, catEntry.name);
+    }
   }
 
   // Rule 2: First product occasion that is present in the live catalog
