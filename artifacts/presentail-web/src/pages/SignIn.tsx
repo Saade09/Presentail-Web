@@ -10,7 +10,6 @@ import { trackEvent, umamiTrack } from "@/lib/analytics";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ShimUser } from "@/contexts/AuthContext";
 import { CompleteProfileDialog } from "@/components/auth/CompleteProfileDialog";
-import { Logo } from "@/components/Logo";
 import { CheckoutField } from "@/components/checkout/CheckoutField";
 
 function InAppBrowserBanner({ t }: { t: (key: string) => string }) {
@@ -368,6 +367,7 @@ export default function SignInPage() {
   }, []);
 
   const onContinueEmail = async () => {
+    if (busy) return;
     const trimmed = email.trim().toLowerCase();
     if (!isValidEmail(trimmed)) {
       setEmailError(t("auth.invalidEmail"));
@@ -492,7 +492,7 @@ export default function SignInPage() {
       />
     ) : null}
     <div
-      className="h-[calc(100vh-64px)] flex flex-col items-center justify-center px-4 py-2 bg-[#F7F7F7] overflow-hidden"
+      className="flex flex-col items-center bg-[#F7F7F7] px-4 py-14 sm:py-20"
       dir={dir}
     >
       <div
@@ -650,6 +650,8 @@ export default function SignInPage() {
                 placeholder={t("auth.emailPlaceholder")}
                 data-testid="input-signin-email"
                 disabled={busy}
+                aria-invalid={emailError ? true : undefined}
+                aria-describedby="signin-email-feedback"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") void onContinueEmail();
                 }}
@@ -657,30 +659,29 @@ export default function SignInPage() {
               />
               {emailError ? (
                 <p
+                  id="signin-email-feedback"
                   className="text-xs text-destructive"
                   data-testid="text-signin-email-error"
                 >
                   {emailError}
                 </p>
               ) : (
-                <p className="text-xs text-muted-foreground">
+                <p id="signin-email-feedback" className="text-xs text-muted-foreground">
                   {t("auth.emailHelper")}
                 </p>
               )}
             </CheckoutField>
 
-            {/* Continue with Email button — strong teal once email is valid */}
+            {/* Continue with Email button — validation remains available on submit. */}
             <Button
               size="lg"
               className="w-full h-12 rounded-xl"
               onClick={() => void onContinueEmail()}
-              disabled={busy || !isValidEmail(email)}
+              disabled={busy}
               data-testid="button-signin-continue"
             >
               {busy ? t("checkout.processing") : t("auth.continueWithEmail")}
             </Button>
-
-            {/* Help link */}
           </div>
         ) : (
           <div className="space-y-4">

@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders, DEFAULT_AUTH } from "@/test-utils";
+import { authStrings } from "@/locales/auth";
 
 // ---------------------------------------------------------------------------
 // Module mocks — must be declared before the component is imported.
@@ -84,6 +85,76 @@ function stubFetch(response: object, ok = true) {
     json: async () => response,
   } as Response);
 }
+
+const englishAuth = (key: string) => {
+  const entry = authStrings[key];
+  return typeof entry === "object" && entry !== null && "en" in entry
+    ? String(entry.en)
+    : key;
+};
+
+describe("SignIn — approved default card", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    Object.defineProperty(window, "location", {
+      value: { search: "", href: "" },
+      writable: true,
+    });
+  });
+
+  it("shows the compact account introduction and approved email copy", () => {
+    renderWithProviders(<SignInPage />, { locale: { t: englishAuth } });
+
+    expect(
+      screen.getByRole("heading", { name: "Sign in or create an account" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByText("Track orders, save addresses, and check out faster."),
+    ).toBeTruthy();
+    expect(
+      screen.getByLabelText("Email address").getAttribute("placeholder"),
+    ).toBe("name@email.com");
+    expect(
+      screen.getByText("We’ll use your email to find or create your account."),
+    ).toBeTruthy();
+    expect(screen.queryByTestId("logo")).toBeNull();
+    expect(screen.queryByText(/never share your email/i)).toBeNull();
+    expect(screen.queryByText(/having trouble signing in/i)).toBeNull();
+  });
+
+  it("keeps Apple first, applies its black treatment, and keeps Google outlined", () => {
+    renderWithProviders(<SignInPage />, { locale: { t: englishAuth } });
+
+    const apple = screen.getByTestId("button-signin-apple");
+    const google = screen.getByTestId("button-signin-google");
+    expect(
+      apple.compareDocumentPosition(google) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(apple.className).toContain("bg-black");
+    expect(apple.className).toContain("text-white");
+    expect(google.getAttribute("variant")).toBe("outline");
+  });
+
+  it("shows accessible inline validation when an invalid email is submitted", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<SignInPage />, { locale: { t: englishAuth } });
+
+    const emailInput = screen.getByTestId("input-signin-email");
+    const continueButton = screen.getByTestId("button-signin-continue");
+    expect((continueButton as HTMLButtonElement).disabled).toBe(false);
+
+    await user.type(emailInput, "not-an-email");
+    await user.click(continueButton);
+
+    expect(screen.getByTestId("text-signin-email-error").textContent).toBe(
+      "Please enter a valid email.",
+    );
+    expect(emailInput.getAttribute("aria-invalid")).toBe("true");
+    expect(emailInput.getAttribute("aria-describedby")).toBe(
+      "signin-email-feedback",
+    );
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Tests: onContinueEmail → goToSignUp redirect_url preservation
