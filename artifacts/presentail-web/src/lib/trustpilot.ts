@@ -92,6 +92,11 @@ export function injectTrustpilotScript(
   onLoad: () => void,
   onError?: () => void,
 ): void {
+  if (window.Trustpilot) {
+    _loadState = "loaded";
+    onLoad();
+    return;
+  }
   if (_loadState === "loaded") {
     onLoad();
     return;
@@ -107,6 +112,28 @@ export function injectTrustpilotScript(
   if (_loadState === "loading") return; // already in-flight — just enqueued
 
   _loadState = "loading";
+  const existingScript = document.querySelector<HTMLScriptElement>(
+    `script[src="${TRUSTPILOT_SCRIPT_SRC}"]`,
+  );
+  if (existingScript) {
+    existingScript.addEventListener(
+      "load",
+      () => {
+        existingScript.dataset.loaded = "1";
+        _flushLoad();
+      },
+      { once: true },
+    );
+    existingScript.addEventListener(
+      "error",
+      () => {
+        existingScript.remove();
+        setTimeout(() => _doInject(true), RETRY_DELAY_MS);
+      },
+      { once: true },
+    );
+    return;
+  }
   _doInject(false);
 }
 
@@ -124,9 +151,15 @@ export function injectTrustpilotScript(
  * registers fresh callbacks through the `injectTrustpilotScript` call below.
  */
 function _resetAndReinject(onLoad: () => void, onError?: () => void) {
-  _loadState = "idle";
-  _loadQueue.length = 0;
-  _errorQueue.length = 0;
+  const completedStaleScript = document.querySelector<HTMLScriptElement>(
+    `script[src="${TRUSTPILOT_SCRIPT_SRC}"][data-loaded="1"]`,
+  );
+  completedStaleScript?.remove();
+
+  // The first exhausted poller starts the recovery injection. Other widgets
+  // exhausting in the same tick must join that in-flight request rather than
+  // resetting its queues or replacing its script.
+  if (_loadState !== "loading") _loadState = "idle";
   injectTrustpilotScript(onLoad, onError);
 }
 
