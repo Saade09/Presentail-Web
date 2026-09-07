@@ -605,7 +605,9 @@ router.get("/woo/brands", (_req, res) => {
   return res.json({
     ok: true,
     brands: osBrands.map((b) => {
-  const rawBrandEntry = rawBrands?.find((b: OSCatalogAttributeBrand) => b.slug === brandSlug);
+      const rawBrandEntry = rawBrands?.find(
+        (rb: OSCatalogAttributeBrand) => rb.slug === b.slug,
+      );
       // OS API returns banner_image_url (absolute CDN URL); cover_image is a
       // forward-compat alias kept for potential future OS API versions.
       const cover_image = rawBrandEntry?.banner_image_url ?? rawBrandEntry?.cover_image ?? null;
@@ -633,7 +635,7 @@ router.get("/woo/brand-products", async (req, res) => {
   if (cachedOsProducts === null && !isOsProductsReady(store.storeKey)) {
     return sendCatalogNotReady(res);
   }
-  const osProducts = getOsProducts(store.storeKey) ?? [];
+  const osProducts = cachedOsProducts ?? [];
   const filter = readDeliveryFilter(req);
   const lang = readLang(req);
   const osBrands = getOsBrands() ?? [];
@@ -653,8 +655,6 @@ router.get("/woo/brand-products", async (req, res) => {
 
   const sortMode = readSortMode(req);
   const browseFilter: DeliveryFilter = { countryCode: filter.countryCode, cityId: null };
-
-  const productCategorySlug = CATEGORY_SLUG_REMAP[slug] ?? slug;
   // Use the persisted best-seller ID set rather than relying solely on the
   // in-place p.isBestSeller annotation on each OSProduct.  The annotation is
   // written during the cache-refresh cycle; between a fresh product fetch and
@@ -680,12 +680,15 @@ router.get("/woo/brand-products", async (req, res) => {
       return canonical === brandSlug;
     }),
   );
-  const eligible = osProducts
+  const eligible = brandOsProducts
     .map(mapOsProductToWcShape)
     .filter(isVisibleProduct)
     .filter((p) => isDeliverable(p, browseFilter));
   let products = sortOsShapedProducts(eligible, sortMode)
-    .map((p) => transformProduct(p, store.currencySymbol));
+    .map((p) => transformProduct(p, store.currencySymbol))
+    // Override isBestSeller from the persisted best-seller ID set: the
+    // in-place annotation can be stale while a cache refresh is in-flight.
+    .map((p) => ({ ...p, isBestSeller: bestSellerIds.has(String(p.id)) }));
   if (lang !== "en") {
     products = await applyProductNameTranslations(products, lang);
   }
@@ -794,7 +797,11 @@ router.get("/woo/category-products", async (req, res) => {
   const eligible = osProducts
     .map(mapOsProductToWcShape)
     .filter(isVisibleProduct)
-    .filter((p) => isDeliverable(p, browseFilter));
+    .filter((p) => isDeliverable(p, browseFilter))
+    // Filter to products that belong to the requested category.
+    .filter((p) =>
+      (p.categories ?? []).some((c) => c.slug === productCategorySlug),
+    );
   let allProducts = sortOsShapedProducts(eligible, sortMode)
     .map((p) => transformProduct(p, store.currencySymbol));
   if (lang !== "en") {
@@ -811,26 +818,18 @@ router.get("/woo/category-products", async (req, res) => {
     const pageRaw = Number(pageParam);
     const page = Number.isFinite(pageRaw) && pageRaw >= 1 ? Math.floor(pageRaw) : 1;
     const offset = (page - 1) * pageSize;
-  let products = sortOsShapedProducts(eligible, sortMode)
-    .map((p) => transformProduct(p, store.currencySymbol));
-  if (lang !== "en") {
-    products = await applyProductNameTranslations(products, lang);
+    const products = allProducts.slice(offset, offset + pageSize);
+    return res.json({ ok: true, products, count, categoryName: catName });
   }
-  return res.json({ ok: true, products, count: products.length });
+  return res.json({
+    ok: true,
+    products: allProducts,
+    count,
+    categoryName: catName,
+  });
 });
 
-// GET /api/woo/product?slug=...&lang=ar|fr|en
-//
-// Single-product lookup by slug, used primarily by the web app's server-side
-// SEO injector to render per-product Open Graph / Twitter Card meta tags so
-// that links pasted into WhatsApp, iMessage, Slack, etc. show a rich preview
-// (product name, description, image) instead of the generic site-wide one.
-//
-// When lang=ar or lang=fr the product name and description are automatically
-// translated via the OpenAI API (same credentials as banner translation) and
-// cached in-process with a 7-day TTL so each product is only translated once.
-// Falls back to English transparently on any translation error.
-router.get("/woo/product", async (req, res) => {
+router.get("/woo/occasion-products", async (req, res) => {
   const slugRaw = req.query.slug;
   const slug = typeof slugRaw === "string" ? slugRaw.trim() : "";
   if (!slug) {
@@ -856,7 +855,7 @@ router.get("/woo/product", async (req, res) => {
   if (cachedOsProducts === null && !isOsProductsReady(store.storeKey)) {
     return sendCatalogNotReady(res);
   }
-  const osProducts = getOsProducts(store.storeKey) ?? [];
+  const osProducts = cachedOsProducts ?? [];
   const filter = readDeliveryFilter(req);
   const lang = readLang(req);
   const sortMode = readSortMode(req);
@@ -865,8 +864,6 @@ router.get("/woo/product", async (req, res) => {
   // match the web app's city slug format, which would incorrectly exclude all
   // products for unrecognised city slugs (e.g. "lb-akkar").
   const browseFilter: DeliveryFilter = { countryCode: filter.countryCode, cityId: null };
-
-  const productCategorySlug = CATEGORY_SLUG_REMAP[slug] ?? slug;
   const deliverable = osProducts
     .filter((p) => p.occasions.some((o) => o.slug === slug))
     .map(mapOsProductToWcShape)
@@ -890,13 +887,13 @@ router.get("/woo/product", async (req, res) => {
       .filter((p) => p.osNumericId != null)
       .map((p) => ({ osNumericId: p.osNumericId as number | string, name: p.name }));
     if (itemsToTranslate.length > 0) {
-    const translations =
-      items.length > 0
-        ? await translateProductNamesBatch(items, lang as TranslationLang)
-        : new Map<string, string>();
-    matchingProducts = matchingProductsRaw.map(({ osNumericId, ...rest }) => {
-      if (osNumericId == null) return rest;
-      const translated = translations.get(String(osNumericId));
+      const translations = await translateProductNamesBatch(
+        itemsToTranslate,
+        lang as TranslationLang,
+      );
+      allTransformedProducts = allTransformedProducts.map((p) => {
+        if (p.osNumericId == null) return p;
+        const translated = translations.get(String(p.osNumericId));
         return translated ? { ...p, name: translated } : p;
       });
     }
@@ -970,7 +967,7 @@ router.get("/woo/products", async (req, res) => {
   if (cachedOsProducts === null && !isOsProductsReady(store.storeKey)) {
     return sendCatalogNotReady(res);
   }
-  const osProducts = getOsProducts(store.storeKey) ?? [];
+  const osProducts = cachedOsProducts ?? [];
   const filter = readDeliveryFilter(req);
   const sortMode = readSortMode(req);
   const lang = readLang(req);
@@ -979,8 +976,6 @@ router.get("/woo/products", async (req, res) => {
   // match the web app's city slug format, which would incorrectly exclude all
   // products for unrecognised city slugs (e.g. "lb-akkar").
   const browseFilter: DeliveryFilter = { countryCode: filter.countryCode, cityId: null };
-
-  const productCategorySlug = CATEGORY_SLUG_REMAP[slug] ?? slug;
   const eligible = osProducts
     .map(mapOsProductToWcShape)
     .filter(isVisibleProduct)
@@ -1055,7 +1050,12 @@ router.get("/woo/product", async (req, res) => {
   if (lang !== "en") {
     // Translate name + description in one cached API call.
     // translateProductContent never throws — returns English on any failure.
-      const translated = translations.get(String(osNumericId));
+    const translated = await translateProductContent(
+      product.osNumericId ?? osProduct.id,
+      lang as TranslationLang,
+      product.name,
+      product.description ?? "",
+    );
     return res.json({
       ok: true,
       // contentLang tells the caller which language the payload is ACTUALLY
@@ -1115,7 +1115,7 @@ router.get("/woo/product-pricing/:osId", async (req, res) => {
       return res.status(osRes.status).json({ ok: false, message: `OS returned ${osRes.status}` }); // i18n-ignore
     }
 
-  const body = parsed.data;
+    const body = (await osRes.json()) as { product?: Record<string, unknown> };
 
     function parseP(v: unknown): number | null {
       if (v == null || v === "" || v === "0" || v === 0) return null;
@@ -1347,7 +1347,7 @@ router.post("/woo/order", async (req, res) => {
     });
   }
 
-  const parsed = SearchQuerySchema.safeParse(req.query);
+  const parsed = WooOrderSchema.safeParse(req.body);
   if (!parsed.success) {
     req.log?.warn?.(
       { issues: parsed.error.issues },
@@ -1936,7 +1936,7 @@ router.post("/woo/order", async (req, res) => {
     if (!intent) {
       req.log?.warn?.(
         { appOrderId: body.orderId, paymentRef },
-        "woo.order: no valid CyberSource payment intent found for this paymentRef+orderId pair",
+        "woo.order: no valid Mamo payment intent found for this paymentRef+orderId pair",
       );
       return res.status(402).json({
         ok: false,
@@ -1959,7 +1959,7 @@ router.post("/woo/order", async (req, res) => {
     if (cartMismatch) {
       req.log?.warn?.(
         { appOrderId: body.orderId, paymentRef, reason: cartMismatch },
-        "woo.order: submitted order does not match paid-for PayPal snapshot — rejecting",
+        "woo.order: submitted order does not match paid-for Mamo snapshot — rejecting",
       );
       return res.status(402).json({
         ok: false,
@@ -1985,18 +1985,18 @@ router.post("/woo/order", async (req, res) => {
       };
     }
 
-    if (!process.env.PAYPAL_CLIENT_ID || !process.env.PAYPAL_CLIENT_SECRET) {
+    if (!process.env.MAMO_SECRET_KEY) {
       req.log?.warn?.(
         { appOrderId: body.orderId, paymentRef },
-        "woo.order: PayPal credentials not configured, recording order without set_paid",
+        "woo.order: MAMO_SECRET_KEY not configured, recording order without set_paid",
       );
     } else {
-      // Layer 2: Capture + verify with PayPal provider.
-      paymentVerified = await captureAndVerifyPayPalOrder(paymentRef);
+      // Layer 2: Verify with Mamo provider.
+      paymentVerified = await verifyMamoPayment(paymentRef);
       if (!paymentVerified) {
         req.log?.warn?.(
           { appOrderId: body.orderId, paymentRef },
-          "woo.order: PayPal payment capture/verification failed — rejecting order",
+          "woo.order: Mamo payment not confirmed — rejecting order",
         );
         // Fire-and-forget: record the declined attempt in app_orders and
         // send to OS with payment.verified=false so ops can see it.
@@ -2012,37 +2012,25 @@ router.post("/woo/order", async (req, res) => {
         return res.status(402).json({
           ok: false,
           code: "payment_not_confirmed",
-          message: "Payment could not be captured with PayPal. Please complete payment before placing the order.", // i18n-ignore
+          message: "Payment could not be confirmed with Mamo. Please complete payment before placing the order.", // i18n-ignore
         });
       }
     }
-  } else if ((body.paymentMethod as string) === "cybersource") {
+  } else if (body.paymentMethod === "paypal") {
     if (!paymentRef) {
       return res.status(402).json({
         ok: false,
         code: "payment_reference_required",
-        message: "A CyberSource payment ID (paymentRef) is required for CyberSource payments.", // i18n-ignore
+        message: "A PayPal order ID (paymentRef) is required for PayPal payments.", // i18n-ignore
       });
     }
 
-    // Layer 1: Atomically claim and verify orderId↔paymentRef binding.
-    // `consumePaymentIntent` is a synchronous operation that sets `consumed:true`
-    // in the same tick — Node.js's event loop guarantees no other request can
-    // interleave here, so only one concurrent submission per paymentRef can
-    // claim the intent. Any second concurrent request will see `consumed:true`
-    // and receive a 402.
-    //
-    // If the downstream OS write fails and the error is propagated to the client,
-    // `releasePaymentIntent` is called in the enqueue-failure path below so the
-    // shopper can retry without restarting the payment. Releasing is safe only
-    // when the failure is definitive (enqueue threw, meaning no durable record
-    // of the order exists); ambiguous network failures leave the intent consumed
-    // and rely on the reconciliation queue — the same behavior as Stripe/Mamo.
+    // Layer 1: Verify orderId↔paymentRef binding.
     const intent = consumePaymentIntent(paymentRef, body.orderId);
     if (!intent) {
       req.log?.warn?.(
         { appOrderId: body.orderId, paymentRef },
-        "woo.order: no valid CyberSource payment intent found for this paymentRef+orderId pair",
+        "woo.order: no valid PayPal payment intent found for this paymentRef+orderId pair",
       );
       return res.status(402).json({
         ok: false,
@@ -2051,6 +2039,9 @@ router.post("/woo/order", async (req, res) => {
       });
     }
 
+    // Layer 1b: Verify cart snapshot — submitted cart AND delivery context
+    // must match the paid snapshot. PayPal charges the full total (products +
+    // delivery), so a district or express substitution is also fraud.
     const cartMismatch = verifyCartMatchesSnapshot(body.items, intent.snapshot, {
       checkDelivery: true,
       submittedDistrict: body.district,
@@ -2241,11 +2232,11 @@ router.post("/woo/order", async (req, res) => {
   // back to mapping the raw code to the FIRST10 sentinel or using the code itself.
   if ((body.paymentMethod as string) === "cybersource" && intentCouponSnapshot) {
     const csSnapshotCodeUpper = intentCouponSnapshot.couponCode.trim().toUpperCase();
-      const resolvedCouponId =
-        intentCouponSnapshot.couponId ??
-        (snapshotCodeUpper === FIRST_ORDER_COUPON_CODE
-          ? FIRST_ORDER_COUPON_ID
-          : snapshotCode);
+    const resolvedCouponId =
+      intentCouponSnapshot.couponId ??
+      (csSnapshotCodeUpper === FIRST_ORDER_COUPON_CODE
+        ? FIRST_ORDER_COUPON_ID
+        : intentCouponSnapshot.couponCode);
     couponValidated = {
       couponId: resolvedCouponId,
       couponDiscountUsd: intentCouponSnapshot.couponDiscountUsd,
