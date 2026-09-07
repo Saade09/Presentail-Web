@@ -660,13 +660,16 @@ export default function SignInPage() {
               {emailError ? (
                 <p
                   id="signin-email-feedback"
-                  className="text-xs text-destructive"
+                  className="mt-1.5 mb-1.5 text-xs text-destructive"
                   data-testid="text-signin-email-error"
                 >
                   {emailError}
                 </p>
               ) : (
-                <p id="signin-email-feedback" className="text-xs text-muted-foreground">
+                <p
+                  id="signin-email-feedback"
+                  className="mt-1.5 mb-1.5 text-xs text-muted-foreground"
+                >
                   {t("auth.emailHelper")}
                 </p>
               )}
