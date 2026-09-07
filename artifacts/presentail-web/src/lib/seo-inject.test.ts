@@ -401,6 +401,119 @@ describe("injectSeoTagsAsync — /brand/<slug>", () => {
   });
 });
 
+describe("injectSeoTagsAsync — French entity locale separation", () => {
+  const ROOT_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body><div id="root"></div></body></html>`;
+
+  it("keeps fr-LB on the document while brand SEO copy stays French", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/brand-products")) {
+        return { ok: true, json: async () => ({ ok: true, count: 3, products: [] }) };
+      }
+      if (u.includes("/api/woo/brand")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            brand: { name: "Maison Fleur", description: "", image: null, type: "flowers" },
+          }),
+        };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(
+      ROOT_HTML,
+      "/fr-lb/beirut/brand/maison-fleur",
+      OPTS,
+    );
+    const faq = byType(extractJsonLd(out), "FAQPage");
+
+    expect(out).toContain('<html lang="fr-LB"');
+    expect(out).toContain("<title>Livraison Maison Fleur à Beyrouth | Presentail</title>");
+    expect(faq.mainEntity[0].name).toContain("Comment commander");
+    expect(out).toContain("<h2>Livraison Maison Fleur à Beyrouth</h2>");
+    expect(out).toContain("Découvrez les compositions les plus fraîches");
+    expect(out).not.toContain("Maison Fleur Delivery in");
+  });
+
+  it("keeps fr-LB on the document while category SEO copy stays French", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/category-products")) {
+        return { ok: true, json: async () => ({ ok: true, count: 3, products: [] }) };
+      }
+      if (u.includes("/api/woo/category")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            category: { name: "Roses", description: "", image: null },
+          }),
+        };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(
+      ROOT_HTML,
+      "/fr-lb/beirut/category/roses",
+      OPTS,
+    );
+    const faq = byType(extractJsonLd(out), "FAQPage");
+
+    expect(out).toContain('<html lang="fr-LB"');
+    expect(out).toContain("<title>Livraison de Roses à Beyrouth | Presentail</title>");
+    expect(faq.mainEntity[0].name).toContain("Quel est le délai de livraison");
+    expect(out).toContain("<h2>Livraison de Roses à Beyrouth</h2>");
+    expect(out).toContain("Trouvez le ou la Roses idéale pour chaque occasion");
+    expect(out).not.toContain("Roses Delivery in");
+  });
+
+  it("keeps fr-LB on the document while occasion SEO copy stays French", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/api/woo/occasion-products")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            total: 3,
+            groups: [{ count: 3, products: [] }],
+          }),
+        };
+      }
+      if (u.includes("/api/woo/occasion")) {
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            occasion: { name: "Birthday", description: "", image: null },
+          }),
+        };
+      }
+      return { ok: true, json: async () => ({ ok: true }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await injectSeoTagsAsync(
+      ROOT_HTML,
+      "/fr-lb/beirut/occasion/birthday",
+      OPTS,
+    );
+    const faq = byType(extractJsonLd(out), "FAQPage");
+
+    expect(out).toContain('<html lang="fr-LB"');
+    expect(out).toContain("<title>Fleurs et cadeaux Anniversaire à Beyrouth | Presentail</title>");
+    expect(faq.mainEntity[0].name).toContain("Quels cadeaux puis-je envoyer");
+    expect(out).toContain("<h2>Envoyez des fleurs et cadeaux pour Anniversaire à Beyrouth</h2>");
+    expect(out).toContain("Rendez chaque moment de Anniversaire mémorable");
+    expect(out).not.toContain("Birthday Flowers &amp; Gifts");
+  });
+});
+
 describe("injectSeoTagsAsync — /shop?n=<slug> category", () => {
   it("uses the category name and description for ?n=<slug>", async () => {
     const fetchMock = mockFetchOnce({
