@@ -47,6 +47,7 @@ export const navStrings: Dict = {
   "nav.loveAnniversaryBalloons": { en: "Love & Anniversary", ar: "الحب والذكرى السنوية" },
   "nav.kidsCharacterBalloons": { en: "Kids & Character", ar: "الأطفال والشخصيات" },
   "nav.personalizedBalloons": { en: "Personalized Balloons", ar: "بالونات مخصصة" },
+  "nav.roomDeco": { en: "Room Deco", ar: "ديكور الغرفة" },
 };
 
 export const navStringsFr: Record<string, string> = {
@@ -96,6 +97,7 @@ export const navStringsFr: Record<string, string> = {
   "nav.loveAnniversaryBalloons": "Amour & Anniversaire",
   "nav.kidsCharacterBalloons": "Enfants & Personnages",
   "nav.personalizedBalloons": "Ballons personnalisés",
+  "nav.roomDeco": "Décoration de salle",
 };
 
 export const navStringsEl: Record<string, string> = {
@@ -145,4 +147,5 @@ export const navStringsEl: Record<string, string> = {
   "nav.loveAnniversaryBalloons": "Αγάπη & Επέτειος",
   "nav.kidsCharacterBalloons": "Παιδιά & Χαρακτήρες",
   "nav.personalizedBalloons": "Εξατομικευμένα μπαλόνια",
+  "nav.roomDeco": "Διακόσμηση δωματίου",
 };

@@ -12,7 +12,7 @@ import {
   FALLBACK_CURRENCY_CODE,
   occasions,
 } from "@workspace/catalog-data";
-import { getOsBrandProductCounts, getOsBrands, getOsCategories, getOsCategoryProductCounts, getOsCategoryProductCountsByCountry, getOsOccasionProductCounts, getOsOccasionProductCountsByCountry, getOsOccasions, getOsOccasionsForCity, getOsOccasionsForCountry, getOsProductOccasions, getOsRawCatalogBrands, getOsProductEmbeddedCategories, getOsProductPricingMap, getCachedBestSellerIds, getOsProducts } from "../lib/osProductsCache";
+import { getOsBrandProductCounts, getOsBrands, getOsCategories, getOsCategoryProductCounts, getOsCategoryProductCountsByCountry, getOsOccasionProductCounts, getOsOccasionProductCountsByCountry, getOsOccasions, getOsOccasionsForCity, getOsOccasionsForCountry, getOsProductOccasions, getOsRawCatalogBrands, getOsProductEmbeddedCategories, getOsProductPricingMap, getCachedBestSellerIds, getOsProducts, isOsProductsReady } from "../lib/osProductsCache";
 import { getRankingConfig } from "./homepage";
 import { scoreCollections, getCollectionClickScores } from "../lib/collectionRanking";
 import { transformImage, resolveWidth, resolveFormat, resolveQuality } from "../lib/imageTransform";
@@ -480,6 +480,27 @@ router.get("/catalog/occasions", async (req, res) => {
 router.get("/catalog/metadata", async (req, res) => {
   const countryCode = typeof req.query.countryCode === "string" ? req.query.countryCode : null;
   const lang = typeof req.query.lang === "string" ? req.query.lang.toLowerCase() : "en";
+
+  // A cold OS product cache currently has empty count maps, but that does not
+  // mean the market has no products. Return the explicit readiness response so
+  // clients retry instead of caching an all-zero metadata snapshot and hiding
+  // every category in the navbar.
+  if (
+    process.env.PRESENTAIL_OS_API_KEY &&
+    process.env.OS_PRODUCTS_DISABLED !== "1" &&
+    !isOsProductsReady(catalogResolveStoreKey(countryCode))
+  ) {
+    res
+      .status(503)
+      .set("Retry-After", "1")
+      .json({
+        ok: false,
+        code: "catalog_not_ready",
+        message: "Catalog is loading. Please retry shortly.",
+      });
+    return;
+  }
+
   const osBrands = getOsBrands();
   const osOccasions = getOsOccasions();
 

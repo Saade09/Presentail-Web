@@ -3,6 +3,7 @@
 - [Web native auth](web-native-auth.md) — Clerk replaced by localStorage JWT auth on web; key design decisions documented
 - [API server test mocking patterns](api-server-test-patterns.md) — key patterns for mocking app.ts, routes, and pino-http in clerkShim-style tests
 - [OS product slug derivation](os-product-slugs.md) — OS API has no product slug field; slug is derived from name via nameToSlug(); duplicates get --{numericId} suffix
+- [Category slug aliases](category-slug-aliases.md) — public category routes may use a shorter alias than OS taxonomy; remap before menu filtering and product mapping
 - [OS brands admin endpoint shape](os-brands-admin-shape.md) — /api/brands has no slug field; must toSlug(name) to map to OSProductBrand; product-embedded brands have canonical slugs
 - [OS brand image auth](os-brand-images.md) — OS image_url is a SPA route, not a file; real files need Clerk JWT; API key won't work; fix must come from OS team
 - [WC auth migration Phase 4](wc-auth-migration.md) — WC_AUTH_ENABLED flag pattern, JWT localCustomerId claim, per-route behaviour, import prereqs before disabling

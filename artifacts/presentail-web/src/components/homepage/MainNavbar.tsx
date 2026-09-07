@@ -137,6 +137,7 @@ const STATIC_MENUS: MegaMenuDef[] = [
       { label: "Love & Anniversary",      labelKey: "nav.loveAnniversaryBalloons",href: "/category/love-anniversary-balloons",img: "/catalog/categories/love-anniversary-balloons.jpg" },
       { label: "Kids & Character",        labelKey: "nav.kidsCharacterBalloons",  href: "/category/kids-character-balloons",  img: "/catalog/categories/kids-character-balloons.jpg" },
       { label: "Personalized Balloons",   labelKey: "nav.personalizedBalloons",   href: "/category/personalized-balloons",    img: "/catalog/categories/personalized-balloons.jpg" },
+      { label: "Room Deco",               labelKey: "nav.roomDeco",               href: "/category/room-deco",                img: "/catalog/categories/balloons.webp" },
     ],
     footer: { label: "Shop all Balloons", labelKey: "nav.viewAllBalloons", href: "/category/balloons" },
   },
@@ -173,6 +174,12 @@ const DESKTOP_GIFT_BALLOON_ITEMS: MegaItem[] = [
     labelKey: "nav.balloonArrangements",
     href: "/category/balloon-arrangements",
     img: "/catalog/categories/balloon-arrangements.jpg",
+  },
+  {
+    label: "Room Deco",
+    labelKey: "nav.roomDeco",
+    href: "/category/room-deco",
+    img: "/catalog/categories/balloons.webp",
   },
 ];
 
@@ -216,7 +223,7 @@ function MegaMenuPanel({
                   key={item.label + item.href}
                   href={toHref(item.href)}
                   onClick={onClose}
-                  data-testid={`megamenu-item-${(item.href.split("/category/")[1] ?? item.label).toLowerCase().replace(/[\s']+/g, "-")}`}
+                   data-testid={`megamenu-item-${item.href.split("/").filter(Boolean).pop() ?? item.label.toLowerCase().replace(/[\s']+/g, "-")}`}
                   className="flex items-center gap-3 px-3.5 py-3 rounded-2xl bg-white shadow-sm hover:shadow-md hover:ring-1 hover:ring-primary/25 transition-all group"
                 >
                   <div className="w-10 h-10 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0 shadow-sm">
@@ -327,9 +334,6 @@ export function MainNavbar() {
   // Categories with zero in-stock products are excluded so shoppers never
   // land on an empty page.
   const { data: catalogMetadata } = useCatalogMetadata(countryCode, language);
-  const osCategorySlugs = catalogMetadata
-    ? new Set(catalogMetadata.categories.filter((c) => c.count > 0).map((c) => c.id))
-    : null;
 
   // Slugs already in STATIC_MENUS (pre-filter) — used to detect net-new OS categories.
   const staticMenuSlugs = new Set(
@@ -344,6 +348,19 @@ export function MainNavbar() {
   const remapTargetToSource = Object.fromEntries(
     Object.entries(CATEGORY_SLUG_REMAP).map(([src, tgt]) => [tgt, src]),
   );
+  // A stale edge/browser response can contain the category shape but no
+  // positive inventory counts. Treat that as not-ready rather than filtering
+  // every static tile out of both the mega menu and hamburger menu.
+  const hasUsableCategoryMetadata = catalogMetadata?.categories.some((category) => {
+    if (category.count <= 0) return false;
+    if (staticMenuSlugs.has(category.id)) return true;
+    const publicSlug = CATEGORY_SLUG_REMAP[category.id];
+    return publicSlug !== undefined && staticMenuSlugs.has(publicSlug);
+  }) ?? false;
+  const liveCatalogMetadata = hasUsableCategoryMetadata ? catalogMetadata : null;
+  const osCategorySlugs = liveCatalogMetadata
+    ? new Set(liveCatalogMetadata.categories.filter((c) => c.count > 0).map((c) => c.id))
+    : null;
   const hasCatalogInventory = (item: MegaItem) => {
     const slug = item.href.split("/category/")[1] ?? "";
     if (!slug || !osCategorySlugs) return false;
@@ -395,8 +412,8 @@ export function MainNavbar() {
       : menu.items;
 
     // Append OS-only categories for this group that aren't in STATIC_MENUS at all.
-    const newItems: MegaItem[] = catalogMetadata
-      ? catalogMetadata.categories
+    const newItems: MegaItem[] = liveCatalogMetadata
+      ? liveCatalogMetadata.categories
           .filter(
             (c) =>
               c.count > 0 &&
@@ -473,8 +490,12 @@ export function MainNavbar() {
   };
 
   // Desktop mega-menu triggers (excludes brands — desktop uses a plain link in the right nav)
-  // Desktop mega-menu excludes balloons — it lives under Gifts on desktop for now.
-  const megaMenus: MegaMenuDef[] = [occasionsMenuDef, ...desktopMenus.filter((m) => m.key !== "balloons")];
+  // Balloons remains available as a mobile hamburger panel, but on desktop
+  // its key categories live under Gifts rather than as a separate header tab.
+  const megaMenus: MegaMenuDef[] = [
+    occasionsMenuDef,
+    ...desktopMenus.filter((menu) => menu.key !== "balloons"),
+  ];
   // Mobile sub-panel lookup includes balloons and brands.
   const mobileMenuDefs: MegaMenuDef[] = [occasionsMenuDef, ...filteredStaticMenus, brandsMegaMenuDef];
 

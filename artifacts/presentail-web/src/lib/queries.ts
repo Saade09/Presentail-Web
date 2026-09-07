@@ -555,6 +555,8 @@ export const useCatalogMetadata = (countryCode?: string | null, lang?: string | 
       return apiFetch<CatalogMetadataResponse>(qs ? `/catalog/metadata?${qs}` : "/catalog/metadata");
     },
     staleTime: 5 * 60 * 1000,
+    retry: retryCatalogQuery,
+    retryDelay: catalogRetryDelay,
   });
 };
 

@@ -16,3 +16,16 @@ falsely claim everything was sold out immediately after an API restart.
 preserve the distinction. Return or handle the readiness state as retryable,
 keep loading UI until a successful catalog response exists, and only then
 render the normal empty state.
+
+Navigation has an additional defensive rule: if a metadata response has no
+positive counts for any known static category, keep the static menu tiles
+visible instead of treating that snapshot as authoritative and rendering only
+the “Shop all” CTA.
+
+**Why:** An already-cached all-zero metadata response can outlive the cache
+warm-up that caused it, so a server readiness guard alone cannot guarantee that
+every browser avoids the footer-only menu state.
+
+**How to apply:** Gate live category filtering and OS-only category appends on
+at least one positive count matching a known static category; otherwise fail
+open to the static menu.

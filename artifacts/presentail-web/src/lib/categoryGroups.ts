@@ -11,6 +11,9 @@ export type CategoryGroup = "flowers" | "gifts" | "balloons";
 export const CATEGORY_SLUG_REMAP: Record<string, string> = {
   baskets: "gift-baskets",
   "summer-collection": "summer",
+  // The public Room Deco route uses a shorter slug, while OS products and
+  // catalog metadata use "room-decoration".
+  "room-decoration": "room-deco",
 };
 
 export const RETIRED_CATEGORY_SLUGS = new Set<string>([
@@ -51,6 +54,7 @@ export const CATEGORY_GROUPS: Record<string, CategoryGroup> = {
   "single-balloons": "balloons",
   "balloon-bundles": "balloons",
   "balloon-deco": "balloons",
+  "room-deco": "balloons",
   "table-arrangements": "flowers",
   "religious-gifts": "gifts",
   "cakes": "gifts",
@@ -100,6 +104,7 @@ export const CATEGORY_STATIC_IMAGES: Record<string, string> = {
   "single-balloons":             "/catalog/categories/balloons.webp",
   "balloon-bundles":             "/catalog/categories/balloons.webp",
   "balloon-deco":                "/catalog/categories/balloons.webp",
+  "room-deco":                   "/catalog/categories/balloons.webp",
   "table-arrangements": "/catalog/categories/gift-baskets.webp",
   "baskets":            "/catalog/categories/gift-baskets.webp",
   "gift-baskets":       "/catalog/categories/gift-baskets.webp",
