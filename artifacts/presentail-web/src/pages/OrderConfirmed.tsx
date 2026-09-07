@@ -63,6 +63,7 @@ type ConfirmedOrder = {
   deliveryServiceType?: "midnight";
   districtFee?: number;
   expressFee?: number;
+  expressDelivery?: boolean;
   slotFee?: number;
   totalUsd?: number;
   paymentMethod?: string;
@@ -614,6 +615,9 @@ export default function OrderConfirmed() {
       });
     return `${formatEndpoint(window.start)} – ${formatEndpoint(window.end)}`;
   })();
+  const isExpressDelivery =
+    confirmedOrder?.expressDelivery === true ||
+    confirmedOrder?.deliverySlot === "Express";
 
   // ─── Klarna processing state ──────────────────────────────────────────────
   // Klarna approved the application asynchronously — poll /api/stripe/payment-status
@@ -796,7 +800,7 @@ export default function OrderConfirmed() {
         )}
 
         {/* ── Delivery Date & Time ─────────────────────────────────────────── */}
-        {(confirmedOrder?.deliveryDate || confirmedOrder?.deliverySlot) && (
+        {(confirmedOrder?.deliveryDate || confirmedOrder?.deliverySlot || isExpressDelivery) && (
           <section className="border-t border-border/40 pt-3 mt-3">
             <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-2">
               {t("order.summary.delivery")}
@@ -806,6 +810,15 @@ export default function OrderConfirmed() {
               <span>
                 {midnightWindowLabel
                   ? `${t("product.midnightDelivery")} · ${midnightWindowLabel}`
+                  : isExpressDelivery
+                    ? [
+                        confirmedOrder?.deliveryDate
+                          ? formatDeliveryDate(confirmedOrder.deliveryDate, language)
+                          : "",
+                        t("checkout.expressDelivery"),
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")
                   : <>
                       {confirmedOrder?.deliveryDate
                         ? formatDeliveryDate(confirmedOrder.deliveryDate, language)

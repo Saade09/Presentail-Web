@@ -167,6 +167,23 @@ describe("OrderConfirmed — happy path (pending payload finalizes)", () => {
     expect(sessionStorage.getItem(PENDING_ORDER_KEY)).toBeNull();
     expect(mockClearCart).toHaveBeenCalledTimes(1);
   });
+
+  it("shows Express Delivery when the stashed order explicitly selected express", async () => {
+    mockUseSearch.mockReturnValue("?status=success&ref=LB-EXPRESS");
+    seedSessionStorage({
+      ...PENDING_PAYLOAD,
+      deliveryDate: "2026-09-07",
+      deliverySlot: "",
+      expressFee: 0,
+      expressDelivery: true,
+    });
+
+    renderWithProviders(<OrderConfirmed />, {
+      cart: { clearCart: mockClearCart },
+    });
+
+    expect(await screen.findByText(/checkout\.expressDelivery/)).toBeTruthy();
+  });
 });
 
 // ---------------------------------------------------------------------------

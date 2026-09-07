@@ -3176,6 +3176,11 @@ function CheckoutForm() {
     district: _selectedDistrict,
     districtFee: districtFee,
     expressFee,
+    // Express can legitimately carry a zero surcharge (for example a
+    // promotion or a city configuration). Send the selected service
+    // explicitly so the API and Presentail OS never have to infer it from
+    // money or from the intentionally-empty scheduled-slot field.
+    expressDelivery: deliveryMode === "express",
     slotFee,
     cityId: selectedCityData?.id != null ? String(selectedCityData.id) : undefined,
     noAddress,
