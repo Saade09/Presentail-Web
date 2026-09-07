@@ -357,6 +357,13 @@ describe("MainNavbar — mobile brands sub-panel", () => {
         brands: [],
         categories: [
           {
+            id: "balloons",
+            name: "Balloons",
+            icon: "tag",
+            image: { uri: "/api/catalog/category-image/41" },
+            count: 9,
+          },
+          {
             id: "balloon-arrangements",
             name: "Balloon Arrangements",
             icon: "tag",
@@ -370,23 +377,38 @@ describe("MainNavbar — mobile brands sub-panel", () => {
 
     await user.click(screen.getByTestId("nav-trigger-gifts"));
 
-    const link = screen.getByTestId("megamenu-item-balloon-arrangements");
-    expect(link).toBeDefined();
-    expect((link as HTMLAnchorElement).href).toContain(
+    const balloonsLink = screen.getByTestId("megamenu-item-balloons");
+    expect(balloonsLink).toBeDefined();
+    expect((balloonsLink as HTMLAnchorElement).href).toContain("/category/balloons");
+    expect(balloonsLink.querySelector("img")?.getAttribute("src")).toBe(
+      "/api/catalog/category-image/41",
+    );
+
+    const arrangementsLink = screen.getByTestId("megamenu-item-balloon-arrangements");
+    expect(arrangementsLink).toBeDefined();
+    expect((arrangementsLink as HTMLAnchorElement).href).toContain(
       "/category/balloon-arrangements",
     );
-    expect(link.textContent).toContain("Balloon Arrangements");
-    expect(link.querySelector("img")?.getAttribute("src")).toBe(
+    // The test translator intentionally echoes translation keys; production
+    // locales resolve this key to the localized category label.
+    expect(arrangementsLink.textContent).toContain("nav.balloonArrangements");
+    expect(arrangementsLink.querySelector("img")?.getAttribute("src")).toBe(
       "/api/catalog/category-image/42",
     );
   });
 
-  it("shows the available OS category in the mobile Gifts sub-panel", async () => {
+  it("keeps balloon categories in the dedicated mobile Balloons panel", async () => {
     const user = userEvent.setup();
     mockUseCatalogMetadata.mockReturnValue({
       data: {
         brands: [],
         categories: [
+          {
+            id: "balloons",
+            name: "Balloons",
+            icon: "tag",
+            count: 7,
+          },
           {
             id: "balloon-arrangements",
             name: "Balloon Arrangements",
@@ -405,11 +427,22 @@ describe("MainNavbar — mobile brands sub-panel", () => {
       }),
     );
 
-    const link = screen.getByRole("link", { name: /Balloon Arrangements/ });
-    expect(link).toBeDefined();
-    expect((link as HTMLAnchorElement).href).toContain(
-      "/category/balloon-arrangements",
+    const giftsPanel = screen.getByTestId("mobile-sub-panel-gifts");
+    expect(giftsPanel.querySelector('a[href$="/category/balloons"]')).toBeNull();
+    expect(
+      giftsPanel.querySelector('a[href$="/category/balloon-arrangements"]'),
+    ).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: /nav\.backAria/i }));
+    await user.click(
+      within(screen.getByTestId("sheet-content")).getByRole("button", {
+        name: /nav\.balloons/i,
+      }),
     );
+
+    const balloonsPanel = screen.getByTestId("mobile-sub-panel-balloons");
+    expect(balloonsPanel.querySelector('a[href$="/category/balloons"]')).not.toBeNull();
+    expect(balloonsPanel.querySelector('a[href$="/category/balloon-arrangements"]')).not.toBeNull();
   });
 
   it("shows Religious Gifts in the desktop Gifts menu when it has inventory", async () => {
@@ -475,6 +508,12 @@ describe("MainNavbar — mobile brands sub-panel", () => {
         brands: [],
         categories: [
           {
+            id: "balloons",
+            name: "Balloons",
+            icon: "tag",
+            count: 0,
+          },
+          {
             id: "balloon-arrangements",
             name: "Balloon Arrangements",
             icon: "tag",
@@ -488,6 +527,7 @@ describe("MainNavbar — mobile brands sub-panel", () => {
     await user.click(screen.getByTestId("nav-trigger-gifts"));
 
     expect(screen.queryByTestId("megamenu-item-balloon-arrangements")).toBeNull();
+    expect(screen.queryByTestId("megamenu-item-balloons")).toBeNull();
   });
 
   it("hides a zero-inventory OS category from the mobile Gifts sub-panel", async () => {

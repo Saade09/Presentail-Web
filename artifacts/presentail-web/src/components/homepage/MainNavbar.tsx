@@ -158,6 +158,24 @@ const STATIC_MENUS: MegaMenuDef[] = [
   },
 ];
 
+// These categories are shown in the desktop Gifts layout as well as in the
+// dedicated mobile Balloons panel. Keep them out of the shared Gifts
+// definition so mobile shoppers do not see duplicate balloon tiles.
+const DESKTOP_GIFT_BALLOON_ITEMS: MegaItem[] = [
+  {
+    label: "Balloons",
+    labelKey: "nav.balloons",
+    href: "/category/balloons",
+    img: "/catalog/categories/balloons.webp",
+  },
+  {
+    label: "Balloon Arrangements",
+    labelKey: "nav.balloonArrangements",
+    href: "/category/balloon-arrangements",
+    img: "/catalog/categories/balloon-arrangements.jpg",
+  },
+];
+
 function MegaMenuPanel({
   def,
   onClose,
@@ -198,7 +216,7 @@ function MegaMenuPanel({
                   key={item.label + item.href}
                   href={toHref(item.href)}
                   onClick={onClose}
-                  data-testid={`megamenu-item-${item.label.toLowerCase().replace(/[\s']+/g, "-")}`}
+                  data-testid={`megamenu-item-${(item.href.split("/category/")[1] ?? item.label).toLowerCase().replace(/[\s']+/g, "-")}`}
                   className="flex items-center gap-3 px-3.5 py-3 rounded-2xl bg-white shadow-sm hover:shadow-md hover:ring-1 hover:ring-primary/25 transition-all group"
                 >
                   <div className="w-10 h-10 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0 shadow-sm">
@@ -326,6 +344,13 @@ export function MainNavbar() {
   const remapTargetToSource = Object.fromEntries(
     Object.entries(CATEGORY_SLUG_REMAP).map(([src, tgt]) => [tgt, src]),
   );
+  const hasCatalogInventory = (item: MegaItem) => {
+    const slug = item.href.split("/category/")[1] ?? "";
+    if (!slug || !osCategorySlugs) return false;
+    if (osCategorySlugs.has(slug)) return true;
+    const sourceSlug = remapTargetToSource[slug];
+    return sourceSlug !== undefined && osCategorySlugs.has(sourceSlug);
+  };
 
   // Localized category names from /catalog/metadata (server-side AI translation
   // for ar/fr/el), keyed by catalog slug. Static menu items carry hardcoded
@@ -409,6 +434,18 @@ export function MainNavbar() {
     return { ...menu, items: resolvedItems, footer: resolvedFooter };
   });
 
+  const desktopGiftBalloonItems = osCategorySlugs
+    ? DESKTOP_GIFT_BALLOON_ITEMS
+        .filter(hasCatalogInventory)
+        .map(localizedStaticLabel)
+        .map((item) => (item.labelKey ? { ...item, label: t(item.labelKey) } : item))
+    : [];
+  const desktopMenus = filteredStaticMenus.map((menu) =>
+    menu.key === "gifts"
+      ? { ...menu, items: [...menu.items, ...desktopGiftBalloonItems] }
+      : menu,
+  );
+
   // Mobile-only: brands sub-panel definition (desktop uses a plain link in the right nav)
   const brandsMegaMenuDef: MegaMenuDef = {
     key: "brands",
@@ -437,7 +474,7 @@ export function MainNavbar() {
 
   // Desktop mega-menu triggers (excludes brands — desktop uses a plain link in the right nav)
   // Desktop mega-menu excludes balloons — it lives under Gifts on desktop for now.
-  const megaMenus: MegaMenuDef[] = [occasionsMenuDef, ...filteredStaticMenus.filter((m) => m.key !== "balloons")];
+  const megaMenus: MegaMenuDef[] = [occasionsMenuDef, ...desktopMenus.filter((m) => m.key !== "balloons")];
   // Mobile sub-panel lookup includes balloons and brands.
   const mobileMenuDefs: MegaMenuDef[] = [occasionsMenuDef, ...filteredStaticMenus, brandsMegaMenuDef];
 
