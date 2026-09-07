@@ -26,15 +26,15 @@ export function ProductInfo({ name, price, taxLabel, rewardPoints, freeDeliveryB
         {name}
       </h1>
 
-      <div className="flex items-center justify-between gap-4 mb-3 lg:mb-1.5">
-        <div className="flex items-baseline gap-3 min-w-0">
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1 mb-3 lg:mb-1.5">
+        <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
           <span
             className="font-serif text-2xl md:text-3xl text-foreground"
             data-testid="product-price"
           >
             {price}
           </span>
-          <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+          <span className="text-[10px] uppercase tracking-[0.1em] leading-tight text-muted-foreground">
             {taxLabel}
           </span>
         </div>

@@ -792,7 +792,7 @@ export default function ProductDetail() {
                   currencyCodeOverride={crawlerProductCurrencyOverride}
                 />
               }
-              taxLabel="TAX Inclusive"
+              taxLabel={t("product.taxInclusive")}
               rewardPoints={vm.rewardPoints}
               freeDeliveryBadge={
                 delivery.isLoaded && freeDeliveryMet && !isInherited
