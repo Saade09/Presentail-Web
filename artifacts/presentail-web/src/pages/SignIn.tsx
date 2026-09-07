@@ -496,13 +496,10 @@ export default function SignInPage() {
       dir={dir}
     >
       <div
-        className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-sm"
+        className="w-full max-w-[404px] rounded-2xl border bg-card p-8 shadow-sm"
         data-testid="signin-card"
       >
         <div className="text-center mb-6">
-          <div className="flex justify-center mb-4">
-            <Logo height={36} />
-          </div>
           <h1 className="text-2xl font-serif">{t("auth.cardHeading")}</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {step === "email" || step === "social-redirect"
@@ -590,11 +587,6 @@ export default function SignInPage() {
           </div>
         ) : step === "email" ? (
           <div className="space-y-4">
-            {/* Account benefits line */}
-            <p className="text-xs text-muted-foreground text-center leading-relaxed">
-              {t("auth.accountBenefits")}
-            </p>
-
             {/* In-app browser notice */}
             {inAppBrowser && (
               <InAppBrowserBanner t={t} />
@@ -603,9 +595,9 @@ export default function SignInPage() {
             {/* Social buttons — Apple first */}
             <div className="space-y-2">
               <Button
-                variant="outline"
+                variant="default"
                 size="lg"
-                className="w-full h-12 rounded-xl flex items-center justify-center gap-2"
+                className="w-full h-12 rounded-xl flex items-center justify-center gap-2 bg-black text-white border-black"
                 onClick={() => void onOAuthApple()}
                 disabled={busy || oauthBusy !== null || inAppBrowser}
                 data-testid="button-signin-apple"
@@ -643,7 +635,6 @@ export default function SignInPage() {
             <CheckoutField
               label={t("auth.emailLabel")}
               htmlFor="signin-email"
-              required
               className="mb-0"
             >
               <Input
@@ -690,21 +681,6 @@ export default function SignInPage() {
             </Button>
 
             {/* Help link */}
-            <p className="text-center text-xs text-muted-foreground">
-              <a
-                href="https://wa.me/9613136532"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline underline-offset-2 hover:text-foreground transition-colors"
-              >
-                {t("auth.helpLink")}
-              </a>
-            </p>
-
-            {/* Privacy note */}
-            <p className="text-center text-[11px] text-muted-foreground leading-relaxed">
-              {t("auth.privacyNote")}
-            </p>
           </div>
         ) : (
           <div className="space-y-4">
