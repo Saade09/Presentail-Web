@@ -908,15 +908,40 @@ function applySharedLocationsSnapshot(
     ...country,
     cities: country.cities.map((city) => ({
       ...city,
-      timeSlots: filterValidOsSlots(city.timeSlots, city.id),
-      slotsByDay: city.slotsByDay
-        ? Object.fromEntries(
-            Object.entries(city.slotsByDay).map(([day, slots]) => [
-              day,
-              filterValidOsSlots(slots, city.id),
-            ]),
-          )
-        : undefined,
+      ...(() => {
+        const timeSlots = filterValidOsSlots(city.timeSlots, city.id);
+        const slotsByDay = city.slotsByDay
+          ? Object.fromEntries(
+              Object.entries(city.slotsByDay).map(([day, slots]) => [
+                day,
+                filterValidOsSlots(slots, city.id),
+              ]),
+            )
+          : undefined;
+        if (country.code !== "AE" || !slotsByDay) {
+          return { timeSlots, slotsByDay };
+        }
+        const canonical = Object.values(slotsByDay).reduce(
+          (best, slots) => (slots.length > best.length ? slots : best),
+          [] as typeof timeSlots,
+        );
+        return canonical.length > 0
+          ? {
+              timeSlots: canonical,
+              slotsByDay: Object.fromEntries(
+                [
+                  "sunday",
+                  "monday",
+                  "tuesday",
+                  "wednesday",
+                  "thursday",
+                  "friday",
+                  "saturday",
+                ].map((day) => [day, canonical]),
+              ),
+            }
+          : { timeSlots, slotsByDay };
+      })(),
     })),
   }));
   cachedCountries = countries;
