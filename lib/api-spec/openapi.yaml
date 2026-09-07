@@ -3001,6 +3001,18 @@ components:
             banner has a legacy `linkUrl` (internal path or external URL).
             Null/absent for structured-link banners where `linkKind` is
             set.
+        locale:
+          type: string
+          maxLength: 8
+          description: |
+            Optional storefront locale associated with the event, such as
+            `en`, `ar`, or `fr`.
+        country:
+          type: string
+          maxLength: 8
+          description: |
+            Optional delivery-market country code associated with the event,
+            such as `LB`, `AE`, or `CY`.
         recommendationPosition:
           type: integer
           minimum: 1

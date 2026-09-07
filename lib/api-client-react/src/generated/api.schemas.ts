@@ -581,6 +581,20 @@ set.
    */
   linkUrl?: string;
   /**
+   * Optional storefront locale associated with the event, such as
+`en`, `ar`, or `fr`.
+
+   * @maxLength 8
+   */
+  locale?: string;
+  /**
+   * Optional delivery-market country code associated with the event,
+such as `LB`, `AE`, or `CY`.
+
+   * @maxLength 8
+   */
+  country?: string;
+  /**
    * For `recommended_product_clicked` events: 1-based position of
 the clicked product in the recommendations row shown on the
 unavailable-in-city page.

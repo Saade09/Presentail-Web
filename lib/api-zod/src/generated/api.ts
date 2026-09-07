@@ -784,6 +784,10 @@ export const recordAnalyticsEventBodyLinkSlugMax = 128;
 
 export const recordAnalyticsEventBodyLinkUrlMax = 512;
 
+export const recordAnalyticsEventBodyLocaleMax = 8;
+
+export const recordAnalyticsEventBodyCountryMax = 8;
+
 export const RecordAnalyticsEventBody = zod.object({
   name: zod
     .enum([
@@ -1017,6 +1021,20 @@ export const RecordAnalyticsEventBody = zod.object({
     .optional()
     .describe(
       "For `banner_clicked` events: the raw destination URL when the\nbanner has a legacy `linkUrl` (internal path or external URL).\nNull\/absent for structured-link banners where `linkKind` is\nset.\n",
+    ),
+  locale: zod
+    .string()
+    .max(recordAnalyticsEventBodyLocaleMax)
+    .optional()
+    .describe(
+      "Optional storefront locale associated with the event, such as\n`en`, `ar`, or `fr`.\n",
+    ),
+  country: zod
+    .string()
+    .max(recordAnalyticsEventBodyCountryMax)
+    .optional()
+    .describe(
+      "Optional delivery-market country code associated with the event,\nsuch as `LB`, `AE`, or `CY`.\n",
     ),
   recommendationPosition: zod
     .number()
