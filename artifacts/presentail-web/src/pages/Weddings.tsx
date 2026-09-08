@@ -4,6 +4,15 @@ import { CITY_NAMES, TITLES, formatTemplate } from "@/lib/seo";
 import { Button } from "@/components/ui/button";
 import { SEOContentSection } from "@/components/SEOContentSection";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
+import { getCommercialServiceCopy } from "@/data/commercialServiceCopy.mjs";
+import { Link } from "wouter";
+import {
+  buildLocalePath,
+  cityIdToSlug,
+  countryCodeToSlug,
+  isSupportedCountrySlug,
+  type Lang,
+} from "@/lib/locale-route";
 
 type Copy = {
   eyebrow: string;
@@ -228,6 +237,14 @@ export default function Weddings() {
     (TITLES[language] ?? TITLES.en).weddings,
     { city: cityDisplay },
   ).split(" | ")[0];
+  const local = getCommercialServiceCopy("weddings", language, countryCode, cityDisplay)
+    ?? getCommercialServiceCopy("weddings", "en", "LB", cityDisplay)!;
+  const countrySlug = countryCode ? countryCodeToSlug(countryCode) : null;
+  const cityBase =
+    countrySlug && cityId && isSupportedCountrySlug(countrySlug)
+      ? buildLocalePath({ lang: language as Lang, country: countrySlug, city: cityIdToSlug(cityId) })
+      : "";
+  const localHref = (path: string) => cityBase ? `~${cityBase}${path}` : `~${path}`;
 
   return (
     <div className="bg-background" data-testid="weddings-page" lang={language}>
@@ -261,6 +278,29 @@ export default function Weddings() {
               </p>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section className="container mx-auto px-4 pb-12 md:pb-16 max-w-4xl" data-testid="weddings-local-service">
+        <div className="rounded-lg border border-border p-6 md:p-8 bg-card">
+          <h2 className="text-2xl md:text-3xl font-serif mb-4">{local.heading}</h2>
+          <p className="text-muted-foreground leading-relaxed mb-6">{local.body}</p>
+          <ul className="space-y-3 text-sm text-muted-foreground leading-relaxed">
+            {local.details.map((detail) => (
+              <li key={detail} className="flex gap-3">
+                <span className="text-primary mt-1.5 flex-shrink-0">•</span>
+                <span>{detail}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-6 flex flex-wrap gap-x-5 gap-y-3 text-sm font-medium">
+            <Link href={localHref("/occasions")} className="text-primary hover:underline" data-testid="weddings-local-occasions">
+              {local.occasionsLabel}
+            </Link>
+            <Link href={localHref("/contact")} className="text-primary hover:underline" data-testid="weddings-local-contact">
+              {local.contactLabel}
+            </Link>
+          </div>
         </div>
       </section>
 

@@ -24,6 +24,7 @@ import {
 import { roundToNearestFive } from "@workspace/display-currency";
 import { resolveExactAedPrice } from "./native-aed-price.mjs";
 import { WindowedKeyRateLimiter } from "./server-analytics-policy.mjs";
+import { getCommercialServiceCopy } from "./src/data/commercialServiceCopy.mjs";
 
 // Hub city per country — only these pages emit the LocalBusiness organisation
 // block.  Declaring a near-identical Florist on all 37 city homepages sharing
@@ -470,8 +471,11 @@ export function buildSeoHead(pathname, { origin = "", basePath = "", search = ""
   const isShopRoute =
     parsedForCache.hasLocalePrefix &&
     /^\/shop(?:\/|$)?/.test(parsedForCache.rest ?? "");
+  const isCityHomeRoute =
+    parsedForCache.hasLocalePrefix &&
+    (parsedForCache.rest === "" || parsedForCache.rest === "/");
   if (
-    !isShopRoute ||
+    (!isShopRoute && !isCityHomeRoute) ||
     getShopCategorySlugsSync(parsedForCache.country) !== null
   ) {
     setCachedGenericSeo(cacheKey, value);
@@ -1227,7 +1231,16 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
     });
   }
 
-  const bodyHtml = buildGenericBodyHtml(routeKey, {
+  // /faqs has a dedicated body renderer rather than the shared generic FAQ
+  // teaser. Its complete, grouped visible Q&A is the exact source for the
+  // FAQPage node above; keeping this route isolated prevents homepage teaser
+  // changes from creating schema/body drift.
+  const bodyHtml = routeKey === "faqs"
+    ? buildFaqsBodyHtml({
+        h1,
+        faq: FAQ_COPY[lang] ?? FAQ_COPY.en,
+      })
+    : buildGenericBodyHtml(routeKey, {
     h1,
     description,
     localeBase,
@@ -1245,8 +1258,8 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
         : campaignLandingCopy?.h1),
     introOverride: cityHomeOverride?.intro ?? campaignLandingCopy?.intro,
     whyPoints: cityHomeOverride?.whyPoints,
-    campaignLanding: campaignLandingCopy,
-  });
+        campaignLanding: campaignLandingCopy,
+      });
 
   // Compute the full BCP 47 locale tag for the <html lang="..."> attribute.
   // City pages use "{lang}-{COUNTRY}" (e.g. "en-LB", "ar-AE") so the
@@ -1430,7 +1443,10 @@ const FEATURED_SHOP_CATEGORIES = [
 // category list is emitted rather than a wrong one.
 const SHOP_CATEGORY_CACHE_TTL_MS = 10 * 60 * 1000;
 const SHOP_CATEGORY_FAILURE_TTL_MS = 60 * 1000;
-const shopCategorySlugsByCountry = new Map(); // countrySlug -> { slugs: Set, expiresAt }
+// Despite its historical name, this is the shared inventory snapshot for the
+// shop *and* city-home link lists.  Keep both taxonomies together: a city home
+// must never advertise an empty occasion while its category links are filtered.
+const shopCategorySlugsByCountry = new Map(); // countrySlug -> { slugs: Set, occasionSlugs: Set, expiresAt }
 const shopCategoryInFlight = new Map(); // countrySlug -> Promise
 const shopCategoryFailedUntil = new Map(); // countrySlug -> epoch ms (negative cache)
 
@@ -1533,8 +1549,14 @@ export async function ensureShopCategoriesForSeo(countrySlug, apiBaseUrl) {
           .filter((c) => (c?.count ?? 0) > 0 && typeof c?.id === "string")
           .map((c) => c.id),
       );
+      const occasionSlugs = new Set(
+        (body?.occasions ?? [])
+          .filter((o) => (o?.count ?? 0) > 0 && typeof o?.id === "string")
+          .map((o) => o.id),
+      );
       shopCategorySlugsByCountry.set(key, {
         slugs,
+        occasionSlugs,
         expiresAt: Date.now() + SHOP_CATEGORY_CACHE_TTL_MS,
       });
       shopCategoryFailedUntil.delete(key);
@@ -1562,21 +1584,81 @@ function getShopCategorySlugsSync(countrySlug) {
 export function __setShopCategorySlugsForTest(countrySlug, slugs) {
   shopCategorySlugsByCountry.set(countrySlug.toLowerCase(), {
     slugs: new Set(slugs),
+    occasionSlugs: new Set(),
     expiresAt: Date.now() + SHOP_CATEGORY_CACHE_TTL_MS,
   });
 }
 
-// Static featured occasion list for the city homepage body fragment.
-// Mirrors DEFAULT_OCCASION_SLUGS in api-server/src/routes/homepage.ts and
-// the homepage occasions carousel so the prerendered block matches the
-// visible page content (no cloaking). Up to 6 entries. // i18n-ignore — static EN-only crawlers-only occasion list
+// Test hook for home-link inventory. This deliberately requires explicit
+// occasion data; an unknown occasion inventory state must fail closed.
+export function __setHomepageTaxonomySlugsForTest(countrySlug, { categories = [], occasions = [] }) {
+  shopCategorySlugsByCountry.set(countrySlug.toLowerCase(), {
+    slugs: new Set(categories),
+    occasionSlugs: new Set(occasions),
+    expiresAt: Date.now() + SHOP_CATEGORY_CACHE_TTL_MS,
+  });
+}
+
+function getHomepageTaxonomySlugsSync(countrySlug) {
+  if (!countrySlug) return null;
+  const hit = shopCategorySlugsByCountry.get(countrySlug.toLowerCase());
+  if (!hit || hit.expiresAt <= Date.now()) return null;
+  return { categories: hit.slugs, occasions: hit.occasionSlugs ?? new Set() };
+}
+
+function buildHomepageTaxonomy({ categories, occasions, cityLabel, lang, localeBase }) {
+  const categoryHeading =
+    lang === "ar" ? `تسوّق حسب الفئة في ${cityLabel}` :
+    lang === "fr" ? `Acheter par catégorie à ${cityLabel}` :
+    lang === "el" ? `Αγοράστε λουλούδια & δώρα ανά κατηγορία στη ${cityLabel}` :
+    `Shop Flowers & Gifts by Category in ${cityLabel}`;
+  const occasionHeading =
+    lang === "ar" ? `تسوّق حسب المناسبة في ${cityLabel}` :
+    lang === "fr" ? `Acheter par occasion à ${cityLabel}` :
+    lang === "el" ? `Αγοράστε ανά περίσταση στη ${cityLabel}` :
+    `Shop by Occasion in ${cityLabel}`;
+  const label = (kind, item) => {
+    const translations = kind === "category" ? CATEGORY_TRANSLATIONS : OCCASION_TRANSLATIONS;
+    const base = translations[item.slug]?.[lang] ?? translations[item.slug]?.en ?? item.name;
+    if (kind === "category") {
+      return lang === "ar" ? `${base} للتوصيل في ${cityLabel}` :
+        lang === "fr" ? `${base} à livrer à ${cityLabel}` :
+        lang === "el" ? `${base} με παράδοση στη ${cityLabel}` :
+        `${base} for delivery in ${cityLabel}`;
+    }
+    return lang === "ar" ? `${base} في ${cityLabel}` :
+      lang === "fr" ? `${base} à ${cityLabel}` :
+      lang === "el" ? `${base} στη ${cityLabel}` :
+      `${base} in ${cityLabel}`;
+  };
+  const toLink = (kind) => (item) => ({
+    href: `${localeBase}/${kind}/${item.slug}`,
+    label: label(kind, item),
+  });
+  return {
+    categoryHeading,
+    occasionHeading,
+    categories: categories.map(toLink("category")),
+    occasions: occasions.map(toLink("occasion")),
+  };
+}
+
+// Homepage taxonomy links. These match SEOContentSection's homepage chips;
+// inventory decides which of them are emitted for each country.
 const FEATURED_HOME_OCCASIONS = [
   { slug: "birthday", name: "Birthday Flowers & Gifts" },
+  { slug: "love-romance", name: "Romantic Flowers & Gifts" },
   { slug: "anniversary", name: "Anniversary Gifts" },
-  { slug: "valentines-day", name: "Valentine's Day Flowers" },
-  { slug: "wedding", name: "Wedding Gifts" },
-  { slug: "new-born", name: "New Baby Gifts" },
-  { slug: "funeral", name: "Funeral & Sympathy Flowers" },
+  { slug: "congratulations", name: "Congratulations Gifts" },
+  { slug: "thank-you", name: "Thank You Gifts" },
+];
+
+const FEATURED_HOME_CATEGORIES = [
+  { slug: "hand-bouquets", name: "Hand-Tied Flower Bouquets" },
+  { slug: "flower-boxes", name: "Flower Boxes" },
+  { slug: "cakes", name: "Celebration Cakes" },
+  { slug: "chocolate", name: "Chocolate Gifts" },
+  { slug: "plants", name: "Gift Plants" },
 ];
 
 // Static descriptive copy for each generic route type (English only — the SEO
@@ -1782,6 +1864,31 @@ function buildBlogIndexJsonLd({
   return jsonLdGraphTag([blogSchema, breadcrumbSchema, itemListSchema]);
 }
 
+/**
+ * Server HTML for the standalone FAQ route. Questions are h3 children of
+ * their topical h2 group, matching the hydrated page's information hierarchy.
+ * The schema builder consumes this exact `faq.groups[].items[].a` source too.
+ */
+function buildFaqsBodyHtml({ h1, faq }) {
+  const groups = Array.isArray(faq?.groups) ? faq.groups : [];
+  const groupHtml = groups.map((group) => {
+    const items = Array.isArray(group.items) ? group.items : [];
+    return (
+      `<section>` +
+      `<h2>${escapeHtml(group.title)}</h2>` +
+      items.map(({ q, a }) =>
+        `<article><h3>${escapeHtml(q)}</h3><p>${escapeHtml(a)}</p></article>`,
+      ).join("") +
+      `</section>`
+    );
+  }).join("");
+  return (
+    `<header><p>${escapeHtml(faq?.eyebrow ?? "")}</p><h1>${escapeHtml(h1)}</h1>` +
+    `<p>${escapeHtml(faq?.intro ?? "")}</p></header>` +
+    groupHtml
+  );
+}
+
 function buildGenericBodyHtml(routeKey, { h1, description, localeBase, faqItems = [], cityContent = "", nearbyCityHtml = "", cityLabel = "", countryLabel = "", lang = "en", cityKey = null, h1Override = undefined, introOverride = undefined, whyPoints = undefined, campaignLanding = null }) {
   // When a city override intentionally reuses its CITY_SEO coverage paragraph
   // as the intro, emit that prose only once. The hydrated Home page applies the
@@ -1851,65 +1958,57 @@ function buildGenericBodyHtml(routeKey, { h1, description, localeBase, faqItems 
   if (routeKey === "home" && cityLabel && localeBase) {
     const safeCityLabel = escapeHtml(cityLabel);
     const safeCountryLabel = escapeHtml(countryLabel || cityLabel);
-    // Batroun occasion pages are all noindexed (Batroun has too few products to
-    // pass the isPageEligible threshold: ≥4 products, ≥15% unique vs parent).
-    // Omit the generic "Shop by Occasion" occasion list for lb-batroun so the
-    // landing page does not link to noindexed child pages. Re-enable once
-    // Batroun inventory grows enough for those pages to become indexable.
-    const emitOccasionList = cityKey !== "lb-batroun";
+    // The metadata snapshot is fetched before this body is built. Fail closed
+    // when it is unavailable: links to empty country catalog pages are worse
+    // than no links at all.
+    const taxonomy = getHomepageTaxonomySlugsSync(cityKey?.split("-")[0]);
+    const categories = taxonomy
+      ? FEATURED_HOME_CATEGORIES.filter(({ slug }) => taxonomy.categories.has(slug))
+      : [];
+    const occasions = taxonomy
+      ? FEATURED_HOME_OCCASIONS.filter(({ slug }) => taxonomy.occasions.has(slug))
+      : [];
+    // Country stock alone is not enough for Batroun: its child pages are
+    // deliberately noindex until city-level eligibility is met. Treat that
+    // selected city as unavailable rather than publishing misleading links.
+    const canLinkCityTaxonomy = cityKey !== "lb-batroun";
     const deliveryPara =
       lang === "ar"
         ? `<p>توصّل Presentail الزهور والكعك والشوكولاتة والنباتات والهدايا إلى ${safeCityLabel}، ${safeCountryLabel}. التوصيل في نفس اليوم متاح عند الطلب قبل الظهر.</p>` // i18n-ignore
         : lang === "fr"
         ? `<p>Presentail livre fleurs, gâteaux, chocolats, plantes et cadeaux à ${safeCityLabel}, ${safeCountryLabel}. Livraison le jour même disponible pour les commandes passées avant midi.</p>` // i18n-ignore
         : `<p>Presentail delivers flowers, cakes, chocolates, plants and gifts across ${safeCityLabel}, ${safeCountryLabel}. Same-day delivery available when ordered before midday.</p>`; // i18n-ignore
-    const occasionH2 =
-      lang === "ar"
-        ? `<h2>تسوّق حسب المناسبة في ${safeCityLabel}</h2>` // i18n-ignore
-        : lang === "fr"
-        ? `<h2>Acheter par occasion à ${safeCityLabel}</h2>` // i18n-ignore
-        : `<h2>Shop by Occasion in ${safeCityLabel}</h2>`; // i18n-ignore
+    const homepageTaxonomy = buildHomepageTaxonomy({
+      categories: canLinkCityTaxonomy ? categories : [],
+      occasions: canLinkCityTaxonomy ? occasions : [],
+      cityLabel,
+      lang,
+      localeBase,
+    });
+    // React adopts this serializable snapshot before createRoot removes the
+    // fallback DOM. It prevents the discovery links flashing away while its
+    // metadata query is still loading and makes the initial hydrated strings
+    // identical to the server's localized anchors and headings.
+    const taxonomyJson = JSON.stringify(homepageTaxonomy).replace(/</g, "\\u003c");
     homeExtras =
       deliveryPara +
-      (emitOccasionList
-        ? occasionH2 +
+      (homepageTaxonomy.categories.length
+        ? `<h2>${escapeHtml(homepageTaxonomy.categoryHeading)}</h2>` +
           `<ul>` +
-          FEATURED_HOME_OCCASIONS.map(({ slug, name }) =>
-            `<li><a href="${localeBase}/occasion/${escapeAttr(slug)}">${escapeHtml(name)}</a></li>`,
+          homepageTaxonomy.categories.map(({ href, label }) =>
+            `<li><a href="${escapeAttr(href)}">${escapeHtml(label)}</a></li>`,
           ).join("") +
           `</ul>`
-        : "");
-    // Tripoli landing page: visible "Popular flower types" section with
-    // crawlable links to real, indexable category/occasion URLs — strengthens
-    // the internal link graph between the landing page and its child pages.
-    // Every href below is a canonical, sitemapped URL (spot-checked to 200).
-    if (cityKey === "lb-tripoli" && lang === "en") {
-      // i18n-ignore-block — crawler-facing EN copy for the Tripoli landing page
-      const popularFlowerTypes = [
-        { href: "/category/hand-bouquets", name: "Roses & Mixed Hand Bouquets" },
-        { href: "/category/flower-boxes", name: "Flower Boxes" },
-        { href: "/occasion/birthday", name: "Birthday Flowers" },
-        { href: "/occasion/anniversary", name: "Anniversary Flowers" },
-        { href: "/occasion/funeral", name: "Sympathy Flowers" },
-        { href: "/occasion/wedding", name: "Wedding Flowers" },
-        { href: "/occasion/new-born", name: "New Baby Gifts" },
-      ];
-      homeExtras +=
-        `<h2>Popular Flower Types in Tripoli</h2>` + // i18n-ignore — crawler-facing EN copy
-        `<ul>` +
-        popularFlowerTypes.map(({ href, name }) =>
-          `<li><a href="${localeBase}${escapeAttr(href)}">${escapeHtml(name)}</a></li>`,
-        ).join("") +
-        `</ul>`;
-    }
-    // Batroun landing page: the "Popular flower types" block was removed after
-    // an end-to-end check confirmed that all candidate category/occasion URLs
-    // (/en-lb/batroun/category/*, /en-lb/batroun/occasion/*) return
-    // noindex, follow — Batroun has too few products to pass the isPageEligible
-    // threshold (≥4 products, ≥15% unique vs parent city). Linking to noindexed
-    // pages from the landing page wastes crawl budget and PageRank, so the
-    // block was not added. Re-enable once Batroun inventory grows enough for
-    // those pages to become indexable.
+        : "") +
+      (homepageTaxonomy.occasions.length
+        ? `<h2>${escapeHtml(homepageTaxonomy.occasionHeading)}</h2>` +
+          `<ul>` +
+          homepageTaxonomy.occasions.map(({ href, label }) =>
+            `<li><a href="${escapeAttr(href)}">${escapeHtml(label)}</a></li>`,
+          ).join("") +
+          `</ul>`
+        : "") +
+      `<script type="application/json" data-ssr-home-taxonomy>${taxonomyJson}</script>`;
   }
 
   // Shop route: add a featured category list so AI crawlers can follow
@@ -1957,6 +2056,67 @@ function buildGenericBodyHtml(routeKey, { h1, description, localeBase, faqItems 
   const blogExtras =
     routeKey === "blog" ? buildBlogIndexBodyHtml(lang, { localeBase }) : "";
 
+  // Corporate and weddings have richer, market-aware service sections in the
+  // hydrated application. Keep the no-JS document equally useful, but isolate
+  // this copy to these two routes: homepage and FAQ fallback bodies must not
+  // inherit commercial-service language.
+  let commercialServiceExtras = "";
+  if (
+    (routeKey === "corporate" || routeKey === "weddings") &&
+    localeBase &&
+    cityLabel
+  ) {
+    const market = cityKey?.split("-")[0] ?? "lb";
+    const serviceCopy = {
+      corporate: {
+        en: {
+          lb: ["Corporate gifting planned around your Lebanon delivery", `For teams sending to ${cityLabel}, we turn one approved brief into a recipient plan with quantities, card copy, office or home addresses, and a delivery sequence your coordinator can follow.`, ["Share recipients in stages while final headcounts are moving.", "We flag address, building-access, and card-message questions before the delivery run.", "Use one point of contact for employee moments, client thanks, and seasonal campaigns."], "Browse gift occasions", "Talk through a delivery plan"],
+          ae: ["A delivery-ready corporate plan for the UAE", `Sending gifts in ${cityLabel} often means working around towers, reception desks, hotel concierge teams, and precise hand-off windows. We collect those delivery notes with your brief so the plan is clear before dispatch.`, ["Group recipients by office, building, or event venue.", "Add contact names and access instructions alongside each recipient.", "Schedule campaigns around onboarding dates, client meetings, and regional holidays."], "Explore gifting occasions", "Discuss UAE delivery details"],
+          cy: ["Corporate gifts coordinated for Cyprus teams and guests", `For deliveries in ${cityLabel}, we help organisers map gifts to offices, homes, and hospitality stays without losing the personal note behind each send. Your brief remains the source of truth through confirmation.`, ["Plan employee recognition, conference welcomes, and client follow-ups from one list.", "Separate delivery notes from gift messages for a considered hand-off.", "Confirm timing and location details early for multi-stop campaigns."], "See occasion ideas", "Plan a Cyprus campaign"],
+        },
+        ar: {
+          lb: ["هدايا شركات منظّمة لتوصيلك في لبنان", `للفرق التي ترسل إلى ${cityLabel}، نحوّل موجزاً معتمداً واحداً إلى خطة مستلمين عملية تشمل الكميات ونصوص البطاقات والعناوين وتسلسل توصيل واضحاً.`, ["يمكن مشاركة المستلمين على دفعات حين لا يكون العدد النهائي ثابتاً.", "نراجع العنوان ودخول المبنى ورسالة البطاقة قبل جولة التوصيل.", "نقطة اتصال واحدة لهدايا الموظفين وشكر العملاء والحملات الموسمية."], "تصفّح مناسبات الهدايا", "ناقش خطة التوصيل"],
+          ae: ["خطة هدايا شركات جاهزة للتوصيل في الإمارات", `إرسال الهدايا في ${cityLabel} قد يتطلّب التنسيق مع الأبراج والاستقبال وفرق كونسيرج الفنادق ومواعيد تسليم دقيقة. نجمع هذه الملاحظات ضمن موجزك قبل الإرسال.`, ["رتّب المستلمين بحسب المكتب أو المبنى أو موقع المناسبة.", "أضف أسماء جهات الاتصال وتعليمات الدخول لكل مستلم.", "نسّق الحملات حول التوظيف الجديد واجتماعات العملاء والعطلات الإقليمية."], "استكشف مناسبات الإهداء", "ناقش تفاصيل التوصيل في الإمارات"],
+          cy: ["هدايا شركات منسّقة للفرق والضيوف في قبرص", `للتوصيل في ${cityLabel}، نساعد المنظّمين على توزيع الهدايا بين المكاتب والمنازل وإقامات الضيافة مع الحفاظ على اللمسة الشخصية.`, ["خطّط لتقدير الموظفين وترحيب المؤتمرات ومتابعة العملاء من قائمة واحدة.", "افصل ملاحظات التوصيل عن رسائل الهدايا.", "أكّد التوقيت وتفاصيل المكان مبكراً للحملات متعددة المحطات."], "اطّلع على أفكار المناسبات", "خطّط لحملة في قبرص"],
+        },
+        fr: {
+          lb: ["Des cadeaux corporate organisés pour votre livraison au Liban", `Pour les équipes qui envoient à ${cityLabel}, nous transformons un brief validé en plan destinataires concret : quantités, textes des cartes, adresses et ordre de livraison.`, ["Envoyez les destinataires par vagues lorsque l'effectif évolue.", "Nous clarifions adresse, accès à l'immeuble et message avant la tournée.", "Un interlocuteur unique pour les temps forts collaborateurs, clients et saisonniers."], "Voir les occasions cadeaux", "Échanger sur un plan de livraison"],
+          ae: ["Un plan corporate prêt à livrer aux Émirats", `Envoyer des cadeaux à ${cityLabel} implique souvent des tours, réceptions, conciergeries d'hôtel et créneaux de remise précis. Ces consignes sont intégrées au brief avant l'expédition.`, ["Regroupez les destinataires par bureau, immeuble ou lieu.", "Ajoutez nom du contact et consignes d'accès à chaque destinataire.", "Programmez autour des arrivées, rendez-vous clients et fêtes régionales."], "Explorer les occasions", "Parler des livraisons aux Émirats"],
+          cy: ["Des cadeaux corporate coordonnés à Chypre", `Pour les livraisons à ${cityLabel}, nous répartissons les cadeaux entre bureaux, domiciles et séjours hôteliers sans perdre l'attention personnelle de chaque envoi.`, ["Gérez remerciements d'équipe, accueils de conférence et suivis clients depuis une liste.", "Distinguez consignes de livraison et mot cadeau.", "Validez tôt créneau et lieu pour les campagnes à plusieurs arrêts."], "Découvrir les idées d'occasions", "Planifier une campagne à Chypre"],
+        },
+      },
+      weddings: {
+        en: {
+          lb: ["Event delivery planned around your Lebanon venue", `For celebrations in ${cityLabel}, we use your venue plan and event timing to shape a considered floral and gifting run. Ceremony pieces, room gifts, and personal bouquets can each have their own hand-off notes.`, ["Bring your venue, photographer, or planner into the early brief when timing affects set-up.", "Keep guest welcome gifts and event florals on one coordinated schedule.", "Confirm access, collection, and on-site contact details before the event day."], "Browse celebration gifts", "Discuss your event details"],
+          ae: ["Wedding flowers and gifts coordinated for UAE venues", `In ${cityLabel}, hotel ballrooms, private homes, and event spaces can each have distinct access and loading arrangements. We capture those details with your design direction before delivery and installation.`, ["Share the venue contact and access window with your guest count.", "Coordinate guest-room gifts separately from ceremony and reception set-up.", "Use one event brief for flowers, welcome boxes, and finishing touches."], "Explore celebration gifting", "Plan a UAE event"],
+          cy: ["Celebrations thoughtfully coordinated across Cyprus", `For a wedding or gathering in ${cityLabel}, we turn the guest journey into a clear service plan: what arrives at the venue, what waits in rooms, and which details need a named hand-off.`, ["Map florals, favours, and welcome boxes to guest moments.", "Discuss venue access and installation timing before finalising the run sheet.", "Keep personal messages and delivery directions distinct for a polished arrival."], "See gifts for celebrations", "Talk through a Cyprus event"],
+        },
+        ar: {
+          lb: ["توصيل مناسبتك منظّم حول موقعك في لبنان", `للاحتفالات في ${cityLabel}، نستخدم خطة المكان وتوقيت المناسبة لوضع مسار مدروس للأزهار والهدايا، مع ملاحظات تسليم مستقلة للقطع وهدايا الغرف والباقات الشخصية.`, ["أشرك المكان أو المصوّر أو منظّم الحفل في الموجز المبكر.", "نسّق هدايا الترحيب وأزهار المناسبة ضمن جدول واحد.", "أكّد تفاصيل الدخول والاستلام وجهة الاتصال في الموقع قبل يوم المناسبة."], "تصفّح هدايا الاحتفالات", "ناقش تفاصيل مناسبتك"],
+          ae: ["أزهار وهدايا الأعراس منسّقة لمواقع الإمارات", `في ${cityLabel}، قد يكون لكل قاعة فندق أو منزل خاص أو مساحة مناسبات ترتيبات دخول وتحميل مختلفة. نوثّق هذه التفاصيل إلى جانب رؤيتك التصميمية قبل التوصيل والتركيب.`, ["أرسل جهة اتصال المكان ونافذة الدخول مع عدد الضيوف.", "نسّق هدايا غرف الضيوف بصورة مستقلة عن تجهيز المراسم.", "استخدم موجزاً واحداً للأزهار وصناديق الترحيب واللمسات الأخيرة."], "استكشف هدايا الاحتفالات", "خطّط لمناسبة في الإمارات"],
+          cy: ["احتفالات منسّقة بعناية في قبرص", `لعرس أو لقاء في ${cityLabel}، نحوّل رحلة الضيف إلى خطة خدمة واضحة: ما يصل إلى الموقع، وما ينتظر في الغرف، وأي التفاصيل تحتاج تسليماً لشخص محدد.`, ["وزّع الأزهار والهدايا وصناديق الترحيب على لحظات الضيوف.", "ناقش دخول الموقع وتوقيت التركيب قبل تثبيت الجدول.", "افصل الرسائل الشخصية عن تعليمات التوصيل لوصول أنيق."], "شاهد هدايا الاحتفالات", "ناقش مناسبة في قبرص"],
+        },
+        fr: {
+          lb: ["Une livraison événementielle pensée pour votre lieu au Liban", `Pour les célébrations à ${cityLabel}, nous partons de votre plan de lieu et de votre timing pour organiser fleurs et cadeaux. Pièces de cérémonie, cadeaux de chambre et bouquets peuvent suivre des consignes distinctes.`, ["Associez le lieu, le photographe ou le wedding planner au brief.", "Réunissez cadeaux d'accueil et fleurs dans un même calendrier.", "Validez accès, reprise et contact sur place avant le jour J."], "Voir les cadeaux de célébration", "Échanger sur votre événement"],
+          ae: ["Fleurs et cadeaux de mariage coordonnés pour les lieux aux Émirats", `À ${cityLabel}, une salle d'hôtel, une maison privée ou un espace événementiel peuvent avoir des règles d'accès et de chargement propres. Elles sont intégrées à votre direction créative avant l'installation.`, ["Partagez le contact du lieu et la fenêtre d'accès avec votre nombre d'invités.", "Distinguez les cadeaux en chambre de l'installation de cérémonie.", "Centralisez fleurs, welcome boxes et finitions dans un seul brief."], "Explorer les cadeaux de célébration", "Planifier un événement aux Émirats"],
+          cy: ["Des célébrations coordonnées avec soin à Chypre", `Pour un mariage ou une réception à ${cityLabel}, nous transformons le parcours invité en plan de service clair : ce qui arrive au lieu, ce qui attend en chambre et les détails qui demandent une remise nominative.`, ["Associez fleurs, faveurs et welcome boxes aux moments vécus par les invités.", "Abordez accès au lieu et créneau d'installation avant de finaliser le déroulé.", "Séparez mots personnels et consignes de livraison pour une arrivée soignée."], "Découvrir les cadeaux de célébration", "Parler d'un événement à Chypre"],
+        },
+      },
+    };
+    const sharedService = getCommercialServiceCopy(routeKey, lang, market, cityLabel);
+    if (sharedService) {
+      const { heading, body, details, occasionsLabel, contactLabel } = sharedService;
+      commercialServiceExtras =
+      `<section data-server-commercial-service="${escapeAttr(`${routeKey}-${market}`)}">` +
+      `<h2>${escapeHtml(heading)}</h2><p>${escapeHtml(body)}</p>` +
+      `<ul>${details.map((detail) => `<li>${escapeHtml(detail)}</li>`).join("")}</ul>` +
+      `<nav aria-label="${escapeAttr(heading)}">` +
+      `<a href="${escapeAttr(`${localeBase}/occasions`)}">${escapeHtml(occasionsLabel)}</a> ` +
+      `<a href="${escapeAttr(`${localeBase}/contact`)}">${escapeHtml(contactLabel)}</a>` +
+      `</nav></section>`;
+    }
+  }
+
   // The H1 and body copy are emitted as VISIBLE HTML — no sr-only, no
   // display:none. Google treats hidden keyword content as potentially cloaked
   // and can deweight it; the copy here is legitimate on-page content, so it
@@ -1980,6 +2140,7 @@ function buildGenericBodyHtml(routeKey, { h1, description, localeBase, faqItems 
     homeExtras +
     shopExtras +
     blogExtras +
+    commercialServiceExtras +
     faqHtml +
     buildNavLinks(localeBase) +
     `</div>` +
@@ -5452,18 +5613,16 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
     telemetry,
     ...rest
   } = opts;
-  // Pre-warm the per-country available-category cache BEFORE building the
-  // head/body so the shop route's crawler-facing "Shop by Category" list can
-  // be filtered synchronously to categories with real inventory in this
-  // country (no-op for non-locale paths and warm caches).
+  // Pre-warm the per-country taxonomy snapshot before building a shop or city
+  // home body. Both pages expose inventory-filtered discovery links.
   const parsedEarly = parseLocalePath(pathname);
   if (
     parsedEarly.hasLocalePrefix &&
     parsedEarly.country &&
     apiBaseUrl &&
-    // Only the shop route consumes the category list — don't add fetch
-    // latency to every locale-prefixed page.
-    /^\/shop(?:\/|$)?/.test(parsedEarly.rest ?? "")
+    (/^\/shop(?:\/|$)?/.test(parsedEarly.rest ?? "") ||
+      parsedEarly.rest === "" ||
+      parsedEarly.rest === "/")
   ) {
     await ensureShopCategoriesForSeo(parsedEarly.country, apiBaseUrl);
   }

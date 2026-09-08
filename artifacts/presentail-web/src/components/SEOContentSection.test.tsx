@@ -174,7 +174,15 @@ describe("SEOContentSection — brand page type", () => {
         countryCode="LB"
         availableOccasionIds={["birthday"]}
       />,
-      { locale: EN_LOCALE },
+      {
+        locale: {
+          ...EN_LOCALE,
+          t: (key: string, params?: Record<string, string>) =>
+            key === "seo.content.brand.heading"
+              ? `Shop ${params?.name} in ${params?.city}`
+              : key,
+        },
+      },
     );
     const section = screen.getByTestId("seo-content-section");
     expect(section.textContent).toContain("Hallab 1881");
@@ -373,5 +381,68 @@ describe("SEOContentSection — faqsAlwaysVisible (hand-written landing FAQ pari
     );
     const btn = screen.getAllByRole("button")[0];
     expect(btn).toBeTruthy();
+  });
+});
+
+describe("SEOContentSection — homepage SSR taxonomy adoption", () => {
+  it("renders the server-seeded headings and links before client metadata is available", () => {
+    renderWithProviders(
+      <SEOContentSection
+        {...SHARED_PROPS}
+        pageType="homepage"
+        suppressFaqJsonLd
+        homepageTaxonomy={{
+          categoryHeading: "Shop Flowers & Gifts by Category in Beirut",
+          occasionHeading: "Shop by Occasion in Beirut",
+          categories: [{ href: "/en-lb/beirut/category/hand-bouquets", label: "Hand Bouquets for delivery in Beirut" }],
+          occasions: [{ href: "/en-lb/beirut/occasion/birthday", label: "Birthday in Beirut" }],
+        }}
+      />,
+      { locale: EN_LOCALE },
+    );
+
+    expect(screen.getByRole("heading", { name: "Shop Flowers & Gifts by Category in Beirut", level: 2 })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Shop by Occasion in Beirut", level: 2 })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Hand Bouquets for delivery in Beirut" }).getAttribute("href"))
+      .toBe("/en-lb/beirut/category/hand-bouquets");
+    expect(screen.getByRole("link", { name: "Birthday in Beirut" }).getAttribute("href"))
+      .toBe("/en-lb/beirut/occasion/birthday");
+  });
+
+  it("matches Greek SSR taxonomy semantics after the metadata query supplies live inventory", () => {
+    const greekLabels: Record<string, string> = {
+      "seo.content.homepage.heading": "Αποστολή δώρων",
+      "seo.content.homepage.intro": "Δώρα στη Λευκωσία",
+      "shop.cat.handBouquets": "Χειροποίητα μπουκέτα",
+      "shop.occ.birthday": "Γενέθλια",
+      "seo.content.faqTitle": "Συχνές ερωτήσεις",
+    };
+    renderWithProviders(
+      <SEOContentSection
+        {...SHARED_PROPS}
+        pageType="homepage"
+        cityLabel="Λευκωσία"
+        lang="el"
+        countryCode="CY"
+        availableCategoryIds={["hand-bouquets"]}
+        availableOccasionIds={["birthday"]}
+        suppressFaqJsonLd
+      />,
+      { locale: { language: "el", dir: "ltr", t: (key: string) => greekLabels[key] ?? key } },
+    );
+
+    expect(screen.getByRole("heading", {
+      name: "Αγοράστε λουλούδια & δώρα ανά κατηγορία στη Λευκωσία",
+      level: 2,
+    })).toBeTruthy();
+    expect(screen.getByRole("heading", {
+      name: "Αγοράστε ανά περίσταση στη Λευκωσία",
+      level: 2,
+    })).toBeTruthy();
+    expect(screen.getByRole("link", {
+      name: "Χειροποίητα μπουκέτα με παράδοση στη Λευκωσία",
+    }).getAttribute("href")).toBe("/category/hand-bouquets");
+    expect(screen.getByRole("link", { name: "Γενέθλια στη Λευκωσία" }).getAttribute("href"))
+      .toBe("/occasion/birthday");
   });
 });

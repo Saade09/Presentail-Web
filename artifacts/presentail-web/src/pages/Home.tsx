@@ -20,7 +20,38 @@ import {
   useGetHomepageBestSellers,
   getGetHomepageBestSellersQueryKey,
 } from "@workspace/api-client-react";
-import { useProducts, type Product } from "@/lib/queries";
+import { useCatalogMetadata, useProducts, type Product } from "@/lib/queries";
+
+type HomepageTaxonomy = {
+  categoryHeading: string;
+  occasionHeading: string;
+  categories: Array<{ href: string; label: string }>;
+  occasions: Array<{ href: string; label: string }>;
+};
+
+function readSsrHomepageTaxonomy(): HomepageTaxonomy | null {
+  if (typeof document === "undefined") return null;
+  const raw = document.querySelector("[data-ssr-home-taxonomy]")?.textContent;
+  if (!raw) return null;
+  try {
+    const value = JSON.parse(raw) as HomepageTaxonomy;
+    if (
+      !value ||
+      typeof value.categoryHeading !== "string" ||
+      typeof value.occasionHeading !== "string" ||
+      !Array.isArray(value.categories) ||
+      !Array.isArray(value.occasions) ||
+      ![...value.categories, ...value.occasions].every(
+        (link) => typeof link?.href === "string" && typeof link?.label === "string",
+      )
+    ) {
+      return null;
+    }
+    return value;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Read the server-rendered product block (SSR-enabled city homes, e.g.
@@ -97,6 +128,26 @@ export default function Home() {
     staleTime: 10 * 60 * 1000,
   });
   const ipCountry = geoData?.countryCode ?? null;
+  // Read this before createRoot removes the injected fallback. Until the
+  // metadata query resolves, it is the authoritative server inventory snapshot
+  // and keeps the initially served taxonomy visible after hydration.
+  const [ssrHomepageTaxonomy] = useState<HomepageTaxonomy | null>(readSsrHomepageTaxonomy);
+  // Match the server's country-scoped inventory gate for the homepage's
+  // category and occasion links. The metadata endpoint is the same source
+  // used by the catalog navigation, so empty landing pages are never promoted.
+  const { data: catalogMetadata } = useCatalogMetadata(countryCode, language);
+  const availableCategoryIds = (catalogMetadata?.categories ?? [])
+    .filter((category) => category.count > 0)
+    .map((category) => category.id);
+  const availableOccasionIds = (catalogMetadata?.occasions ?? [])
+    .filter((occasion) => (occasion as { count?: number }).count ?? 0)
+    .map((occasion) => occasion.id);
+  // Batroun's child taxonomy routes are intentionally noindex pending
+  // city-level eligibility, so do not expose country-wide inventory links
+  // there. This mirrors the server-rendered home fragment.
+  const canLinkCityTaxonomy = cityId?.toLowerCase() !== "lb-batroun";
+  const homepageTaxonomy =
+    canLinkCityTaxonomy && catalogMetadata === undefined ? ssrHomepageTaxonomy : undefined;
 
   // Server-rendered products (SSR-enabled city homes, e.g. Tripoli): adopted
   // from the initial document on first mount so we skip the redundant
@@ -413,6 +464,9 @@ export default function Home() {
         cityLabel={cityLabel}
         lang={language}
         countryCode={countryCode ?? ""}
+        availableCategoryIds={canLinkCityTaxonomy ? availableCategoryIds : []}
+        availableOccasionIds={canLinkCityTaxonomy ? availableOccasionIds : []}
+        homepageTaxonomy={homepageTaxonomy ?? undefined}
         suppressFaqJsonLd
         overrides={cityOverride?.faqs ? { faqs: cityOverride.faqs } : undefined}
         faqsAlwaysVisible={Boolean(cityOverride?.faqs)}

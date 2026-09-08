@@ -85,6 +85,19 @@ describe("@workspace/blog-content — ogImage integrity", () => {
   }
 });
 
+describe("@workspace/blog-content — authored product-link integrity", () => {
+  it("does not retain the retired Chocolate Rocher product URL", () => {
+    expect(JSON.stringify(BLOG_POSTS)).not.toContain(
+      "chocolate-rocher-cake--899",
+    );
+    expect(BLOG_POSTS["best-cakes-lebanon"].en.sections.map(
+      (section) => section.body ?? "",
+    ).join("\n")).toContain(
+      'href="/en-lb/beirut/category/cakes"',
+    );
+  });
+});
+
 describe("bouquet-delivery-dubai — part two content", () => {
   const article = BLOG_POSTS["bouquet-delivery-dubai"].en;
 

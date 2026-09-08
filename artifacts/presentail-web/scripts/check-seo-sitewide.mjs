@@ -4,6 +4,7 @@ import {
   findHreflangConsistencyIssues,
   validateSeoDocument,
 } from "./seo-checks/metadata-validator.mjs";
+import { crawlEmittedLinks, sameOriginAnchorTargets } from "./seo-checks/emitted-links.mjs";
 
 function argValue(name, fallback) {
   const equals = process.argv.find((arg) => arg.startsWith(`${name}=`));
@@ -17,6 +18,7 @@ const BASE = String(
 ).replace(/\/+$/, "");
 const CONCURRENCY = Math.max(1, Math.min(32, Number(argValue("--concurrency", "8")) || 8));
 const LIMIT = Math.max(0, Number(argValue("--limit", "0")) || 0);
+const LINK_LIMIT = Math.max(0, Number(argValue("--link-limit", "500")) || 500);
 const DRY_RUN = process.argv.includes("--dry-run");
 
 async function fetchText(url) {
@@ -70,13 +72,13 @@ async function mapConcurrent(items, concurrency, worker) {
   return results;
 }
 
-export async function scanSeoRoutes({ base = BASE, concurrency = CONCURRENCY, limit = LIMIT } = {}) {
+export async function scanSeoRoutes({ base = BASE, concurrency = CONCURRENCY, limit = LIMIT, linkLimit = LINK_LIMIT } = {}) {
   const allUrls = await enumerateIndexableRoutes(base);
   const urls = limit > 0 ? allUrls.slice(0, limit) : allUrls;
   const results = await mapConcurrent(urls, concurrency, async (url) => {
     try {
       const html = await fetchText(url);
-      return validateSeoDocument(html, url);
+      return { ...validateSeoDocument(html, url), emittedAnchors: sameOriginAnchorTargets(html, url, base) };
     } catch (error) {
       return {
         url,
@@ -87,12 +89,26 @@ export async function scanSeoRoutes({ base = BASE, concurrency = CONCURRENCY, li
       };
     }
   });
+  const emittedLinkReport = await crawlEmittedLinks({
+    baseUrl: base,
+    concurrency,
+    limit: linkLimit,
+    pages: results
+      .filter((result) => !result.issues.some((issue) => issue.code === "fetch-failed"))
+      .map((result) => ({
+        url: result.url,
+        // Avoid retaining every HTML document only for this second phase.
+        // The helper accepts HTML, so reconstruct minimal anchors safely.
+        html: result.emittedAnchors.map((href) => `<a href="${href}">link</a>`).join(""),
+      })),
+  });
   return {
     discovered: allUrls.length,
     scanned: urls.length,
     results,
     duplicates: findCrossDocumentDuplicates(results),
     hreflangIssues: findHreflangConsistencyIssues(results),
+    emittedLinkReport,
   };
 }
 
@@ -115,7 +131,12 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     issueCount++;
     console.error(`FAIL  ${issue.code}  ${issue.url}\n      ${issue.detail}`);
   }
+  for (const issue of report.emittedLinkReport.issues) {
+    issueCount++;
+    console.error(`FAIL  ${issue.code}  ${issue.url}\n      ${issue.detail}`);
+  }
   console.log(`Coverage: discovered ${report.discovered}, scanned ${report.scanned}`);
+  console.log(`Emitted links: discovered ${report.emittedLinkReport.discovered}, checked ${report.emittedLinkReport.checked}${report.emittedLinkReport.truncated ? " (bounded)" : ""}`);
   console.log(`Findings: ${issueCount}`);
   if (issueCount > 0 && !DRY_RUN) process.exitCode = 1;
 }

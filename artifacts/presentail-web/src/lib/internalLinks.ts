@@ -40,11 +40,15 @@ export interface InternalLinksLocale {
 export interface CategoryEntry {
   id: string;
   name: string;
+  count?: number;
+  routable?: boolean;
 }
 
 export interface OccasionEntry {
   id: string;
   name: string;
+  count?: number;
+  routable?: boolean;
 }
 
 export interface BrandEntry {
@@ -75,6 +79,22 @@ export function nameToSlug(name: string): string {
     .replace(/&/g, "and")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+const NON_ROUTABLE_CATEGORY_SLUGS = new Set(["room-deco"]);
+
+function isRoutableCollection(
+  entry: { id?: string; count?: number; routable?: boolean } | undefined | null,
+  type: "category" | "occasion",
+): entry is { id: string; count?: number; routable?: boolean } {
+  return Boolean(
+    entry &&
+      typeof entry.id === "string" &&
+      entry.id &&
+      (type !== "category" || !NON_ROUTABLE_CATEGORY_SLUGS.has(entry.id)) &&
+      entry.routable !== false &&
+      entry.count !== 0,
+  );
 }
 
 function cityDisplayName(slug: string): string {
@@ -154,7 +174,7 @@ export function buildInternalLinks(
   // Rule 1: Primary category
   if (primaryCatSlug) {
     const catEntry = context.categories?.find((c) => c.id === primaryCatSlug);
-    if (catEntry) {
+    if (isRoutableCollection(catEntry, "category")) {
       add(`${base}/category/${encodeURIComponent(primaryCatSlug)}`, catEntry.name);
     }
   }
@@ -165,7 +185,7 @@ export function buildInternalLinks(
   const occEntry = product.occasions
     ?.map((slug) => context.occasions?.find((occasion) => occasion.id === slug))
     .find((occasion): occasion is OccasionEntry => Boolean(occasion));
-  if (occEntry) {
+  if (isRoutableCollection(occEntry, "occasion")) {
     add(
       `${base}/occasion/${encodeURIComponent(occEntry.id)}`,
       occEntry.name,
@@ -240,7 +260,10 @@ export function buildCollectionInternalLinks(
   locale: InternalLinksLocale,
   context: InternalLinksContext = {},
 ): InternalLinkSuggestion[] {
-  const base = localeBase(locale.lang, locale.country, locale.city);
+  const city =
+    locale.city ||
+    ({ lb: "beirut", ae: "dubai", cy: "nicosia" }[locale.country] ?? null);
+  const base = localeBase(locale.lang, locale.country, city);
   const seen = new Set<string>();
   const links: InternalLinkSuggestion[] = [];
 
@@ -257,22 +280,22 @@ export function buildCollectionInternalLinks(
   if (isCategory) {
     const related = (context.occasions ?? []).slice(0, 3);
     for (const occ of related) {
-      if (occ.id !== collection.slug) {
+      if (occ.id !== collection.slug && isRoutableCollection(occ, "occasion")) {
         add(`${base}/occasion/${encodeURIComponent(occ.id)}`, occ.name);
       }
     }
   } else {
     const related = (context.categories ?? []).slice(0, 3);
     for (const cat of related) {
-      if (cat.id !== collection.slug) {
+      if (cat.id !== collection.slug && isRoutableCollection(cat, "category")) {
         add(`${base}/category/${encodeURIComponent(cat.id)}`, cat.name);
       }
     }
   }
 
   // Rule 4: City homepage
-  if (locale.city) {
-    const cityName = cityDisplayName(locale.city);
+  if (city) {
+    const cityName = cityDisplayName(city);
     const phrase = (
       FLOWER_DELIVERY_PHRASE[locale.lang] ?? FLOWER_DELIVERY_PHRASE.en
     ).replace("{city}", cityName);

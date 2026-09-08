@@ -45,6 +45,28 @@ export function nameToSlug(name) {
     .replace(/^-+|-+$/g, "");
 }
 
+/**
+ * Taxonomy responses include inactive entries and zero-count entries while a
+ * shop page is being rebuilt.  Those entries are useful to the UI but are not
+ * proof that an indexable collection route exists.  Never turn one into an
+ * authored anchor.
+ *
+ * @param {{id?: string; count?: number; routable?: boolean}|undefined|null} entry
+ * @returns {boolean}
+ */
+const NON_ROUTABLE_CATEGORY_SLUGS = new Set(["room-deco"]);
+
+function isRoutableCollection(entry, type) {
+  return Boolean(
+    entry &&
+    typeof entry.id === "string" &&
+    entry.id &&
+    (type !== "category" || !NON_ROUTABLE_CATEGORY_SLUGS.has(entry.id)) &&
+    entry.routable !== false &&
+    entry.count !== 0,
+  );
+}
+
 /** @type {Record<string, string>} */
 const CITY_DISPLAY_NAMES = {
   beirut: "Beirut",
@@ -127,7 +149,7 @@ const ALL_CATEGORIES_LABEL = {
  *   path-only locale base — useful in server-side contexts where an absolute URL
  *   prefix is already available.  When absent, the path is derived from
  *   lang/country/city.
- * @param {{ categories?: Array<{id:string;name:string}>; occasions?: Array<{id:string;name:string}>; brands?: Array<{slug:string;name:string}>; allProducts?: any[] }} context
+ * @param {{ categories?: Array<{id:string;name:string;count?:number;routable?:boolean}>; occasions?: Array<{id:string;name:string;count?:number;routable?:boolean}>; brands?: Array<{slug:string;name:string}>; allProducts?: any[] }} context
  * @returns {Array<{href:string;anchorText:string;rel?:'nofollow'}>}
  */
 export function buildInternalLinks(product, locale, context = {}) {
@@ -147,7 +169,7 @@ export function buildInternalLinks(product, locale, context = {}) {
   // Rule 1: Primary category
   if (primaryCatSlug) {
     const catEntry = context.categories && context.categories.find((c) => c.id === primaryCatSlug);
-    if (catEntry) {
+    if (isRoutableCollection(catEntry, "category")) {
       add(`${base}/category/${encodeURIComponent(primaryCatSlug)}`, catEntry.name);
     }
   }
@@ -161,7 +183,7 @@ export function buildInternalLinks(product, locale, context = {}) {
     product.occasions
       .map((slug) => context.occasions.find((occasion) => occasion.id === slug))
       .find(Boolean);
-  if (occEntry) {
+  if (isRoutableCollection(occEntry, "occasion")) {
     add(`${base}/occasion/${encodeURIComponent(occEntry.id)}`, occEntry.name);
   }
 
@@ -215,11 +237,15 @@ export function buildInternalLinks(product, locale, context = {}) {
  *
  * @param {{ slug: string; name: string; type: 'category'|'occasion' }} collection
  * @param {{ lang: string; country: string; city: string|null }} locale
- * @param {{ categories?: Array<{id:string;name:string}>; occasions?: Array<{id:string;name:string}> }} context
+ * @param {{ categories?: Array<{id:string;name:string;count?:number;routable?:boolean}>; occasions?: Array<{id:string;name:string;count?:number;routable?:boolean}> }} context
  * @returns {Array<{href:string;anchorText:string;rel?:'nofollow'}>}
  */
 export function buildCollectionInternalLinks(collection, locale, context = {}) {
-  const base = localeBase(locale.lang, locale.country, locale.city);
+  // A collection can be rendered before a city has been selected.  Its city
+  // link must still point at the country's canonical storefront, never at the
+  // non-routable bare locale root (for example /en-lb/).
+  const city = locale.city || ({ lb: "beirut", ae: "dubai", cy: "nicosia" }[locale.country] ?? null);
+  const base = localeBase(locale.lang, locale.country, city);
   const seen = new Set();
   const links = [];
 
@@ -236,22 +262,22 @@ export function buildCollectionInternalLinks(collection, locale, context = {}) {
   if (isCategory) {
     const related = (context.occasions || []).slice(0, 3);
     for (const occ of related) {
-      if (occ.id !== collection.slug) {
+      if (occ.id !== collection.slug && isRoutableCollection(occ, "occasion")) {
         add(`${base}/occasion/${encodeURIComponent(occ.id)}`, occ.name);
       }
     }
   } else {
     const related = (context.categories || []).slice(0, 3);
     for (const cat of related) {
-      if (cat.id !== collection.slug) {
+      if (cat.id !== collection.slug && isRoutableCollection(cat, "category")) {
         add(`${base}/category/${encodeURIComponent(cat.id)}`, cat.name);
       }
     }
   }
 
   // Rule 4: City homepage
-  if (locale.city) {
-    const cityName = cityDisplayName(locale.city);
+  if (city) {
+    const cityName = cityDisplayName(city);
     const template = FLOWER_DELIVERY_PHRASE[locale.lang] ?? FLOWER_DELIVERY_PHRASE.en;
     add(`${base}/`, template.replace("{city}", cityName));
   }

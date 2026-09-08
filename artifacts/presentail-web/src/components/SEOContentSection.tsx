@@ -110,6 +110,12 @@ export type SEOContentOverrides = {
 };
 
 export type BrandCategory = "flowers" | "food" | "general";
+export type HomepageTaxonomyLinks = {
+  categoryHeading: string;
+  occasionHeading: string;
+  categories: Array<{ label: string; href: string }>;
+  occasions: Array<{ label: string; href: string }>;
+};
 
 interface SEOContentSectionProps {
   pageType:
@@ -131,6 +137,8 @@ interface SEOContentSectionProps {
   overrides?: SEOContentOverrides;
   availableCategoryIds?: string[];
   availableOccasionIds?: string[];
+  /** Server inventory snapshot adopted on the first homepage client render. */
+  homepageTaxonomy?: HomepageTaxonomyLinks;
   brandCategory?: BrandCategory;
   suppressFaqJsonLd?: boolean;
   /** Render FAQ answers always visible (no accordion) so the hydrated DOM
@@ -152,9 +160,11 @@ function SEOContentSectionInner({
   entityName = "",
   entitySlug = "",
   cityLabel,
+  lang,
   overrides,
   availableCategoryIds = [],
   availableOccasionIds = [],
+  homepageTaxonomy,
   brandCategory = "general",
   suppressFaqJsonLd = false,
   faqsAlwaysVisible = false,
@@ -247,6 +257,48 @@ function SEOContentSectionInner({
         body: tSeo(def.bodyKey),
       }));
 
+  const resolvedHomepageTaxonomy: HomepageTaxonomyLinks | null =
+    pageType !== "homepage"
+      ? null
+      : homepageTaxonomy ?? (() => {
+          const categoryHeading =
+            lang === "ar" ? `تسوّق حسب الفئة في ${cityLabel}` :
+            lang === "fr" ? `Acheter par catégorie à ${cityLabel}` :
+            lang === "el" ? `Αγοράστε λουλούδια & δώρα ανά κατηγορία στη ${cityLabel}` :
+            `Shop Flowers & Gifts by Category in ${cityLabel}`;
+          const occasionHeading =
+            lang === "ar" ? `تسوّق حسب المناسبة في ${cityLabel}` :
+            lang === "fr" ? `Acheter par occasion à ${cityLabel}` :
+            lang === "el" ? `Αγοράστε ανά περίσταση στη ${cityLabel}` :
+            `Shop by Occasion in ${cityLabel}`;
+          const describe = (label: string, kind: "category" | "occasion") =>
+            kind === "category"
+              ? lang === "ar" ? `${label} للتوصيل في ${cityLabel}` :
+                lang === "fr" ? `${label} à livrer à ${cityLabel}` :
+                lang === "el" ? `${label} με παράδοση στη ${cityLabel}` :
+                `${label} for delivery in ${cityLabel}`
+              : lang === "ar" ? `${label} في ${cityLabel}` :
+                lang === "fr" ? `${label} à ${cityLabel}` :
+                lang === "el" ? `${label} στη ${cityLabel}` :
+                `${label} in ${cityLabel}`;
+          return {
+            categoryHeading,
+            occasionHeading,
+            categories: OCCASION_CATEGORY_CHIPS
+              .filter((chip) => availableCategoryIds.includes(chip.slug))
+              .map((chip) => ({
+                label: describe(tSeo(chip.labelKey), "category"),
+                href: `/category/${chip.slug}`,
+              })),
+            occasions: TOP_OCCASION_CHIPS
+              .filter((chip) => availableOccasionIds.includes(chip.slug))
+              .map((chip) => ({
+                label: describe(tSeo(chip.labelKey), "occasion"),
+                href: `/occasion/${chip.slug}`,
+              })),
+          };
+        })();
+
   let internalLinks: { label: string; href: string }[];
   if (overrides?.internal_links) {
     internalLinks = overrides.internal_links;
@@ -263,10 +315,21 @@ function SEOContentSectionInner({
       .filter((chip) => availableOccasionIds.includes(chip.slug))
       .map((chip) => ({ label: tSeo(chip.labelKey), href: `/occasion/${chip.slug}` }));
   } else if (pageType === "homepage" || pageType === "shop") {
-    internalLinks = TOP_OCCASION_CHIPS.map((chip) => ({
-      label: tSeo(chip.labelKey),
-      href: `/occasion/${chip.slug}`,
-    }));
+    if (pageType === "homepage") {
+      // Home links are a discovery surface, not static marketing copy. Only
+      // expose taxonomy pages that the selected country currently stocks.
+      // Including the city in the anchor makes each link useful out of context
+      // (and matches the server-rendered city-home link intent).
+      internalLinks = [
+        ...(resolvedHomepageTaxonomy?.categories ?? []),
+        ...(resolvedHomepageTaxonomy?.occasions ?? []),
+      ];
+    } else {
+      internalLinks = TOP_OCCASION_CHIPS.map((chip) => ({
+        label: tSeo(chip.labelKey),
+        href: `/occasion/${chip.slug}`,
+      }));
+    }
   } else if (pageType === "occasions-listing") {
     internalLinks = TOP_OCCASION_CHIPS.map((chip) => ({
       label: tSeo(chip.labelKey),
@@ -447,7 +510,34 @@ function SEOContentSectionInner({
           })}
         </div>
 
-        {internalLinks.length > 0 && (
+        {pageType === "homepage" && resolvedHomepageTaxonomy ? (
+          <>
+            {resolvedHomepageTaxonomy.categories.length > 0 && (
+              <div className="mb-10 md:mb-12">
+                <h2 className="font-serif text-xl text-foreground mb-3">{resolvedHomepageTaxonomy.categoryHeading}</h2>
+                <div className="flex flex-wrap gap-2">
+                  {resolvedHomepageTaxonomy.categories.map((link) => (
+                    <a key={link.href} href={link.href} className="inline-flex items-center px-4 py-1.5 rounded-full border border-stone-200 bg-white text-sm text-foreground hover:border-primary hover:text-primary transition-colors">
+                      {link.label}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+            {resolvedHomepageTaxonomy.occasions.length > 0 && (
+              <div className="mb-10 md:mb-12">
+                <h2 className="font-serif text-xl text-foreground mb-3">{resolvedHomepageTaxonomy.occasionHeading}</h2>
+                <div className="flex flex-wrap gap-2">
+                  {resolvedHomepageTaxonomy.occasions.map((link) => (
+                    <a key={link.href} href={link.href} className="inline-flex items-center px-4 py-1.5 rounded-full border border-stone-200 bg-white text-sm text-foreground hover:border-primary hover:text-primary transition-colors">
+                      {link.label}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        ) : internalLinks.length > 0 && (
           <div className="mb-10 md:mb-12">
             <p className="text-xs tracking-[0.2em] uppercase text-muted-foreground mb-3">
               {tSeo(linksLabelKey, p)}

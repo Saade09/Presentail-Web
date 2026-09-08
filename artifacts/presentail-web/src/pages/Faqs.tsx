@@ -30,7 +30,7 @@ export default function Faqs() {
   const h1 = buildFaqsSeo({ lang: language, city: cityDisplay }).h1;
 
   return (
-    <div className="bg-background" data-testid="faqs-page" lang={language}>
+    <main className="bg-background" data-testid="faqs-page" lang={language}>
       <section className="container mx-auto px-4 pt-16 pb-12 md:pt-24 md:pb-16 max-w-content">
         <PageBreadcrumb crumbs={[{ label: t("nav.home"), href: "/" }, { label: c.eyebrow }]} />
         <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-4">
@@ -49,7 +49,11 @@ export default function Faqs() {
         {c.groups.map((g) => (
           <div key={g.title}>
             <h2 className="text-2xl font-serif mb-4">{g.title}</h2>
-            <Accordion type="single" collapsible className="w-full">
+            <Accordion
+              type="multiple"
+              defaultValue={g.items.map((_, i) => `${g.title}-${i}`)}
+              className="w-full"
+            >
               {g.items.map((it, i) => (
                 <AccordionItem key={i} value={`${g.title}-${i}`}>
                   <AccordionTrigger className="text-start">
@@ -64,6 +68,6 @@ export default function Faqs() {
           </div>
         ))}
       </section>
-    </div>
+    </main>
   );
 }

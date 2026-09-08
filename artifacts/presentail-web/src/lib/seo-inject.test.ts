@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 // @ts-expect-error - mjs import without types; the module is plain JS.
-import { injectSeoTagsAsync, buildSeoHead, buildProductHead, buildBlogPostHead, parseDimsFromBuffer, initImageDimsDb, genericSeoCache, getCachedGenericSeo, setCachedGenericSeo, collectJsonLdProblems, stripTrackingParams, extractSlugFor, SEO_FALLBACK_CRITICAL_CSS, __setShopCategorySlugsForTest, __resetSeoFailureAggregationForTest, appendUniqueImagePreload } from "../../seo-inject.mjs";
+import { injectSeoTagsAsync, buildSeoHead, buildProductHead, buildBlogPostHead, parseDimsFromBuffer, initImageDimsDb, genericSeoCache, getCachedGenericSeo, setCachedGenericSeo, collectJsonLdProblems, stripTrackingParams, extractSlugFor, SEO_FALLBACK_CRITICAL_CSS, __setShopCategorySlugsForTest, __setHomepageTaxonomySlugsForTest, __resetSeoFailureAggregationForTest, appendUniqueImagePreload } from "../../seo-inject.mjs";
 
 import { BLOG_POSTS, getBlogPostLanguages } from "@workspace/blog-content";
+import { FAQ_COPY } from "../data/faqsCopy.js";
 
 describe("appendUniqueImagePreload", () => {
   it("does not emit a second preload for the same hero image href", () => {
@@ -6515,6 +6516,31 @@ describe("JSON-LD — FAQPage on /faqs", () => {
     expect(first.acceptedAnswer["@type"]).toBe("Answer");
     expect(typeof first.acceptedAnswer.text).toBe("string");
   });
+
+  it.each(["en", "ar", "fr"] as const)(
+    "keeps %s FAQ schema and visible grouped answers in exact parity",
+    (lang) => {
+      const { headSnippet, bodyHtml } = buildSeoHead(`/${lang}-ae/dubai/faqs`, {
+        origin: "https://presentail.test",
+        basePath: "",
+      });
+      const faq = byType(extractJsonLd(`<head>${headSnippet}</head>`), "FAQPage");
+      const groups = FAQ_COPY[lang].groups;
+      const items = groups.flatMap((group) => group.items);
+
+      expect(faq.mainEntity).toHaveLength(items.length);
+      expect((bodyHtml.match(/<h2>/g) ?? [])).toHaveLength(groups.length);
+      expect((bodyHtml.match(/<h3>/g) ?? [])).toHaveLength(items.length);
+      items.forEach((item, index) => {
+        expect(item.a.length).toBeGreaterThanOrEqual(100);
+        expect(bodyHtml).toContain(item.a);
+        expect(faq.mainEntity[index]).toMatchObject({
+          name: item.q,
+          acceptedAnswer: { "@type": "Answer", text: item.a },
+        });
+      });
+    },
+  );
 });
 
 describe("JSON-LD — every emitted block is valid JSON", () => {
@@ -8855,7 +8881,24 @@ describe("JSON-LD — Merchant Listings fields on /product/<slug>", () => {
 // injected and is visible in the output string.
 const ROOT_HTML = `<!doctype html><html lang="en"><head><title>Old</title></head><body><div id="root"></div></body></html>`;
 
-describe("Prerender body — generic home page city intro and featured occasions", () => {
+describe("Prerender body — city-home inventory-filtered taxonomy links", () => {
+  beforeEach(() => {
+    genericSeoCache.clear();
+    const activeTaxonomy = {
+      categories: ["hand-bouquets", "flower-boxes", "plants"],
+      occasions: ["birthday", "anniversary", "thank-you"],
+    };
+    __setHomepageTaxonomySlugsForTest("ae", activeTaxonomy);
+    __setHomepageTaxonomySlugsForTest("lb", activeTaxonomy);
+  });
+  afterEach(() => {
+    // This suite intentionally narrows the shared country cache. Restore the
+    // shop fixture used by later, independent shop-body assertions.
+    for (const country of ["lb", "ae", "cy"]) {
+      __setShopCategorySlugsForTest(country, ALL_FEATURED_CATEGORY_SLUGS);
+    }
+  });
+
   it("home page with city emits a city intro paragraph in bodyHtml", () => {
     const { bodyHtml } = buildSeoHead("/en-ae/dubai", {
       origin: "https://presentail.test",
@@ -8866,43 +8909,69 @@ describe("Prerender body — generic home page city intro and featured occasions
     expect(bodyHtml).toContain("Same-day delivery available");
   });
 
-  it("home page with city emits 'Shop by Occasion in {city}' heading in bodyHtml", () => {
+  it("home page with city preserves a meaningful H1 → H2 hierarchy for active taxonomy", () => {
     const { bodyHtml } = buildSeoHead("/en-lb/beirut", {
       origin: "https://presentail.test",
       basePath: "",
     });
+    expect((bodyHtml.match(/<h1>/g) ?? [])).toHaveLength(1);
+    expect(bodyHtml).toContain("Shop Flowers & Gifts by Category in Beirut");
     expect(bodyHtml).toContain("Shop by Occasion in Beirut");
   });
 
-  it("home page with city emits all 6 featured occasion links in bodyHtml", () => {
+  it("home page emits only country-in-stock categories and occasions with city-descriptive anchors", () => {
     const { bodyHtml } = buildSeoHead("/en-ae/dubai", {
       origin: "https://presentail.test",
       basePath: "",
     });
+    expect(bodyHtml).toContain("/category/hand-bouquets");
+    expect(bodyHtml).toContain("/category/flower-boxes");
+    expect(bodyHtml).toContain("/category/plants");
     expect(bodyHtml).toContain("/occasion/birthday");
     expect(bodyHtml).toContain("/occasion/anniversary");
-    expect(bodyHtml).toContain("/occasion/valentines-day");
-    expect(bodyHtml).toContain("/occasion/wedding");
-    expect(bodyHtml).toContain("/occasion/new-born");
-    expect(bodyHtml).toContain("/occasion/funeral");
+    expect(bodyHtml).toContain("/occasion/thank-you");
+    expect(bodyHtml).toContain("Hand Bouquets for delivery in Dubai");
+    expect(bodyHtml).toContain("Birthday in Dubai");
+    expect(bodyHtml).toContain('data-ssr-home-taxonomy');
+    expect(bodyHtml).toContain('"categoryHeading":"Shop Flowers & Gifts by Category in Dubai"');
+    expect(bodyHtml).not.toContain("/category/cakes");
+    expect(bodyHtml).not.toContain("/occasion/valentines-day");
+    expect(bodyHtml).not.toContain("/occasion/wedding");
   });
 
-  it("home page without city (root '/') does NOT emit city intro or occasion list", () => {
+  it("home page without a selected city does NOT emit city taxonomy headings or links", () => {
     const { bodyHtml } = buildSeoHead("/", {
       origin: "https://presentail.test",
       basePath: "",
     });
     // No localeBase → no homeExtras
+    expect(bodyHtml).not.toContain("Shop Flowers & Gifts by Category in");
     expect(bodyHtml).not.toContain("Shop by Occasion in");
+    expect(bodyHtml).not.toContain("/category/hand-bouquets");
     expect(bodyHtml).not.toContain("/occasion/birthday");
   });
 
-  it("occasion links use the correct localeBase prefix", () => {
+  it("active category and occasion links use the selected city's localeBase prefix", () => {
     const { bodyHtml } = buildSeoHead("/en-ae/dubai", {
       origin: "https://presentail.test",
       basePath: "",
     });
+    expect(bodyHtml).toContain("https://presentail.test/en-ae/dubai/category/hand-bouquets");
     expect(bodyHtml).toContain("https://presentail.test/en-ae/dubai/occasion/birthday");
+  });
+
+  it("uses Greek taxonomy labels in the /el-cy/nicosia SSR snapshot", () => {
+    __setHomepageTaxonomySlugsForTest("cy", {
+      categories: ["hand-bouquets"],
+      occasions: ["birthday"],
+    });
+    const { bodyHtml } = buildSeoHead("/el-cy/nicosia", {
+      origin: "https://presentail.test",
+      basePath: "",
+    });
+    expect(bodyHtml).toContain("Αγοράστε λουλούδια &amp; δώρα ανά κατηγορία στη Λευκωσία");
+    expect(bodyHtml).toContain("Χειροποίητα μπουκέτα με παράδοση στη Λευκωσία");
+    expect(bodyHtml).toContain("Γενέθλια στη Λευκωσία");
   });
 });
 
@@ -9836,20 +9905,25 @@ describe("Tripoli internal links & /shop canonicalization", () => {
     );
   });
 
-  it("/en-lb/tripoli home body contains the Popular Flower Types section with crawlable links", () => {
+  it("/en-lb/tripoli home body uses the shared inventory-filtered taxonomy sections", () => {
+    __setHomepageTaxonomySlugsForTest("lb", {
+      categories: ["hand-bouquets", "flower-boxes"],
+      occasions: ["birthday", "anniversary"],
+    });
     const { bodyHtml } = buildSeoHead("/en-lb/tripoli", L_OPTS);
-    expect(bodyHtml).toContain("<h2>Popular Flower Types in Tripoli</h2>");
+    expect(bodyHtml).not.toContain("Popular Flower Types");
+    expect(bodyHtml).toContain("<h2>Shop Flowers &amp; Gifts by Category in Tripoli</h2>");
+    expect(bodyHtml).toContain("<h2>Shop by Occasion in Tripoli</h2>");
     for (const href of [
       "/en-lb/tripoli/category/hand-bouquets",
       "/en-lb/tripoli/category/flower-boxes",
       "/en-lb/tripoli/occasion/birthday",
       "/en-lb/tripoli/occasion/anniversary",
-      "/en-lb/tripoli/occasion/funeral",
-      "/en-lb/tripoli/occasion/wedding",
-      "/en-lb/tripoli/occasion/new-born",
     ]) {
       expect(bodyHtml).toContain(`href="${ORIGIN}${href}"`);
     }
+    expect(bodyHtml).not.toContain("/en-lb/tripoli/category/cakes");
+    expect(bodyHtml).not.toContain("/en-lb/tripoli/occasion/funeral");
   });
 
   it("other city home pages do not get the Popular Flower Types section", () => {
