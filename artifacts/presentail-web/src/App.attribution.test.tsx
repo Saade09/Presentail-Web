@@ -405,6 +405,7 @@ describe("ShopShell campaign chrome selection", () => {
     ).toEqual({
       useLandingHeader: false,
       useLandingFooter: true,
+      isCartRoute: false,
     });
   });
 
@@ -418,6 +419,7 @@ describe("ShopShell campaign chrome selection", () => {
     expect(getShopShellChrome(path)).toEqual({
       useLandingHeader: true,
       useLandingFooter: true,
+      isCartRoute: false,
     });
   });
 
@@ -425,6 +427,7 @@ describe("ShopShell campaign chrome selection", () => {
     expect(getShopShellChrome("/en-lb/beirut/flower-delivery")).toEqual({
       useLandingHeader: true,
       useLandingFooter: true,
+      isCartRoute: false,
     });
   });
 
@@ -432,6 +435,7 @@ describe("ShopShell campaign chrome selection", () => {
     expect(getShopShellChrome("/flower-delivery")).toEqual({
       useLandingHeader: true,
       useLandingFooter: true,
+      isCartRoute: false,
     });
   });
 
@@ -439,6 +443,16 @@ describe("ShopShell campaign chrome selection", () => {
     expect(getShopShellChrome("/en-lb/beirut/shop")).toEqual({
       useLandingHeader: false,
       useLandingFooter: false,
+      isCartRoute: false,
     });
+  });
+
+  it("marks only cart routes for mobile-only shell chrome", () => {
+    expect(getShopShellChrome("/en-lb/beirut/cart")).toEqual({
+      useLandingHeader: false,
+      useLandingFooter: false,
+      isCartRoute: true,
+    });
+    expect(getShopShellChrome("/en-lb/beirut/cart?from=nav").isCartRoute).toBe(true);
   });
 });

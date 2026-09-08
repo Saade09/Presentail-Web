@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Minus, Plus, ShoppingCart, Eye, Tag, ChevronDown, ChevronUp, Check, Trash2, Lock } from "lucide-react";
+import { Minus, Plus, ShoppingCart, Eye, Tag, ChevronDown, ChevronUp, Check, Trash2, Lock, Camera, MessageCircle } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { motion } from "framer-motion";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -45,6 +45,7 @@ import {
 import cardStationery from "@assets/Elegant-dark-teal-stationery-design_1778742277420.avif";
 import cardLogoEn from "@assets/Presentail_PNG-01_white.png";
 import cardLogoAr from "@assets/Presentail-Arabic-Logo-white.png";
+import { cityHref } from "@/lib/cityHref";
 
 export const CARD_MESSAGE_KEY = "presentail_card_message_v1";
 export const CARD_TO_KEY = "presentail_card_to_v1";
@@ -62,22 +63,29 @@ function isValidQrUrl(url: string): boolean {
   return /^https?:\/\/.+/.test(trimmed);
 }
 
-function CartSkeleton() {
+function CartSkeleton({
+  t,
+  dir,
+}: {
+  t: (key: string, vars?: Record<string, string | number>) => string;
+  dir: "ltr" | "rtl";
+}) {
   return (
-    <div className="min-h-screen bg-gray-100 pt-12 pb-24">
-      <div className="container mx-auto px-page max-w-content">
-        <Skeleton className="h-10 w-48 mb-12" />
-        <div className="flex flex-col lg:flex-row gap-12">
-          <div className="flex-1 space-y-6 min-w-0">
+    <div className="min-h-screen bg-gray-100 pb-24">
+      <MobileCartReassurance t={t} dir={dir} />
+      <div className="container mx-auto max-w-content px-page pt-12">
+        <Skeleton className="mb-12 h-10 w-48" />
+        <div className="flex flex-col gap-12 lg:flex-row">
+          <div className="min-w-0 flex-1 space-y-6">
             {[0, 1, 2].map((i) => (
-              <div key={i} className="flex gap-4 py-4 border-b">
-                <Skeleton className="w-20 md:w-24 aspect-square rounded-2xl shrink-0" />
-                <div className="flex flex-col justify-between flex-1 py-1">
+              <div key={i} className="flex gap-4 border-b py-4">
+                <Skeleton className="aspect-square w-20 shrink-0 rounded-2xl md:w-24" />
+                <div className="flex flex-1 flex-col justify-between py-1">
                   <div className="space-y-2">
                     <Skeleton className="h-5 w-3/4" />
                     <Skeleton className="h-4 w-20" />
                   </div>
-                  <div className="flex items-center justify-between mt-4">
+                  <div className="mt-4 flex items-center justify-between">
                     <Skeleton className="h-8 w-28 rounded-full" />
                     <Skeleton className="h-5 w-16" />
                   </div>
@@ -85,19 +93,19 @@ function CartSkeleton() {
               </div>
             ))}
           </div>
-          <div className="w-full lg:w-[26.4rem] shrink-0">
-            <div className="bg-secondary/30 rounded-3xl p-8">
-              <Skeleton className="h-8 w-44 mb-4" />
-              <div className="mb-6 pb-6 border-b border-primary/10">
+          <div className="w-full shrink-0 lg:w-[26.4rem]">
+            <div className="rounded-3xl bg-secondary/30 p-8">
+              <Skeleton className="mb-4 h-8 w-44" />
+              <div className="mb-6 border-b border-primary/10 pb-6">
                 <Skeleton className="h-4 w-full" />
               </div>
-              <div className="mb-6 pb-6 border-b border-primary/10">
+              <div className="mb-6 border-b border-primary/10 pb-6">
                 <div className="flex justify-between">
                   <Skeleton className="h-4 w-20" />
                   <Skeleton className="h-4 w-16" />
                 </div>
               </div>
-              <div className="flex justify-between mb-8">
+              <div className="mb-8 flex justify-between">
                 <Skeleton className="h-4 w-16" />
                 <Skeleton className="h-7 w-24" />
               </div>
@@ -107,6 +115,86 @@ function CartSkeleton() {
         </div>
       </div>
     </div>
+  );
+}
+
+function MobileCartReassurance({
+  t,
+  dir,
+}: {
+  t: (key: string, vars?: Record<string, string | number>) => string;
+  dir: "ltr" | "rtl";
+}) {
+  return (
+    <section
+      className="lg:hidden border-b border-primary/10 bg-gray-100 px-4 py-3 text-primary"
+      data-testid="cart-mobile-reassurance"
+      aria-label={t("cart.reassurance.label")}
+      dir={dir}
+    >
+      <div className="mx-auto grid max-w-content grid-cols-2 gap-3">
+        <div className="flex min-w-0 items-center justify-center gap-2 text-center text-xs leading-snug">
+          <Camera className="h-4 w-4 shrink-0 text-primary/80" strokeWidth={1.7} aria-hidden="true" />
+          <span>{t("cart.reassurance.photoBeforeDelivery")}</span>
+        </div>
+        <div className="flex min-w-0 items-center justify-center gap-2 text-center text-xs leading-snug">
+          <MessageCircle className="h-4 w-4 shrink-0 text-primary/80" strokeWidth={1.7} aria-hidden="true" />
+          <span>{t("cart.reassurance.whatsappUpdates")}</span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function MobileCartLegalLinks({
+  t,
+  language,
+  countryCode,
+  cityId,
+}: {
+  t: (key: string, vars?: Record<string, string | number>) => string;
+  language: "en" | "ar" | "fr" | "el";
+  countryCode: string | null | undefined;
+  cityId: string | null | undefined;
+}) {
+  const hrefFor = (path: string) =>
+    cityHref(path, {
+      language,
+      countryCode,
+      cityId,
+      fallbackToHub: true,
+    });
+
+  return (
+    <nav
+      className="mt-4 flex flex-wrap items-center justify-center gap-x-1 text-center text-xs text-muted-foreground lg:hidden"
+      data-testid="cart-mobile-legal-links"
+      aria-label={t("cart.reassurance.legalLabel")}
+    >
+      <Link
+        href={hrefFor("/terms")}
+        data-testid="cart-mobile-terms"
+        className="inline-flex min-h-11 items-center px-2 underline-offset-4 hover:text-primary hover:underline"
+      >
+        {t("footer.terms")}
+      </Link>
+      <span aria-hidden="true">·</span>
+      <Link
+        href={hrefFor("/privacy")}
+        data-testid="cart-mobile-privacy"
+        className="inline-flex min-h-11 items-center px-2 underline-offset-4 hover:text-primary hover:underline"
+      >
+        {t("footer.privacy")}
+      </Link>
+      <span aria-hidden="true">·</span>
+      <Link
+        href={hrefFor("/contact")}
+        data-testid="cart-mobile-contact"
+        className="inline-flex min-h-11 items-center px-2 underline-offset-4 hover:text-primary hover:underline"
+      >
+        {t("footer.contactUs")}
+      </Link>
+    </nav>
   );
 }
 
@@ -1035,29 +1123,39 @@ export default function Cart() {
   const previewCardFrom = cardFrom;
 
   if (!isHydrated) {
-    return <CartSkeleton />;
+    return <CartSkeleton t={t} dir={dir} />;
   }
 
   if (itemCount === 0) {
     return (
-      <div className="min-h-[70vh] bg-gray-100 pt-32 pb-24 flex flex-col items-center justify-center container mx-auto px-page">
-        <div className="w-24 h-24 bg-secondary/50 rounded-full flex items-center justify-center mb-8 text-primary/40">
-          <ShoppingCart className="w-10 h-10" />
+      <div className="min-h-[70vh] bg-gray-100">
+        <MobileCartReassurance t={t} dir={dir} />
+        <div className="container mx-auto flex flex-col items-center justify-center px-page pb-12 pt-32">
+          <div className="w-24 h-24 bg-secondary/50 rounded-full flex items-center justify-center mb-8 text-primary/40">
+            <ShoppingCart className="w-10 h-10" />
+          </div>
+          <h1 className="text-3xl font-serif mb-4">{t("cart.empty.title")}</h1>
+          <p className="text-muted-foreground mb-8 max-w-md text-center">
+            {t("cart.empty.desc")}
+          </p>
+          <Button asChild size="lg" className="rounded-full px-8">
+            <Link href="/shop">{t("cart.empty.cta")}</Link>
+          </Button>
+          <MobileCartLegalLinks
+            t={t}
+            language={language}
+            countryCode={countryCode}
+            cityId={locationCity?.id}
+          />
         </div>
-        <h1 className="text-3xl font-serif mb-4">{t("cart.empty.title")}</h1>
-        <p className="text-muted-foreground mb-8 max-w-md text-center">
-          {t("cart.empty.desc")}
-        </p>
-        <Button asChild size="lg" className="rounded-full px-8">
-          <Link href="/shop">{t("cart.empty.cta")}</Link>
-        </Button>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 pt-6 pb-32 lg:pb-24">
-      <div className="container mx-auto px-page max-w-content">
+    <div className="min-h-screen bg-gray-100 pb-32 lg:pb-24">
+      <MobileCartReassurance t={t} dir={dir} />
+      <div className="container mx-auto max-w-content px-page pt-6">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_26.4rem] gap-x-12 gap-y-6">
           {/* Cart Items – heading + banner + items. The heading lives inside
               the grid's first row so the sidebar (col 2, row 1) top-aligns
@@ -1659,6 +1757,12 @@ export default function Cart() {
             </div>
           </div>
         </div>
+        <MobileCartLegalLinks
+          t={t}
+          language={language}
+          countryCode={countryCode}
+          cityId={locationCity?.id}
+        />
       </div>
 
       {/* Sticky bottom bar – visible on mobile only; desktop uses the sidebar button */}

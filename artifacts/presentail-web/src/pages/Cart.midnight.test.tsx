@@ -29,6 +29,7 @@ vi.mock("@/lib/analytics", () => ({
   trackEvent: vi.fn(),
   trackWebEvent: vi.fn(),
   trackWebEventOnce: vi.fn(),
+  umamiTrack: vi.fn(),
 }));
 
 vi.mock("wouter", () => ({

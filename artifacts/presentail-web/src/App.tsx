@@ -68,6 +68,7 @@ import { ProductDetailSkeleton } from "@/components/skeletons/ProductDetailSkele
 import { CheckoutSkeleton } from "@/components/skeletons/CheckoutSkeleton";
 import { AccountSkeleton } from "@/components/skeletons/AccountSkeleton";
 import { HeaderSkeleton } from "@/components/skeletons/HeaderSkeleton";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 function withSuspense<P extends object>(
   Component: React.ComponentType<P>,
@@ -338,17 +339,20 @@ export function getShopShellChrome(path: string) {
     // regular header.
     useLandingHeader: isFlowerDeliveryCampaign,
     useLandingFooter: isFlowerDeliveryCampaign || isLateNightCampaign,
+    isCartRoute: pathname.endsWith("/cart"),
   };
 }
 
 function ShopShell() {
   const [path] = useLocation();
+  const isMobile = useIsMobile();
   const isCheckoutPage =
     path.endsWith("/checkout") ||
     path.endsWith("/order-confirmed") ||
     path.endsWith("/checkout/payment-resume") ||
     path.includes("/checkout/payment-resume?");
-  const { useLandingHeader, useLandingFooter } = getShopShellChrome(path);
+  const { useLandingHeader, useLandingFooter, isCartRoute } = getShopShellChrome(path);
+  const hideGlobalFooter = isCartRoute && isMobile;
   return (
     <LocationPickerGate>
       <ScrollToTop />
@@ -425,7 +429,7 @@ function ShopShell() {
           </Switch>
           </RouteErrorBoundary>
         </main>
-        {!isCheckoutPage && (
+        {!isCheckoutPage && !hideGlobalFooter && (
           <Suspense fallback={null}>
             {useLandingFooter ? <LandingPageFooter /> : <Footer />}
           </Suspense>

@@ -35,6 +35,7 @@ Object.defineProperty(window, "matchMedia", {
 vi.mock("@/lib/analytics", () => ({
   trackEvent: vi.fn(),
   trackWebEvent: vi.fn(),
+  umamiTrack: vi.fn(),
 }));
 
 // Capture the mock setter so tests can assert it was called.
@@ -260,6 +261,80 @@ describe("Cart — Proceed to Checkout button", () => {
     expect(mockSetLocation).not.toHaveBeenCalledWith("/checkout");
     expect(mockDialogProps.open).toBe(false);
     expect(screen.queryByTestId("mock-login-dialog")).toBeNull();
+  });
+});
+
+describe("Cart — focused mobile chrome", () => {
+  beforeEach(() => {
+    vi.mocked(useDeliveryConfig).mockReturnValue(DELIVERY_CONFIG_WITH_FEE);
+    mockUseDeliverySelection.mockReturnValue({
+      mode: "schedule",
+      date: null,
+      slotLabel: null,
+      hasSelection: false,
+      setSelection: vi.fn(),
+      clear: vi.fn(),
+    });
+  });
+
+  it.each([
+    ["en", "ltr", "Photo before delivery", "WhatsApp updates"],
+    ["fr", "ltr", "Photo avant livraison", "Mises à jour WhatsApp"],
+    ["ar", "rtl", "صورة قبل التوصيل", "تحديثات عبر واتساب"],
+    ["el", "ltr", "Φωτογραφία πριν την παράδοση", "Ενημερώσεις WhatsApp"],
+  ] as const)("renders reassurance copy and direction for %s", (language, dir, photoCopy, whatsappCopy) => {
+    const translations: Record<string, string> = {
+      "cart.reassurance.label": "Order reassurance",
+      "cart.reassurance.photoBeforeDelivery": photoCopy,
+      "cart.reassurance.whatsappUpdates": whatsappCopy,
+      "cart.reassurance.legalLabel": "Cart support and legal links",
+    };
+    renderWithProviders(<Cart />, {
+      auth: { user: null, isLoading: false, token: null },
+      cart: CART_WITH_ITEM,
+      currency: CURRENCY_FIXTURE,
+      locale: {
+        language,
+        dir,
+        t: (key) => translations[key] ?? key,
+      },
+    });
+
+    const reassurance = screen.getByTestId("cart-mobile-reassurance");
+    expect(reassurance.className).toContain("lg:hidden");
+    expect(reassurance.getAttribute("dir")).toBe(dir);
+    expect(reassurance.textContent).toContain(photoCopy);
+    expect(reassurance.textContent).toContain(whatsappCopy);
+  });
+
+  it("uses locale- and city-aware destinations for the mobile support/legal row", () => {
+    renderWithProviders(<Cart />, {
+      auth: { user: null, isLoading: false, token: null },
+      cart: CART_WITH_ITEM,
+      currency: CURRENCY_FIXTURE,
+      locale: { language: "fr" },
+    });
+
+    const legal = screen.getByTestId("cart-mobile-legal-links");
+    expect(legal.className).toContain("lg:hidden");
+    expect(screen.getByTestId("cart-mobile-terms").getAttribute("href")).toBe("~/fr-lb/beirut/terms");
+    expect(screen.getByTestId("cart-mobile-privacy").getAttribute("href")).toBe("~/fr-lb/beirut/privacy");
+    expect(screen.getByTestId("cart-mobile-contact").getAttribute("href")).toBe("~/fr-lb/beirut/contact");
+    for (const id of ["cart-mobile-terms", "cart-mobile-privacy", "cart-mobile-contact"]) {
+      expect(screen.getByTestId(id).className).toContain("min-h-11");
+    }
+  });
+
+  it("keeps the focused cart chrome on the empty-cart state", () => {
+    renderWithProviders(<Cart />, {
+      auth: { user: null, isLoading: false, token: null },
+      cart: { items: [], itemCount: 0, subtotal: 0, isHydrated: true },
+      currency: CURRENCY_FIXTURE,
+    });
+
+    expect(screen.getByTestId("cart-mobile-reassurance")).toBeTruthy();
+    expect(screen.getByTestId("cart-mobile-legal-links")).toBeTruthy();
+    expect(screen.queryByTestId("link-proceed-to-checkout-sticky")).toBeNull();
   });
 });
 
