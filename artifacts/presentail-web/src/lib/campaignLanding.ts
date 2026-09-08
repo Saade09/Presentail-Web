@@ -74,12 +74,128 @@ const NON_FLOWER_CATEGORY_SET = new Set([
   "gift-cards",
 ]);
 
-export type CampaignCatalogProduct = HomepageBestSellerProduct;
+export type CampaignCatalogProduct = HomepageBestSellerProduct & {
+  /** Optional availability flags retained when the catalog API provides them. */
+  available?: boolean;
+  availableToday?: boolean;
+  deliverable?: boolean;
+  deliverableCities?: string[];
+  deliverableCountries?: string[];
+  isPublished?: boolean;
+  published?: boolean;
+  sameDayEnabled?: boolean;
+};
+
+export const CAMPAIGN_QUICK_FILTER_QUERY_PARAM = "quick_filter";
+
+export const CAMPAIGN_QUICK_FILTER_KEYS = [
+  "available-today",
+  "under-60",
+  "50-100",
+  "roses",
+  "luxury",
+  "best-sellers",
+] as const;
+
+export type CampaignQuickFilterKey = (typeof CAMPAIGN_QUICK_FILTER_KEYS)[number];
+
+const CAMPAIGN_QUICK_FILTER_KEY_SET = new Set<string>(CAMPAIGN_QUICK_FILTER_KEYS);
+const ROSE_CATEGORY_ALIASES = new Set([
+  "rose",
+  "roses",
+  "roses-bouquets",
+  "roses-lebanon",
+  "red-roses",
+]);
+
+type CampaignProductEligibility = CampaignCatalogProduct;
 
 export type CampaignCatalogSections = {
   flowers: CampaignCatalogProduct[];
   luxury: CampaignCatalogProduct[];
 };
+
+export function parseCampaignQuickFilter(search: string): CampaignQuickFilterKey {
+  const value = new URLSearchParams(search).get(CAMPAIGN_QUICK_FILTER_QUERY_PARAM);
+  return CAMPAIGN_QUICK_FILTER_KEY_SET.has(value ?? "")
+    ? (value as CampaignQuickFilterKey)
+    : "available-today";
+}
+
+export function serializeCampaignQuickFilter(
+  search: string,
+  filter: CampaignQuickFilterKey,
+): string {
+  const params = new URLSearchParams(search);
+  params.set(CAMPAIGN_QUICK_FILTER_QUERY_PARAM, filter);
+  const serialized = params.toString();
+  return serialized ? `?${serialized}` : "";
+}
+
+export function getCampaignActiveSellingPrice(product: CampaignCatalogProduct): number {
+  const regularPrice = Number(product.priceValue);
+  const salePrice = Number(product.discountPriceValue);
+  return Number.isFinite(salePrice) && salePrice > 0 && salePrice < regularPrice
+    ? salePrice
+    : regularPrice;
+}
+
+function isDeliverableToCampaignLocation(
+  product: CampaignProductEligibility,
+  countryCode?: string | null,
+  cityId?: string | null,
+): boolean {
+  if (product.deliverable === false) return false;
+  if (product.published === false || product.isPublished === false) return false;
+  if (product.available === false || product.availableToday === false) return false;
+  if (product.sameDayEnabled === false) return false;
+
+  if (
+    countryCode &&
+    product.deliverableCountries &&
+    product.deliverableCountries.length > 0 &&
+    !product.deliverableCountries.some((country) => country.toUpperCase() === countryCode.toUpperCase())
+  ) {
+    return false;
+  }
+  if (cityId && product.deliverableCities && product.deliverableCities.length > 0) {
+    const normalizedCityId = cityId.toLowerCase();
+    const bareCitySlug = normalizedCityId.replace(/^[a-z]{2}-/, "");
+    return product.deliverableCities.some((city) => {
+      const normalized = city.toLowerCase();
+      return normalized === normalizedCityId || normalized === bareCitySlug;
+    });
+  }
+  return true;
+}
+
+export function filterCampaignProducts(
+  products: CampaignCatalogProduct[],
+  filter: CampaignQuickFilterKey,
+  options: { countryCode?: string | null; cityId?: string | null } = {},
+): CampaignCatalogProduct[] {
+  const seen = new Set<string>();
+  return products.filter((rawProduct) => {
+    const product = rawProduct as CampaignProductEligibility;
+    if (seen.has(product.id) || !product.inStock) return false;
+    if (!isDeliverableToCampaignLocation(product, options.countryCode, options.cityId)) {
+      return false;
+    }
+
+    const categories = product.categories.map((category) => category.toLowerCase());
+    const activePrice = getCampaignActiveSellingPrice(product);
+    const matches =
+      filter === "available-today" ||
+      (filter === "under-60" && activePrice < 60) ||
+      (filter === "50-100" && activePrice >= 50 && activePrice <= 100) ||
+      (filter === "roses" && categories.some((category) => ROSE_CATEGORY_ALIASES.has(category))) ||
+      (filter === "luxury" && categories.includes(CAMPAIGN_LUXURY_CATEGORY_SLUG)) ||
+      (filter === "best-sellers" && product.isBestSeller === true);
+    if (!matches) return false;
+    seen.add(product.id);
+    return true;
+  });
+}
 
 export function isTargetCampaignCity(
   cityId: string | null | undefined,

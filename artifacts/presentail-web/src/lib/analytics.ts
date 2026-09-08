@@ -126,7 +126,8 @@ type WebEventType =
   | "saved_address_chooser_cancelled"
   | "saved_address_confirmed"
   | "saved_address_edit_clicked"
-  | "saved_address_add_clicked";
+  | "saved_address_add_clicked"
+  | "quick_shop_filter_select";
 
 export type WebEventItem = {
   productId: string;

@@ -117,9 +117,43 @@ export const campaignStrings: Dict = {
     ar: "الأسعار معروضة بعملة {currency}",
   },
   "campaign.redesign.flowers.title": { en: "Flowers", ar: "الزهور" },
+  "campaign.redesign.flowers.titleQuickShop": {
+    en: "Flowers available today",
+    ar: "الزهور المتاحة اليوم",
+  },
   "campaign.redesign.flowers.subtitle": {
     en: "Fresh arrangements ready to deliver today",
     ar: "تنسيقات زهور طازجة جاهزة للتوصيل اليوم",
+  },
+  "campaign.redesign.quickFilters.ariaLabel": {
+    en: "Quick shopping filters",
+    ar: "فلاتر التسوق السريع",
+  },
+  "campaign.redesign.quickFilters.availableToday": {
+    en: "Available today",
+    ar: "متاح اليوم",
+  },
+  "campaign.redesign.quickFilters.under60": {
+    en: "Under $60",
+    ar: "أقل من 60 دولاراً",
+  },
+  "campaign.redesign.quickFilters.priceRange": {
+    en: "$50–$100",
+    ar: "50–100 دولار",
+  },
+  "campaign.redesign.quickFilters.roses": { en: "Roses", ar: "ورود" },
+  "campaign.redesign.quickFilters.luxury": { en: "Luxury", ar: "فاخر" },
+  "campaign.redesign.quickFilters.bestSellers": {
+    en: "Best sellers",
+    ar: "الأكثر مبيعاً",
+  },
+  "campaign.redesign.quickFilters.empty": {
+    en: "No flowers match this filter right now.",
+    ar: "لا توجد زهور تطابق هذا الفلتر حالياً.",
+  },
+  "campaign.redesign.quickFilters.reset": {
+    en: "Show available today",
+    ar: "عرض المتاح اليوم",
   },
   "campaign.redesign.luxury.title": {
     en: "Luxury Arrangements",
@@ -585,7 +619,17 @@ export const campaignStringsFr: Record<string, string> = {
   "campaign.redesign.countdown.minutes": "Commandez dans {m} min pour une livraison aujourd'hui",
   "campaign.redesign.status.currency": "Prix affichés en {currency}",
   "campaign.redesign.flowers.title": "Fleurs",
+  "campaign.redesign.flowers.titleQuickShop": "Fleurs disponibles aujourd'hui",
   "campaign.redesign.flowers.subtitle": "Compositions fraîches prêtes à être livrées aujourd'hui",
+  "campaign.redesign.quickFilters.ariaLabel": "Filtres d'achat rapide",
+  "campaign.redesign.quickFilters.availableToday": "Disponibles aujourd'hui",
+  "campaign.redesign.quickFilters.under60": "Moins de 60 $",
+  "campaign.redesign.quickFilters.priceRange": "50–100 $",
+  "campaign.redesign.quickFilters.roses": "Roses",
+  "campaign.redesign.quickFilters.luxury": "Luxe",
+  "campaign.redesign.quickFilters.bestSellers": "Meilleures ventes",
+  "campaign.redesign.quickFilters.empty": "Aucune fleur ne correspond à ce filtre pour le moment.",
+  "campaign.redesign.quickFilters.reset": "Voir les fleurs disponibles aujourd'hui",
   "campaign.redesign.luxury.title": "Compositions de luxe",
   "campaign.redesign.luxury.subtitle": "Des créations remarquables pour des moments inoubliables",
   "campaign.redesign.viewAll": "Voir tout",
@@ -773,4 +817,16 @@ export const campaignStringsEl: Record<string, string> = {
   "campaign.v2.reviews.readAll": "Διαβάστε όλες τις κριτικές",
   "campaign.v2.reviews.aggregate": "4,8 στα 5 από 1.240 επαληθευμένες κριτικές στο Trustpilot",
   "campaign.v2.reviews.fiveStars": "5 στα 5 αστέρια",
+
+  // ── Beirut quick-shop filters (lb-beirut only — Cyprus fallback stubs) ──────
+  "campaign.redesign.flowers.titleQuickShop": "Λουλούδια διαθέσιμα σήμερα",
+  "campaign.redesign.quickFilters.ariaLabel": "Φίλτρα γρήγορης αγοράς",
+  "campaign.redesign.quickFilters.availableToday": "Διαθέσιμο σήμερα",
+  "campaign.redesign.quickFilters.under60": "Κάτω από $60",
+  "campaign.redesign.quickFilters.priceRange": "$50–$100",
+  "campaign.redesign.quickFilters.roses": "Τριαντάφυλλα",
+  "campaign.redesign.quickFilters.luxury": "Πολυτέλεια",
+  "campaign.redesign.quickFilters.bestSellers": "Bestsellers",
+  "campaign.redesign.quickFilters.empty": "Κανένα λουλούδι δεν ταιριάζει με αυτό το φίλτρο αυτήν τη στιγμή.",
+  "campaign.redesign.quickFilters.reset": "Εμφάνιση διαθέσιμων σήμερα",
 };

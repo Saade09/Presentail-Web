@@ -3,9 +3,13 @@ import type { CampaignCatalogProduct } from "./campaignLanding";
 import {
   buildCampaignSupportUrl,
   computeCountdownMinutes,
+  filterCampaignProducts,
+  getCampaignActiveSellingPrice,
   getCampaignMarket,
   isTargetCampaignCity,
+  parseCampaignQuickFilter,
   resolveCampaignAvailability,
+  serializeCampaignQuickFilter,
   selectCampaignCatalogSections,
 } from "./campaignLanding";
 
@@ -76,6 +80,75 @@ describe("CPC flower campaign catalog filtering", () => {
       "popular",
       "less-popular",
     ]);
+  });
+
+  it("uses the active sale price with strict and inclusive price boundaries", () => {
+    const sale = product("sale", ["flowers"], {
+      priceValue: 75,
+      discountPriceValue: 59,
+    });
+    expect(getCampaignActiveSellingPrice(sale)).toBe(59);
+    expect(filterCampaignProducts([sale], "under-60")).toHaveLength(1);
+
+    const exactlySixty = product("sixty", ["flowers"], {
+      priceValue: 80,
+      discountPriceValue: 60,
+    });
+    expect(filterCampaignProducts([exactlySixty], "under-60")).toHaveLength(0);
+
+    const rangeProducts = [
+      product("fifty", ["flowers"], { priceValue: 50 }),
+      product("hundred", ["flowers"], { priceValue: 100 }),
+      product("over", ["flowers"], { priceValue: 100.01 }),
+    ];
+    expect(filterCampaignProducts(rangeProducts, "50-100").map((p) => p.id)).toEqual([
+      "fifty",
+      "hundred",
+    ]);
+  });
+
+  it("uses category aliases, collection metadata, ranking metadata, and location eligibility", () => {
+    const products = [
+      product("rose-alias", ["roses-lebanon"], { deliverableCities: ["beirut"] }),
+      product("luxury", ["lux-arrangements"], { deliverableCities: ["lb-beirut"] }),
+      product("best", ["flowers"], { isBestSeller: true, deliverableCountries: ["LB"] }),
+      product("wrong-city", ["roses"], { deliverableCities: ["tripoli"] }),
+      product("sold-out", ["roses"], { inStock: false }),
+      product("not-today", ["roses"], { sameDayEnabled: false }),
+    ];
+
+    expect(filterCampaignProducts(products, "roses", {
+      countryCode: "LB",
+      cityId: "lb-beirut",
+    }).map((p) => p.id)).toEqual(["rose-alias"]);
+    expect(filterCampaignProducts(products, "luxury", {
+      countryCode: "LB",
+      cityId: "lb-beirut",
+    }).map((p) => p.id)).toEqual(["luxury"]);
+    expect(filterCampaignProducts(products, "best-sellers", {
+      countryCode: "LB",
+      cityId: "lb-beirut",
+    }).map((p) => p.id)).toEqual(["best"]);
+    expect(filterCampaignProducts(products, "available-today", {
+      countryCode: "LB",
+      cityId: "lb-beirut",
+    }).map((p) => p.id)).toEqual(["rose-alias", "luxury", "best"]);
+  });
+});
+
+describe("CPC flower campaign quick-filter URL state", () => {
+  it("defaults safely and preserves every unrelated query parameter", () => {
+    expect(parseCampaignQuickFilter("?utm_campaign=beirut")).toBe("available-today");
+    expect(parseCampaignQuickFilter("?quick_filter=unknown")).toBe("available-today");
+    const next = serializeCampaignQuickFilter(
+      "?utm_campaign=beirut&gclid=test&currency=USD",
+      "50-100",
+    );
+    const params = new URLSearchParams(next);
+    expect(params.get("quick_filter")).toBe("50-100");
+    expect(params.get("utm_campaign")).toBe("beirut");
+    expect(params.get("gclid")).toBe("test");
+    expect(params.get("currency")).toBe("USD");
   });
 });
 

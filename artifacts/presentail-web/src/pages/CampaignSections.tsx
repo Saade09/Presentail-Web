@@ -16,7 +16,12 @@ import {
 import { trackEvent } from "@/lib/analytics";
 import { fireGtagEvent } from "@/lib/gtag";
 import { CAMPAIGN_SECTION_KEY } from "@/lib/campaign";
-import { type CampaignCatalogProduct, type CampaignAvailabilityState } from "@/lib/campaignLanding";
+import {
+  type CampaignCatalogProduct,
+  type CampaignAvailabilityState,
+  type CampaignQuickFilterKey,
+  CAMPAIGN_QUICK_FILTER_KEYS,
+} from "@/lib/campaignLanding";
 import {
   CircularCollectionCarousel,
   type CircularCarouselItem,
@@ -30,16 +35,24 @@ function CampaignProductCard({
   index,
   availabilityState,
   currencyCodeOverride,
+  productQuery,
   onClickCapture,
 }: {
   product: CampaignCatalogProduct;
   index: number;
   availabilityState?: CampaignAvailabilityState;
   currencyCodeOverride?: string;
+  productQuery?: string;
   onClickCapture: () => void;
 }) {
   const { language, t } = useLocale();
   const { city } = useLocationSelection();
+  const productSearch =
+    productQuery && productQuery.length > 0
+      ? productQuery.startsWith("?")
+        ? productQuery
+        : `?${productQuery}`
+      : "";
   const imageUrl = product.image?.uri;
 
   const fallbackTile = (
@@ -56,7 +69,7 @@ function CampaignProductCard({
       data-testid={`campaign-card-${product.id}`}
       onClickCapture={onClickCapture}
     >
-      <Link href={`/product/${product.id}`}>
+      <Link href={`/product/${product.id}${productSearch}`}>
         <div className="relative aspect-square overflow-hidden rounded-xl bg-stone-100 mb-2.5">
           {imageUrl ? (
             <ProductImage
@@ -110,6 +123,60 @@ function CampaignProductCard({
 
 export const GRID_SIZE = 8;
 
+export function CampaignQuickFilters({
+  activeFilter,
+  onSelect,
+}: {
+  activeFilter: CampaignQuickFilterKey;
+  onSelect: (filter: CampaignQuickFilterKey) => void;
+}) {
+  const { t } = useLocale();
+  const labels: Record<CampaignQuickFilterKey, string> = {
+    "available-today": t("campaign.redesign.quickFilters.availableToday"),
+    "under-60": t("campaign.redesign.quickFilters.under60"),
+    "50-100": t("campaign.redesign.quickFilters.priceRange"),
+    roses: t("campaign.redesign.quickFilters.roses"),
+    luxury: t("campaign.redesign.quickFilters.luxury"),
+    "best-sellers": t("campaign.redesign.quickFilters.bestSellers"),
+  };
+
+  return (
+    <div
+      className="relative mb-5"
+      role="group"
+      aria-label={t("campaign.redesign.quickFilters.ariaLabel")}
+      data-testid="campaign-quick-filters"
+    >
+      <div className="flex min-w-0 gap-2 overflow-x-auto overscroll-x-contain pe-5 [scrollbar-width:none] md:overflow-visible md:pe-0 [&::-webkit-scrollbar]:hidden">
+        {CAMPAIGN_QUICK_FILTER_KEYS.map((filter) => {
+          const selected = activeFilter === filter;
+          return (
+            <button
+              key={filter}
+              type="button"
+              aria-pressed={selected}
+              data-selected={selected ? "true" : "false"}
+              data-testid={`campaign-quick-filter-${filter}`}
+              onClick={() => onSelect(filter)}
+              className={`min-h-11 shrink-0 whitespace-nowrap rounded-full border px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00414e] focus-visible:ring-offset-2 ${
+                selected
+                  ? "border-[#00414e] bg-[#00414e] text-white"
+                  : "border-[#c8d3cf] bg-white text-[#16434a] hover:border-[#00414e] hover:bg-[#f4f8f5]"
+              }`}
+            >
+              {labels[filter]}
+            </button>
+          );
+        })}
+      </div>
+      <div
+        className="pointer-events-none absolute inset-y-0 end-0 w-10 bg-gradient-to-l from-[#fffdf8] to-transparent md:hidden"
+        aria-hidden="true"
+      />
+    </div>
+  );
+}
+
 export function CampaignGrid({
   section,
   title,
@@ -123,6 +190,12 @@ export function CampaignGrid({
   currencyCodeOverride,
   onViewAll,
   compactTop,
+  activeQuickFilter,
+  onQuickFilterSelect,
+  productQuery,
+  emptyMessage,
+  emptyActionText,
+  onEmptyReset,
 }: {
   section: "flowers" | "luxury";
   title: string;
@@ -136,6 +209,12 @@ export function CampaignGrid({
   currencyCodeOverride?: string;
   onViewAll?: () => void;
   compactTop?: boolean;
+  activeQuickFilter?: CampaignQuickFilterKey;
+  onQuickFilterSelect?: (filter: CampaignQuickFilterKey) => void;
+  productQuery?: string;
+  emptyMessage?: string;
+  emptyActionText?: string;
+  onEmptyReset?: () => void;
 }) {
   const { t } = useLocale();
   const displayProducts = products.slice(0, GRID_SIZE);
@@ -182,6 +261,13 @@ export function CampaignGrid({
         </p>
       )}
 
+      {activeQuickFilter && onQuickFilterSelect && (
+        <CampaignQuickFilters
+          activeFilter={activeQuickFilter}
+          onSelect={onQuickFilterSelect}
+        />
+      )}
+
       {isLoading ? (
         <div className="grid grid-cols-2 min-[760px]:grid-cols-3 min-[1080px]:grid-cols-4 gap-3 md:gap-5">
           {Array.from({ length: GRID_SIZE }).map((_, i) => (
@@ -202,6 +288,7 @@ export function CampaignGrid({
               index={i}
               availabilityState={availabilityState}
               currencyCodeOverride={currencyCodeOverride}
+              productQuery={productQuery}
               onClickCapture={() => {
                 trackEvent({
                   name: "product_card_click",
@@ -223,7 +310,16 @@ export function CampaignGrid({
           className="rounded-2xl border border-[#d9dfd8] bg-white px-5 py-8 text-center text-sm text-[#577075]"
           data-testid={`campaign-grid-empty-${section}`}
         >
-          {t("campaign.redesign.empty")}
+          <p>{emptyMessage ?? t("campaign.redesign.empty")}</p>
+          {onEmptyReset && emptyActionText && (
+            <button
+              type="button"
+              onClick={onEmptyReset}
+              className="mt-4 min-h-11 rounded-full border border-[#00414e] px-4 text-sm font-semibold text-[#00414e] hover:bg-[#f4f8f5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00414e] focus-visible:ring-offset-2"
+            >
+              {emptyActionText}
+            </button>
+          )}
         </div>
       )}
     </section>

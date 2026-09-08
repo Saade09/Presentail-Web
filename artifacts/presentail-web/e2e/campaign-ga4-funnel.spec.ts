@@ -245,7 +245,12 @@ test.describe("campaign landing — target market structure", () => {
       await expect(page.getByTestId("link-campaign-support")).toHaveText(
         "Need help choosing? Chat with a support agent",
       );
-      await expect(page.getByRole("heading", { name: "Flowers", exact: true })).toBeVisible();
+      await expect(
+        page.getByRole("heading", {
+          name: market.cityId === "lb-beirut" ? "Flowers available today" : "Flowers",
+          exact: true,
+        }),
+      ).toBeVisible();
       await expect(
         page.getByText("Fresh arrangements ready to deliver today", { exact: true }),
       ).toBeVisible();
@@ -265,6 +270,48 @@ test.describe("campaign landing — target market structure", () => {
       await expect(page.locator('[data-testid^="campaign-card-"]')).toHaveCount(2);
     });
   }
+
+  test("Beirut quick filters preserve ad parameters through selection and product links", async ({
+    page,
+  }) => {
+    await seedCampaignMarket(page, { countryCode: "LB", cityId: "lb-beirut" });
+    await page.goto(
+      "/en-lb/beirut/flower-delivery?gclid=QUICK_FILTER_TEST&utm_campaign=beirut-flowers",
+    );
+
+    const filters = page.getByTestId("campaign-quick-filters");
+    await expect(filters).toBeVisible();
+    await expect(filters.getByRole("button")).toHaveCount(6);
+    await expect(page.getByTestId("campaign-quick-filter-available-today")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    await page.getByTestId("campaign-quick-filter-best-sellers").click();
+    await expect(page).toHaveURL(/quick_filter=best-sellers/);
+    await expect(page.getByTestId("campaign-quick-filter-best-sellers")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(page.getByTestId("campaign-quick-filter-available-today")).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+
+    const productHref = await page
+      .getByTestId("campaign-card-classic-lb-beirut")
+      .getByRole("link")
+      .getAttribute("href");
+    expect(productHref).toContain("quick_filter=best-sellers");
+    expect(productHref).toContain("gclid=QUICK_FILTER_TEST");
+    expect(productHref).toContain("utm_campaign=beirut-flowers");
+
+    await page.reload();
+    await expect(page.getByTestId("campaign-quick-filter-best-sellers")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
 
   test("Arabic keeps the localized copy and RTL direction", async ({ page }) => {
     await seedCampaignMarket(page, { countryCode: "AE", cityId: "ae-dubai" });

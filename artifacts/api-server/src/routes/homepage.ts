@@ -971,6 +971,8 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
   const store = resolveStoreFromRequest(req);
   const countryCode =
     typeof req.query.countryCode === "string" ? req.query.countryCode.toUpperCase() : null;
+  const cityId =
+    typeof req.query.cityId === "string" ? req.query.cityId.trim().toLowerCase() : null;
   const currencySymbol = store.currencySymbol ?? "$";
   const categorySlug = typeof req.query.categorySlug === "string" ? req.query.categorySlug.trim() : null;
   const occasionSlug = typeof req.query.occasionSlug === "string" ? req.query.occasionSlug.trim() : null;
@@ -983,7 +985,7 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
   const filterSlug = (categorySlug ?? occasionSlug)!;
   const collLang = typeof req.query.lang === "string" ? req.query.lang.toLowerCase() : "en";
 
-  const cacheKey = `${filterKind}:${filterSlug}::${store.storeKey}::${countryCode ?? ""}::${currencySymbol}`;
+  const cacheKey = `${filterKind}:${filterSlug}::${store.storeKey}::${countryCode ?? ""}::${cityId ?? ""}::${currencySymbol}`;
   const now = Date.now();
   const cached = collectionBestSellersCache.get(cacheKey);
   if (cached && now - cached.fetchedAt < COLLECTION_TTL_MS) {
@@ -1039,9 +1041,30 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
     );
   });
 
+  function isDeliverableToRequestedLocation(p: (typeof osProducts)[number]): boolean {
+    if (
+      countryCode &&
+      p.deliverableCountries &&
+      p.deliverableCountries.length > 0 &&
+      !p.deliverableCountries.some((c) => c.toUpperCase() === countryCode)
+    ) {
+      return false;
+    }
+    if (cityId && p.deliverableCities && p.deliverableCities.length > 0) {
+      const bareCitySlug = cityId.replace(/^[a-z]{2}-/, "");
+      return p.deliverableCities.some((c) => {
+        const normalized = c.toLowerCase();
+        return normalized === cityId || normalized === bareCitySlug;
+      });
+    }
+    return true;
+  }
+
+  const deliverableOsProducts = filteredOsProducts.filter(isDeliverableToRequestedLocation);
+
   // Build a normalised-name → OS product map from the *filtered* set only.
-  const osProductByName = new Map(filteredOsProducts.map((p) => [p.name.toLowerCase().trim(), p]));
-  const filteredOsIds = new Set(filteredOsProducts.map((p) => p.id));
+  const osProductByName = new Map(deliverableOsProducts.map((p) => [p.name.toLowerCase().trim(), p]));
+  const filteredOsIds = new Set(deliverableOsProducts.map((p) => p.id));
 
   function formatPrice(usdValue: number): string {
     return currencySymbol.length > 1
@@ -1073,10 +1096,6 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
     const osP = osProductByName.get(key);
     if (!osP) continue; // only include products in this category/occasion
 
-    if (countryCode && osP.deliverableCountries && osP.deliverableCountries.length > 0) {
-      if (!osP.deliverableCountries.some((c) => c.toUpperCase() === countryCode)) continue;
-    }
-
     if (seen.has(osP.id)) continue;
     seen.add(osP.id);
 
@@ -1106,11 +1125,8 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
   }
 
   // Step 2: OS-only products in this collection (in-stock, not yet seen)
-  for (const osP of filteredOsProducts) {
+  for (const osP of deliverableOsProducts) {
     if (!osP.inStock) continue;
-    if (countryCode && osP.deliverableCountries && osP.deliverableCountries.length > 0) {
-      if (!osP.deliverableCountries.some((c) => c.toUpperCase() === countryCode)) continue;
-    }
     if (seen.has(osP.id)) continue;
     seen.add(osP.id);
 
@@ -1140,7 +1156,7 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
   }
 
   // Out-of-stock products in this collection, appended after in-stock ranked results
-  for (const osP of filteredOsProducts) {
+  for (const osP of deliverableOsProducts) {
     if (osP.inStock) continue;
     if (!filteredOsIds.has(osP.id)) continue;
     if (seen.has(osP.id)) continue;

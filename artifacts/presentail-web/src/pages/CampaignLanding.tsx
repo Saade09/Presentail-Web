@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueries } from "@tanstack/react-query";
+import { useLocation, useSearch } from "wouter";
 import { getGetHomepageCollectionBestSellersQueryOptions } from "@workspace/api-client-react";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -7,6 +8,7 @@ import { apiFetch } from "@/lib/api";
 import { trackEvent, trackWebEvent } from "@/lib/analytics";
 import { fireGtagEvent } from "@/lib/gtag";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
+import { readAttribution } from "@/lib/attribution";
 import {
   CAMPAIGN_SECTION_KEY,
   BIENVENUE_DIX_CODE,
@@ -17,12 +19,17 @@ import {
 } from "@/lib/campaign";
 import {
   buildCampaignSupportUrl,
+  CAMPAIGN_QUICK_FILTER_QUERY_PARAM,
   CAMPAIGN_QUERY_CATEGORY_SLUGS,
   getCampaignMarket,
   isTargetCampaignCity,
   resolveCampaignAvailability,
   computeCountdownMinutes,
+  filterCampaignProducts,
+  parseCampaignQuickFilter,
+  serializeCampaignQuickFilter,
   selectCampaignCatalogSections,
+  type CampaignQuickFilterKey,
   type CampaignCatalogProduct,
 } from "@/lib/campaignLanding";
 import { useIpDetectedCountry } from "@/lib/useIpDetectedCountry";
@@ -47,6 +54,31 @@ import {
 } from "@/pages/CampaignSections";
 import { TrustpilotCarousel } from "@/components/homepage/TrustpilotCarousel";
 import { CampaignLandingLegacy } from "./CampaignLandingLegacy";
+
+const ATTRIBUTION_QUERY_KEYS = [
+  "gclid",
+  "gbraid",
+  "wbraid",
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_id",
+  "utm_term",
+  "utm_content",
+] as const;
+
+function preserveCampaignAttribution(search: string): string {
+  const params = new URLSearchParams(search);
+  const attribution = readAttribution();
+  const touch = attribution?.last_touch ?? attribution?.first_touch;
+  if (touch) {
+    for (const key of ATTRIBUTION_QUERY_KEYS) {
+      if (!params.has(key) && touch[key]) params.set(key, touch[key]!);
+    }
+  }
+  const serialized = params.toString();
+  return serialized ? `?${serialized}` : "";
+}
 
 function fireCampaignEvent(
   name:
@@ -125,6 +157,8 @@ function CampaignLandingRedesign() {
   const { dir, cityName, language, t } = useLocale();
   const { currencyCode } = useDisplayCurrency();
   const { country: ipCountry, settled: ipSettled } = useIpDetectedCountry();
+  const [location, navigate] = useLocation();
+  const search = useSearch();
   const [now, setNow] = useState(() => new Date());
 
   const cityLabel = city ? cityName(city.id, city.name) : "";
@@ -267,6 +301,99 @@ function CampaignLandingRedesign() {
           city?.operationsConfigVerified === true,
       })
     : "unverified";
+  const quickFilterEnabled = cityId === "lb-beirut";
+  const activeQuickFilter = parseCampaignQuickFilter(search);
+  const currentBrowserSearch =
+    typeof window !== "undefined"
+      ? preserveCampaignAttribution(window.location.search)
+      : search;
+  useEffect(() => {
+    if (!quickFilterEnabled) return;
+    const rawFilter = new URLSearchParams(currentBrowserSearch).get(
+      CAMPAIGN_QUICK_FILTER_QUERY_PARAM,
+    );
+    if (rawFilter === activeQuickFilter) return;
+    navigate(
+      `${location}${serializeCampaignQuickFilter(currentBrowserSearch, activeQuickFilter)}`,
+      { replace: true },
+    );
+  }, [
+    activeQuickFilter,
+    currentBrowserSearch,
+    location,
+    navigate,
+    quickFilterEnabled,
+  ]);
+
+  const quickFilterProducts = useMemo(() => {
+    if (!quickFilterEnabled) return catalog.flowers;
+    const source = activeQuickFilter === "luxury" ? catalog.luxury : catalog.flowers;
+    return filterCampaignProducts(source, activeQuickFilter, {
+      countryCode,
+      cityId,
+    });
+  }, [
+    activeQuickFilter,
+    catalog.flowers,
+    catalog.luxury,
+    cityId,
+    countryCode,
+    quickFilterEnabled,
+  ]);
+
+  const googleAdsParams = (): Record<string, string> => {
+    if (typeof window === "undefined") return {};
+    const params = new URLSearchParams(window.location.search);
+    const result: Record<string, string> = {};
+    for (const key of [
+      "gclid",
+      "gbraid",
+      "wbraid",
+      "utm_source",
+      "utm_medium",
+      "utm_campaign",
+      "utm_id",
+      "utm_term",
+      "utm_content",
+    ]) {
+      const value = params.get(key);
+      if (value) result[key] = value;
+    }
+    return result;
+  };
+
+  const selectQuickFilter = (nextFilter: CampaignQuickFilterKey) => {
+    if (!quickFilterEnabled) return;
+    const previousFilter = activeQuickFilter;
+    const nextSearch = serializeCampaignQuickFilter(
+      typeof window !== "undefined"
+        ? preserveCampaignAttribution(window.location.search)
+        : search,
+      nextFilter,
+    );
+    const nextSource = nextFilter === "luxury" ? catalog.luxury : catalog.flowers;
+    const nextResultCount = filterCampaignProducts(nextSource, nextFilter, {
+      countryCode,
+      cityId,
+    }).length;
+    navigate(`${location}${nextSearch}`);
+    trackWebEvent({
+      type: "quick_shop_filter_select",
+      city: cityId ?? undefined,
+      properties: {
+        filter_name: nextFilter,
+        previous_filter: previousFilter,
+        selected_city: cityId,
+        selected_country: countryCode,
+        result_count: nextResultCount,
+        page_path:
+          typeof window !== "undefined" ? window.location.pathname : location,
+        ...(Object.keys(googleAdsParams()).length > 0
+          ? { google_ads_params: googleAdsParams() }
+          : {}),
+      },
+    });
+  };
   const availabilityText =
     availabilityState === "same-day" && city?.sameDayCutoffHour != null
       ? t("campaign.redesign.status.sameDay", {
@@ -366,15 +493,31 @@ function CampaignLandingRedesign() {
         <CampaignGrid
           id="campaign-flowers"
           section="flowers"
-          title={t("campaign.redesign.flowers.title")}
+          title={
+            quickFilterEnabled
+              ? t("campaign.redesign.flowers.titleQuickShop")
+              : t("campaign.redesign.flowers.title")
+          }
           sub={t("campaign.redesign.flowers.subtitle")}
           viewAllLink="/category/flowers"
           viewAllText={t("campaign.redesign.viewAll")}
-          products={catalog.flowers}
+          products={quickFilterEnabled ? quickFilterProducts : catalog.flowers}
           isLoading={catalogLoading}
           availabilityState={availabilityState}
           currencyCodeOverride={campaignCurrencyCode}
           compactTop
+          activeQuickFilter={quickFilterEnabled ? activeQuickFilter : undefined}
+          onQuickFilterSelect={quickFilterEnabled ? selectQuickFilter : undefined}
+          productQuery={quickFilterEnabled ? currentBrowserSearch : undefined}
+          emptyMessage={
+            quickFilterEnabled ? t("campaign.redesign.quickFilters.empty") : undefined
+          }
+          emptyActionText={
+            quickFilterEnabled ? t("campaign.redesign.quickFilters.reset") : undefined
+          }
+          onEmptyReset={
+            quickFilterEnabled ? () => selectQuickFilter("available-today") : undefined
+          }
           onViewAll={() => fireCampaignEvent("view_all_flowers")}
         />
       </div>

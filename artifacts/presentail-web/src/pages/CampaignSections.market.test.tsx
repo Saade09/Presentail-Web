@@ -3,7 +3,12 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LocaleContext, type Language } from "@/contexts/LocaleContext";
 import { campaignStrings } from "@/locales/campaign";
-import { CampaignFaq, CampaignSeoEditorial } from "./CampaignSections";
+import {
+  CampaignFaq,
+  CampaignQuickFilters,
+  CampaignSeoEditorial,
+} from "./CampaignSections";
+import type { CampaignQuickFilterKey } from "@/lib/campaignLanding";
 
 const mocks = vi.hoisted(() => ({
   cityId: "ae-dubai",
@@ -121,5 +126,42 @@ describe("UAE campaign FAQ and editorial copy", () => {
     expect(
       screen.getByRole("heading", { name: "توصيل الزهور في أبوظبي" }),
     ).toBeDefined();
+  });
+
+  it("renders the quick filters as one semantic, keyboard-operable group", () => {
+    const onSelect = vi.fn();
+    const t = (key: string) => campaignStrings[key]?.en ?? key;
+
+    render(
+      <LocaleContext.Provider
+        value={{
+          language: "en",
+          setLanguage: vi.fn(),
+          dir: "ltr",
+          t,
+          countryName: (_code, fallback) => fallback,
+          cityName: (_id, fallback) => fallback,
+        }}
+      >
+        <CampaignQuickFilters
+          activeFilter="available-today"
+          onSelect={onSelect as (filter: CampaignQuickFilterKey) => void}
+        />
+      </LocaleContext.Provider>,
+    );
+
+    const buttons = screen.getAllByRole("button");
+    expect(buttons.map((button) => button.textContent)).toEqual([
+      "Available today",
+      "Under $60",
+      "$50–$100",
+      "Roses",
+      "Luxury",
+      "Best sellers",
+    ]);
+    expect(buttons[0]?.getAttribute("aria-pressed")).toBe("true");
+    expect(buttons[1]?.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(buttons[3]!);
+    expect(onSelect).toHaveBeenCalledWith("roses");
   });
 });
