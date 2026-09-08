@@ -52,7 +52,6 @@ import {
   CampaignFaq,
   CampaignSeoEditorial,
 } from "@/pages/CampaignSections";
-import { TrustpilotCarousel } from "@/components/homepage/TrustpilotCarousel";
 import { CampaignLandingLegacy } from "./CampaignLandingLegacy";
 
 const ATTRIBUTION_QUERY_KEYS = [
@@ -550,8 +549,10 @@ function CampaignLandingRedesign() {
         currencyText={currencyText}
       />
 
-      {/* 8. Beirut customer reviews */}
-      {market?.countryCode === "LB" && <CampaignReviews />}
+      {/* 8. Customer reviews — official Trustpilot carousel, all markets */}
+      <CampaignReviews
+        onVisible={() => fireCampaignEvent("trustpilot_carousel_interaction")}
+      />
 
       {/* 9. Luxury collection editorial banner */}
       <CampaignLuxuryBanner
@@ -561,17 +562,7 @@ function CampaignLandingRedesign() {
       {/* 10. Why-customers-choose section */}
       <CampaignWhyChoose />
 
-      {/* 11. Full Trustpilot review carousel */}
-      <section
-        className="container mx-auto max-w-content px-page pt-10"
-        aria-label={t("campaign.redesign.trustpilotCarousel.ariaLabel")}
-      >
-        <TrustpilotCarousel
-          onVisible={() => fireCampaignEvent("trustpilot_carousel_interaction")}
-        />
-      </section>
-
-      {/* 12. Luxury grid */}
+      {/* 11. Luxury grid */}
       <CampaignGrid
         id="campaign-lux"
         section="luxury"

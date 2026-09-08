@@ -6,7 +6,6 @@ import { ProductCard } from "@/components/ProductCard";
 import { PageBreadcrumb, type Crumb } from "@/components/PageBreadcrumb";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { TrustpilotCarousel } from "@/components/homepage/TrustpilotCarousel";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -32,8 +31,8 @@ import {
   CampaignGridBeirut,
   CampaignOccasionsBeirut,
   CampaignAddressExplainerBeirut,
-  CampaignReviewsBeirut,
 } from "@/pages/CampaignSectionsBeirut";
+import { CampaignReviews } from "@/pages/CampaignSections";
 
 const HERO_IMAGE_URL =
   "https://images.unsplash.com/photo-1561181286-d3fee7d55364?w=1200&q=80&auto=format&fit=crop";
@@ -394,21 +393,8 @@ export function CampaignLandingLegacy() {
         </div>
       )}
 
-      {/* ── Reviews ──────────────────────────────────────────────────────────
-           Beirut variant: three static review cards (CampaignReviewsBeirut),
-           each addressing a different shopper worry.  The shared Trustpilot
-           carousel widget was rendering as a large blank gap on this variant
-           (the carousel template fails to mount in this context); a blank
-           section on a paid-traffic landing page is worse than no section.
-           Original variant: keeps the shared TrustpilotCarousel unchanged. */}
-      {isBeirutPaidVariant ? (
-        <CampaignReviewsBeirut />
-      ) : (
-        <div className="container mx-auto max-w-content px-page pt-8 pb-6">
-          <h2 className="font-serif text-2xl md:text-3xl mb-4">{t("campaign.reviews.title")}</h2>
-          <TrustpilotCarousel />
-        </div>
-      )}
+      {/* ── Reviews — official Trustpilot carousel for all variants ── */}
+      <CampaignReviews />
 
       {/* ── Mobile sticky CTA ── */}
       {isBeirutPaidVariant ? (

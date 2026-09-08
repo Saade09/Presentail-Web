@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -16,6 +16,7 @@ import {
 import { trackEvent } from "@/lib/analytics";
 import { fireGtagEvent } from "@/lib/gtag";
 import { CAMPAIGN_SECTION_KEY } from "@/lib/campaign";
+import { TrustpilotCarousel } from "@/components/homepage/TrustpilotCarousel";
 import {
   type CampaignCatalogProduct,
   type CampaignAvailabilityState,
@@ -834,6 +835,95 @@ export function CampaignSeoEditorial() {
   );
 }
 
+// ─── CampaignReviews ──────────────────────────────────────────────────────────
+
+/**
+ * Map the active UI language to a Trustpilot carousel locale.
+ * Falls back to en-US for any language the carousel template does not support.
+ */
+function resolveTrustpilotLocale(language: string): string {
+  if (language === "fr") return "fr-FR";
+  if (language === "ar") return "ar-AE";
+  return "en-US";
+}
+
+export function CampaignReviews({
+  onVisible,
+}: {
+  onVisible?: () => void;
+} = {}) {
+  const { t, language } = useLocale();
+  const { countryCode, cityId } = useLocationSelection();
+  const [failed, setFailed] = useState(false);
+
+  const handleViewAllClick = () => {
+    trackEvent({
+      name: "customer_reviews_view_all_click",
+      page_path: typeof window === "undefined" ? "" : window.location.pathname,
+      selected_country: countryCode ?? "",
+      selected_city: cityId ?? "",
+      active_language: language,
+      link_type: "external_link",
+    });
+  };
+
+  const locale = resolveTrustpilotLocale(language);
+
+  return (
+    <section
+      className="container mx-auto max-w-content px-page pt-10 pb-6"
+      aria-labelledby="campaign-reviews-heading"
+      data-testid="campaign-section-reviews"
+    >
+      <div className="flex items-end justify-between mb-4">
+        <h2
+          id="campaign-reviews-heading"
+          className="font-serif text-2xl md:text-3xl"
+        >
+          {t("campaign.redesign.reviews.heading")}
+        </h2>
+        <a
+          href="https://www.trustpilot.com/review/presentail.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={handleViewAllClick}
+          className="text-sm text-primary hover:underline whitespace-nowrap py-2 shrink-0 ml-4 focus-visible:outline-2 focus-visible:outline-primary"
+          data-testid="link-campaign-reviews-read-all"
+        >
+          {t("campaign.v2.reviews.readAll")}
+        </a>
+      </div>
+
+      {/* RTL containment: the Trustpilot widget is LTR-only regardless of page dir */}
+      <div dir="ltr">
+        {failed ? (
+          <p className="py-4 text-sm text-neutral-500">
+            <a
+              href="https://www.trustpilot.com/review/presentail.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={handleViewAllClick}
+              className="text-primary hover:underline focus-visible:outline-2 focus-visible:outline-primary"
+              data-testid="link-campaign-reviews-fallback"
+            >
+              {t("campaign.redesign.trustpilot.fallback")}
+            </a>
+          </p>
+        ) : (
+          <TrustpilotCarousel
+            locale={locale}
+            onVisible={onVisible}
+            onFailed={() => {
+              console.warn("[CampaignReviews] Trustpilot carousel failed to load");
+              setFailed(true);
+            }}
+          />
+        )}
+      </div>
+    </section>
+  );
+}
+
 // ─── Legacy components (kept for backwards compat) ────────────────────────────
 
 export function CampaignAddressExplainer() {
@@ -916,91 +1006,3 @@ export function CampaignAddressExplainer() {
   );
 }
 
-function FiveStars() {
-  const { t } = useLocale();
-  return (
-    <div className="flex gap-0.5" aria-label={t("campaign.v2.reviews.fiveStars")} role="img">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <svg
-          key={i}
-          viewBox="0 0 20 20"
-          fill="currentColor"
-          className="h-4 w-4 text-[#00B67A]"
-          aria-hidden="true"
-        >
-          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-        </svg>
-      ))}
-    </div>
-  );
-}
-
-const PLACEHOLDER_REVIEWS = [
-  { key: "abroad" },
-  { key: "speed" },
-  { key: "tracking" },
-] as const;
-
-export function CampaignReviews() {
-  const { t, language } = useLocale();
-  const { countryCode, cityId } = useLocationSelection();
-
-  const trackReviewsClick = () => {
-    trackEvent({
-      name: "trustpilot_reviews_click",
-      page_path: typeof window === "undefined" ? "" : window.location.pathname,
-      selected_country: countryCode ?? "",
-      selected_city: cityId ?? "",
-      active_language: language,
-      link_type: "external_link",
-    });
-  };
-
-  return (
-    <section
-      className="container mx-auto max-w-content px-page pt-10 pb-6"
-      aria-labelledby="reviews-heading"
-    >
-      <div className="flex items-end justify-between mb-6">
-        <h2
-          id="reviews-heading"
-          className="font-serif text-2xl md:text-3xl"
-        >
-          {t("campaign.v2.reviews.heading")}
-        </h2>
-        <a
-          href="https://www.trustpilot.com/review/presentail.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={trackReviewsClick}
-          className="text-sm text-primary hover:underline whitespace-nowrap py-2 shrink-0 ml-4"
-          data-testid="link-campaign-reviews-read-all"
-        >
-          {t("campaign.v2.reviews.readAll")}
-        </a>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5">
-        {PLACEHOLDER_REVIEWS.map((r) => (
-          <div
-            key={r.key}
-            className="bg-white border border-neutral-200 rounded-2xl px-5 py-5 flex flex-col gap-3"
-          >
-            <FiveStars />
-            <p className="text-neutral-700 text-sm leading-relaxed flex-1">
-              &ldquo;{t(`campaign.v2.reviews.${r.key}.quote`)}&rdquo;
-            </p>
-            <div className="text-xs text-neutral-500 leading-snug">
-              <span className="font-semibold text-neutral-700">
-                {t(`campaign.v2.reviews.${r.key}.reviewer`)}
-              </span>
-              {" · "}
-              {t(`campaign.v2.reviews.${r.key}.product`)}
-            </div>
-          </div>
-        ))}
-      </div>
-
-    </section>
-  );
-}

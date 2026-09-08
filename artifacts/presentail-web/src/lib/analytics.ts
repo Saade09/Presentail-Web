@@ -309,6 +309,7 @@ type AnalyticsEventName =
   | "campaign_sticky_cta_click"
   | "delivery_location_change"
   | "trustpilot_reviews_click"
+  | "customer_reviews_view_all_click"
   | "occasion_shortcut_click"
   | "view_all_flowers"
   | "luxury_collection_cta_click"

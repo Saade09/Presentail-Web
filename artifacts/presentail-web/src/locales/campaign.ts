@@ -173,6 +173,11 @@ export const campaignStrings: Dict = {
     en: "Arrives today",
     ar: "يصل اليوم",
   },
+  "campaign.redesign.reviews.heading": {
+    en: "What customers say",
+    ar: "ما يقوله عملاؤنا",
+    fr: "Ce que disent nos clients",
+  },
   "campaign.redesign.trustpilot.fallback": {
     en: "See our reviews on Trustpilot.",
     ar: "اطّلع على تقييماتنا على Trustpilot.",
@@ -181,6 +186,7 @@ export const campaignStrings: Dict = {
   "campaign.redesign.trustpilotCarousel.ariaLabel": {
     en: "Trustpilot customer reviews",
     ar: "تقييمات العملاء على Trustpilot",
+    fr: "Avis clients Trustpilot",
   },
 
   // ── Beirut paid-search hero variant (v2) — used only on en-lb/beirut ──
@@ -317,36 +323,7 @@ export const campaignStrings: Dict = {
   },
 
   // ── Pass 2A: reviews section ──────────────────────────────────────────────
-  "campaign.v2.reviews.heading": { en: "What people say", ar: "ماذا يقول الناس" },
-  "campaign.v2.reviews.readAll": { en: "Read all reviews", ar: "اقرأ جميع التقييمات" },
-  // Kept for the legacy Beirut paid-search variant; the redesigned campaign
-  // renders its live Trustpilot card instead of this aggregate.
-  "campaign.v2.reviews.aggregate": {
-    en: "4.8 out of 5 from 1,240 verified reviews on Trustpilot",
-    ar: "4.8 من 5 من 1,240 تقييماً موثّقاً على Trustpilot",
-  },
-  "campaign.v2.reviews.fiveStars": {
-    en: "5 out of 5 stars",
-    ar: "5 من 5 نجوم",
-  },
-  "campaign.v2.reviews.abroad.quote": {
-    en: "I was ordering from London and had no clue how to arrange delivery to my sister in Beirut without her knowing. They contacted her directly, got the address, and delivered the same day. Completely seamless from start to finish.",
-    ar: "كنت أطلب من لندن ولم أكن أعرف كيف أرتب التوصيل إلى أختي في بيروت من دون أن تعرف. تواصلوا معها مباشرةً، وحصلوا على العنوان، وسلّموا الطلب في اليوم نفسه. كانت التجربة سلسة تماماً من البداية إلى النهاية.",
-  },
-  "campaign.v2.reviews.abroad.reviewer": { en: "Sarah M.", ar: "سارة م." },
-  "campaign.v2.reviews.abroad.product": { en: "Plum Florals", ar: "زهور بلَم" },
-  "campaign.v2.reviews.speed.quote": {
-    en: "Ordered at noon, flowers were on my mother's doorstep by 3 PM. Looked exactly like the photos — no substitutions, no surprises. Genuinely the fastest flower delivery I've used anywhere.",
-    ar: "طلبت عند الظهر، وكانت الزهور على باب والدتي بحلول الساعة 3 بعد الظهر. بدت تماماً مثل الصور — من دون بدائل أو مفاجآت. إنها بالفعل أسرع خدمة توصيل زهور استخدمتها.",
-  },
-  "campaign.v2.reviews.speed.reviewer": { en: "Rami K.", ar: "رامي ك." },
-  "campaign.v2.reviews.speed.product": { en: "Classic Chocolate Box", ar: "علبة الشوكولاتة الكلاسيكية" },
-  "campaign.v2.reviews.tracking.quote": {
-    en: "Got a photo the moment the delivery landed. My girlfriend had no idea I'd arranged the whole thing from Dubai. The tracking updates made it feel personal even from that far away.",
-    ar: "وصلتني صورة فور إتمام التوصيل. لم تكن صديقتي تعرف أنني رتبت كل شيء من دبي. جعلت تحديثات التتبع التجربة شخصية حتى من تلك المسافة.",
-  },
-  "campaign.v2.reviews.tracking.reviewer": { en: "Omar H.", ar: "عمر ح." },
-  "campaign.v2.reviews.tracking.product": { en: "The Birthday Bundle", ar: "باقة عيد الميلاد" },
+  "campaign.v2.reviews.readAll": { en: "Read all reviews", ar: "اقرأ جميع التقييمات", fr: "Lire tous les avis" },
 
   // ── Redesign: location bar ────────────────────────────────────────────────
   "campaign.redesign.location.delivering": {
