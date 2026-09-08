@@ -7,6 +7,7 @@
  */
 import type { AnalyticsEventName } from "./analyticsEventName";
 import type { AnalyticsEventRequestAction } from "./analyticsEventRequestAction";
+import type { AnalyticsEventRequestLinkType } from "./analyticsEventRequestLinkType";
 import type { AnalyticsEventRequestPlatform } from "./analyticsEventRequestPlatform";
 import type { AnalyticsEventRequestSurface } from "./analyticsEventRequestSurface";
 
@@ -158,6 +159,39 @@ such as `LB`, `AE`, or `CY`.
    * @maxLength 8
    */
   country?: string;
+  /**
+   * For `trustpilot_reviews_click` events: the current campaign
+pathname, without query-string or hash data.
+
+   * @maxLength 512
+   */
+  page_path?: string;
+  /**
+   * For `trustpilot_reviews_click` events: the selected storefront
+country code.
+
+   * @maxLength 8
+   */
+  selected_country?: string;
+  /**
+   * For `trustpilot_reviews_click` events: the selected storefront
+city identifier.
+
+   * @maxLength 64
+   */
+  selected_city?: string;
+  /**
+   * For `trustpilot_reviews_click` events: the active campaign
+language.
+
+   * @maxLength 8
+   */
+  active_language?: string;
+  /** For `trustpilot_reviews_click` events: whether the click came
+from the official widget, a separately rendered external link,
+or the widget failure fallback.
+ */
+  link_type?: AnalyticsEventRequestLinkType;
   /**
    * For `recommended_product_clicked` events: 1-based position of
 the clicked product in the recommendations row shown on the

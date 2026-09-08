@@ -2811,6 +2811,7 @@ components:
         - campaign_pill_click
         - campaign_sticky_cta_impression
         - campaign_sticky_cta_click
+        - trustpilot_reviews_click
         - midnight_option_viewed
         - midnight_option_selected
         - midnight_option_ineligible
@@ -3013,6 +3014,37 @@ components:
           description: |
             Optional delivery-market country code associated with the event,
             such as `LB`, `AE`, or `CY`.
+        page_path:
+          type: string
+          maxLength: 512
+          description: |
+            For `trustpilot_reviews_click` events: the current campaign
+            pathname, without query-string or hash data.
+        selected_country:
+          type: string
+          maxLength: 8
+          description: |
+            For `trustpilot_reviews_click` events: the selected storefront
+            country code.
+        selected_city:
+          type: string
+          maxLength: 64
+          description: |
+            For `trustpilot_reviews_click` events: the selected storefront
+            city identifier.
+        active_language:
+          type: string
+          maxLength: 8
+          description: |
+            For `trustpilot_reviews_click` events: the active campaign
+            language.
+        link_type:
+          type: string
+          enum: [widget, external_link, fallback]
+          description: |
+            For `trustpilot_reviews_click` events: whether the click came
+            from the official widget, a separately rendered external link,
+            or the widget failure fallback.
         recommendationPosition:
           type: integer
           minimum: 1

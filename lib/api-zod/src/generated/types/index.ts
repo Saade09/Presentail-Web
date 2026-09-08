@@ -26,6 +26,7 @@ export * from "./adminPlantClassificationsListResponse";
 export * from "./analyticsEventName";
 export * from "./analyticsEventRequest";
 export * from "./analyticsEventRequestAction";
+export * from "./analyticsEventRequestLinkType";
 export * from "./analyticsEventRequestPlatform";
 export * from "./analyticsEventRequestSurface";
 export * from "./analyticsEventResponse";

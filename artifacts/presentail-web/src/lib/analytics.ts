@@ -308,7 +308,7 @@ type AnalyticsEventName =
   | "campaign_sticky_cta_impression"
   | "campaign_sticky_cta_click"
   | "delivery_location_change"
-  | "trustpilot_strip_click"
+  | "trustpilot_reviews_click"
   | "occasion_shortcut_click"
   | "view_all_flowers"
   | "luxury_collection_cta_click"
@@ -433,6 +433,12 @@ export type AnalyticsEvent = {
    * the homepage API response (`rankingScoreVersion` field).
    */
   rankingScoreVersion?: string;
+  /** Trustpilot campaign review-link dimensions. */
+  page_path?: string;
+  selected_country?: string;
+  selected_city?: string;
+  active_language?: string;
+  link_type?: "widget" | "external_link" | "fallback";
 };
 
 function generateSessionId(): string {

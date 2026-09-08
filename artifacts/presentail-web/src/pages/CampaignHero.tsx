@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { CircleDollarSign, Clock3, ChevronDown, MapPin, Truck, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/contexts/LocaleContext";
+import { useLocationSelection } from "@/contexts/LocationContext";
+import { trackEvent } from "@/lib/analytics";
 import { injectTrustpilotScript, pollAndLoadTrustpilotWidget } from "@/lib/trustpilot";
 
 const HERO_IMAGE_768 = `${import.meta.env.BASE_URL}campaign/flower-hero-768.webp`;
@@ -236,7 +238,7 @@ export function CampaignLocationBar({
   );
 }
 
-// ─── CampaignTrustpilotStrip ──────────────────────────────────────────────────
+// ─── CampaignTrustpilotCard ───────────────────────────────────────────────────
 
 declare global {
   interface Window {
@@ -246,49 +248,110 @@ declare global {
   }
 }
 
-export function CampaignTrustpilotStrip({
-  onStripClick,
-}: {
-  onStripClick?: () => void;
-}) {
-  const { t } = useLocale();
+const TRUSTPILOT_PROFILE_URL = "https://www.trustpilot.com/review/presentail.com";
+const TRUSTPILOT_TEMPLATE_ID = "53aa8807dec7e10d38f59f32";
+const TRUSTPILOT_BUSINESS_UNIT_ID = "5d1782b3588afe00012431d9";
+const TRUSTPILOT_TOKEN = "67c8c2d2-17c0-4add-bcda-ed2e5ce5eb5e";
+
+export function getCampaignTrustpilotLocale(
+  language: string,
+  countryCode?: string | null,
+): string {
+  if (language === "ar") return countryCode === "AE" ? "ar-AE" : "ar-LB";
+  if (language === "fr") return "fr-FR";
+  return "en-US";
+}
+
+export function CampaignTrustpilotStrip() {
+  const { language, dir, t } = useLocale();
+  const { countryCode, cityId } = useLocationSelection();
   const ref = useRef<HTMLDivElement>(null);
+  const [failed, setFailed] = useState(false);
+  const locale = getCampaignTrustpilotLocale(language, countryCode);
+
+  const trackReviewClick = (linkType: "widget" | "external_link" | "fallback") => {
+    trackEvent({
+      name: "trustpilot_reviews_click",
+      page_path: typeof window === "undefined" ? "" : window.location.pathname,
+      selected_country: countryCode ?? "",
+      selected_city: cityId ?? "",
+      active_language: language,
+      link_type: linkType,
+    });
+  };
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    let active = true;
+    setFailed(false);
 
-    const { onScriptLoad, cleanup } = pollAndLoadTrustpilotWidget(el);
-    injectTrustpilotScript(onScriptLoad);
+    const { onScriptLoad, cleanup } = pollAndLoadTrustpilotWidget(el, () => {
+      if (!active) return;
+      console.warn("[Trustpilot] Campaign widget failed to load; showing fallback.");
+      setFailed(true);
+    });
+    injectTrustpilotScript(
+      onScriptLoad,
+      () => {
+        if (!active) return;
+        console.warn("[Trustpilot] Campaign bootstrap failed; showing fallback.");
+        setFailed(true);
+      },
+    );
 
-    return cleanup;
-  }, []);
+    return () => {
+      active = false;
+      cleanup();
+    };
+  }, [locale]);
 
   return (
-    <div className="container mx-auto max-w-content px-page pt-3">
-      <a
-        href="https://www.trustpilot.com/review/presentail.com"
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={onStripClick}
-        className="block rounded-2xl border border-[#d9dfd8] bg-white px-4 py-3 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#003f46]"
-        style={{ minHeight: "56px" }}
-        data-testid="link-campaign-trustpilot-strip"
-        aria-label={t("campaign.redesign.trustpilotStrip.ariaLabel")}
+    <div className="container mx-auto max-w-content overflow-hidden px-page pt-3">
+      <div
+        className="mx-auto min-h-[150px] w-full max-w-2xl overflow-hidden rounded-2xl border border-[#d9dfd8] bg-[#fffdf8] p-0.5 shadow-sm"
+        dir={dir}
+        data-testid="campaign-trustpilot-card"
       >
-        <div
-          ref={ref}
-          className="trustpilot-widget"
-          data-locale="en-US"
-          data-template-id="5419b637fa0340045cd0c936"
-          data-businessunit-id="5d1782b3588afe00012431d9"
-          data-style-height="24px"
-          data-style-width="100%"
-          data-theme="light"
-        >
-          <span className="text-sm text-neutral-500">{"Trustpilot" /* i18n-ignore */}</span>
-        </div>
-      </a>
+        {failed ? (
+          <a
+            href={TRUSTPILOT_PROFILE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => trackReviewClick("fallback")}
+            className="flex min-h-[150px] items-center justify-center px-5 text-center text-sm font-medium text-[#00515a] underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#003f46]"
+            data-testid="link-campaign-trustpilot-fallback"
+          >
+            {t("campaign.redesign.trustpilot.fallback")}
+          </a>
+        ) : (
+          <div
+            ref={ref}
+            className="trustpilot-widget h-[150px] w-full max-w-full overflow-hidden"
+            data-locale={locale}
+            data-template-id={TRUSTPILOT_TEMPLATE_ID}
+            data-businessunit-id={TRUSTPILOT_BUSINESS_UNIT_ID}
+            data-style-height="150px"
+            data-style-width="100%"
+            data-token={TRUSTPILOT_TOKEN}
+            data-testid="campaign-trustpilot-widget"
+            onClick={() => trackReviewClick("widget")}
+          >
+            <a
+              href={TRUSTPILOT_PROFILE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(event) => {
+                event.stopPropagation();
+                trackReviewClick("external_link");
+              }}
+              className="sr-only"
+            >
+              Trustpilot
+            </a>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

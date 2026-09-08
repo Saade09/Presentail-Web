@@ -788,6 +788,14 @@ export const recordAnalyticsEventBodyLocaleMax = 8;
 
 export const recordAnalyticsEventBodyCountryMax = 8;
 
+export const recordAnalyticsEventBodyPagePathMax = 512;
+
+export const recordAnalyticsEventBodySelectedCountryMax = 8;
+
+export const recordAnalyticsEventBodySelectedCityMax = 64;
+
+export const recordAnalyticsEventBodyActiveLanguageMax = 8;
+
 export const RecordAnalyticsEventBody = zod.object({
   name: zod
     .enum([
@@ -850,6 +858,7 @@ export const RecordAnalyticsEventBody = zod.object({
       "campaign_pill_click",
       "campaign_sticky_cta_impression",
       "campaign_sticky_cta_click",
+      "trustpilot_reviews_click",
       "midnight_option_viewed",
       "midnight_option_selected",
       "midnight_option_ineligible",
@@ -1035,6 +1044,40 @@ export const RecordAnalyticsEventBody = zod.object({
     .optional()
     .describe(
       "Optional delivery-market country code associated with the event,\nsuch as `LB`, `AE`, or `CY`.\n",
+    ),
+  page_path: zod
+    .string()
+    .max(recordAnalyticsEventBodyPagePathMax)
+    .optional()
+    .describe(
+      "For `trustpilot_reviews_click` events: the current campaign\npathname, without query-string or hash data.\n",
+    ),
+  selected_country: zod
+    .string()
+    .max(recordAnalyticsEventBodySelectedCountryMax)
+    .optional()
+    .describe(
+      "For `trustpilot_reviews_click` events: the selected storefront\ncountry code.\n",
+    ),
+  selected_city: zod
+    .string()
+    .max(recordAnalyticsEventBodySelectedCityMax)
+    .optional()
+    .describe(
+      "For `trustpilot_reviews_click` events: the selected storefront\ncity identifier.\n",
+    ),
+  active_language: zod
+    .string()
+    .max(recordAnalyticsEventBodyActiveLanguageMax)
+    .optional()
+    .describe(
+      "For `trustpilot_reviews_click` events: the active campaign\nlanguage.\n",
+    ),
+  link_type: zod
+    .enum(["widget", "external_link", "fallback"])
+    .optional()
+    .describe(
+      "For `trustpilot_reviews_click` events: whether the click came\nfrom the official widget, a separately rendered external link,\nor the widget failure fallback.\n",
     ),
   recommendationPosition: zod
     .number()

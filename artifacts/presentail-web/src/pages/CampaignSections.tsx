@@ -942,7 +942,19 @@ const PLACEHOLDER_REVIEWS = [
 ] as const;
 
 export function CampaignReviews() {
-  const { t } = useLocale();
+  const { t, language } = useLocale();
+  const { countryCode, cityId } = useLocationSelection();
+
+  const trackReviewsClick = () => {
+    trackEvent({
+      name: "trustpilot_reviews_click",
+      page_path: typeof window === "undefined" ? "" : window.location.pathname,
+      selected_country: countryCode ?? "",
+      selected_city: cityId ?? "",
+      active_language: language,
+      link_type: "external_link",
+    });
+  };
 
   return (
     <section
@@ -960,6 +972,7 @@ export function CampaignReviews() {
           href="https://www.trustpilot.com/review/presentail.com"
           target="_blank"
           rel="noopener noreferrer"
+          onClick={trackReviewsClick}
           className="text-sm text-primary hover:underline whitespace-nowrap py-2 shrink-0 ml-4"
           data-testid="link-campaign-reviews-read-all"
         >
@@ -988,9 +1001,6 @@ export function CampaignReviews() {
         ))}
       </div>
 
-      <p className="mt-5 text-center text-sm text-neutral-500">
-        {t("campaign.v2.reviews.aggregate")}
-      </p>
     </section>
   );
 }

@@ -25,6 +25,7 @@ type LoadState = "idle" | "loading" | "loaded" | "failed";
 let _loadState: LoadState = "idle";
 const _loadQueue: Array<() => void> = [];
 const _errorQueue: Array<() => void> = [];
+let _emptyScriptRecoveryUsed = false;
 
 function _flushLoad() {
   _loadState = "loaded";
@@ -159,7 +160,17 @@ function _resetAndReinject(onLoad: () => void, onError?: () => void) {
   // The first exhausted poller starts the recovery injection. Other widgets
   // exhausting in the same tick must join that in-flight request rather than
   // resetting its queues or replacing its script.
-  if (_loadState !== "loading") _loadState = "idle";
+  if (_loadState === "loading") {
+    injectTrustpilotScript(onLoad, onError);
+    return;
+  }
+  if (_emptyScriptRecoveryUsed) {
+    console.warn("[Trustpilot] Widget bootstrap stayed empty after recovery; giving up.");
+    _flushError();
+    return;
+  }
+  _emptyScriptRecoveryUsed = true;
+  _loadState = "idle";
   injectTrustpilotScript(onLoad, onError);
 }
 
@@ -195,6 +206,7 @@ export function pollAndLoadTrustpilotWidget(
       window.Trustpilot!.loadFromElement(el, true);
     } catch (err) {
       console.warn("[Trustpilot] loadFromElement threw:", err);
+      onGiveUp?.();
     }
   };
 

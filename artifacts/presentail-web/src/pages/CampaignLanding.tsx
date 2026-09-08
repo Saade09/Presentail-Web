@@ -94,7 +94,6 @@ function fireCampaignEvent(
     | "campaign_sticky_cta_impression"
     | "campaign_sticky_cta_click"
     | "delivery_location_change"
-    | "trustpilot_strip_click"
     | "occasion_shortcut_click"
     | "view_all_flowers"
     | "luxury_collection_cta_click"
@@ -541,10 +540,8 @@ function CampaignLandingRedesign() {
       {/* 5. Customer-benefit band */}
       <CampaignBenefitBand />
 
-      {/* 6. Compact Trustpilot strip */}
-      <CampaignTrustpilotStrip
-        onStripClick={() => fireCampaignEvent("trustpilot_strip_click")}
-      />
+      {/* 6. Official Trustpilot Mini TrustBox */}
+      <CampaignTrustpilotStrip />
 
       {/* 7. Trust bar (availability / speed / currency) */}
       <CampaignTrustBar

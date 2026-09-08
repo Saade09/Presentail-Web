@@ -71,7 +71,32 @@ router.post(
       });
       return;
     }
-    const { name, surface, action, platform, appVersion, errorCode, productId, sessionId, campaignIdentity, state, appOrderId, wcOrderId, metricValue, bannerId, linkKind, linkSlug, linkUrl, locale, country } = parsed.data;
+    const {
+      name,
+      surface,
+      action,
+      platform,
+      appVersion,
+      errorCode,
+      productId,
+      sessionId,
+      campaignIdentity,
+      state,
+      appOrderId,
+      wcOrderId,
+      metricValue,
+      bannerId,
+      linkKind,
+      linkSlug,
+      linkUrl,
+      locale,
+      country,
+      page_path,
+      selected_country,
+      selected_city,
+      active_language,
+      link_type,
+    } = parsed.data;
 
     let userId: string | undefined;
     try {
@@ -95,6 +120,11 @@ router.post(
     const clippedLinkUrl = clip(linkUrl, 512);
     const clippedLocale = clip(locale, 8);
     const clippedCountry = clip(country, 8);
+    const clippedPagePath = clip(page_path, 512);
+    const clippedSelectedCountry = clip(selected_country, 8);
+    const clippedSelectedCity = clip(selected_city, 64);
+    const clippedActiveLanguage = clip(active_language, 8);
+    const clippedLinkType = clip(link_type, 32);
 
     // Clamp metric values to [0, 60000] — CLS ratios are tiny, timing
     // metrics max out well below 60 s in practice.
@@ -140,6 +170,11 @@ router.post(
           linkUrl: clippedLinkUrl,
           locale: clippedLocale,
           country: clippedCountry,
+          page_path: clippedPagePath,
+          selected_country: clippedSelectedCountry,
+          selected_city: clippedSelectedCity,
+          active_language: clippedActiveLanguage,
+          link_type: clippedLinkType,
           userId,
           signedIn: Boolean(userId),
           analyticsSampling: samplingDecision
@@ -170,6 +205,21 @@ router.post(
       }
       if (clippedCountry) {
         properties.country = clippedCountry;
+      }
+      if (clippedPagePath) {
+        properties.page_path = clippedPagePath;
+      }
+      if (clippedSelectedCountry) {
+        properties.selected_country = clippedSelectedCountry;
+      }
+      if (clippedSelectedCity) {
+        properties.selected_city = clippedSelectedCity;
+      }
+      if (clippedActiveLanguage) {
+        properties.active_language = clippedActiveLanguage;
+      }
+      if (clippedLinkType) {
+        properties.link_type = clippedLinkType;
       }
       if (samplingDecision) {
         properties.analyticsSampling =

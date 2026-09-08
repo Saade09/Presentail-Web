@@ -173,9 +173,10 @@ export const campaignStrings: Dict = {
     en: "Arrives today",
     ar: "يصل اليوم",
   },
-  "campaign.redesign.trustpilotStrip.ariaLabel": {
-    en: "View our Trustpilot reviews",
-    ar: "عرض تقييماتنا على Trustpilot",
+  "campaign.redesign.trustpilot.fallback": {
+    en: "See our reviews on Trustpilot.",
+    ar: "اطّلع على تقييماتنا على Trustpilot.",
+    fr: "Voir nos avis sur Trustpilot.",
   },
   "campaign.redesign.trustpilotCarousel.ariaLabel": {
     en: "Trustpilot customer reviews",
@@ -318,8 +319,8 @@ export const campaignStrings: Dict = {
   // ── Pass 2A: reviews section ──────────────────────────────────────────────
   "campaign.v2.reviews.heading": { en: "What people say", ar: "ماذا يقول الناس" },
   "campaign.v2.reviews.readAll": { en: "Read all reviews", ar: "اقرأ جميع التقييمات" },
-  // TODO(UNVERIFIED): verify "4.8 out of 5" and "1,240 verified reviews"
-  // against the live Trustpilot business dashboard before launch.
+  // Kept for the legacy Beirut paid-search variant; the redesigned campaign
+  // renders its live Trustpilot card instead of this aggregate.
   "campaign.v2.reviews.aggregate": {
     en: "4.8 out of 5 from 1,240 verified reviews on Trustpilot",
     ar: "4.8 من 5 من 1,240 تقييماً موثّقاً على Trustpilot",
@@ -636,7 +637,7 @@ export const campaignStringsFr: Record<string, string> = {
   "campaign.redesign.bestSeller": "Meilleure vente",
   "campaign.redesign.empty": "Aucune composition n'est disponible dans cette ville pour le moment. Revenez bientôt.",
   "campaign.redesign.arrivesToday": "Livré aujourd'hui",
-  "campaign.redesign.trustpilotStrip.ariaLabel": "Voir nos avis Trustpilot",
+  "campaign.redesign.trustpilot.fallback": "Voir nos avis sur Trustpilot.",
   "campaign.redesign.trustpilotCarousel.ariaLabel": "Avis clients sur Trustpilot",
 
   // ── Beirut paid-search hero variant (v2) ──

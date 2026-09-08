@@ -145,6 +145,26 @@ describe("pollAndLoadTrustpilotWidget", () => {
     expect(loadFromElement).toHaveBeenCalledWith(secondEl, true);
   });
 
+  it("gives up after one empty-script recovery attempt", async () => {
+    const {
+      injectTrustpilotScript,
+      pollAndLoadTrustpilotWidget,
+      TRUSTPILOT_SCRIPT_SRC,
+    } = await loadModule();
+    const onGiveUp = vi.fn();
+    const loader = pollAndLoadTrustpilotWidget(document.createElement("div"), onGiveUp);
+
+    injectTrustpilotScript(loader.onScriptLoad);
+    trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0].dispatchEvent(new Event("load"));
+    await vi.advanceTimersByTimeAsync(21 * 250);
+
+    const recoveryScript = trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0];
+    recoveryScript.dispatchEvent(new Event("load"));
+    await vi.advanceTimersByTimeAsync(21 * 250);
+
+    expect(onGiveUp).toHaveBeenCalledOnce();
+  });
+
   it("catches loadFromElement errors", async () => {
     const { pollAndLoadTrustpilotWidget } = await loadModule();
     const error = new Error("widget failed");
