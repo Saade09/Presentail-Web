@@ -1,7 +1,7 @@
 type FbqFunction = {
   (event: "init", pixelId: string): void;
-  (event: "track", eventName: string, params?: Record<string, unknown>): void;
-  (event: "trackSingle", pixelId: string, eventName: string, params?: Record<string, unknown>): void;
+  (event: "track", eventName: string, params?: Record<string, unknown>, options?: { eventID?: string }): void;
+  (event: "trackSingle", pixelId: string, eventName: string, params?: Record<string, unknown>, options?: { eventID?: string }): void;
   (event: "trackCustom", eventName: string, params?: Record<string, unknown>): void;
   (event: "trackSingleCustom", pixelId: string, eventName: string, params?: Record<string, unknown>): void;
   callMethod?: (...args: unknown[]) => void;
@@ -36,6 +36,14 @@ declare global {
   interface Window {
     fbq?: FbqFunction;
     _fbq?: FbqFunction;
+    __presentailMetaInitializedPixels?: string[];
+    __presentailMetaInitialPageView?: {
+      pixelId: string;
+      pathname: string;
+      eventId: string;
+      sourceUrl: string;
+      relayed: boolean;
+    };
     ApplePaySession?: {
       new(version: number, request: ApplePayJS.ApplePayPaymentRequest): {
         begin(): void;

@@ -769,25 +769,38 @@ export const useCreateOrder = () => {
       } catch {
         // storage unavailable — never block checkout
       }
-      const marketingAttribution = attribution
-        ? {
+      let checkoutSourceUrl: string | undefined;
+      try {
+        const url = new URL(window.location.href);
+        url.pathname = url.pathname.replace(/\/order-confirmed\/?$/, "/checkout");
+        url.search = "";
+        url.hash = "";
+        checkoutSourceUrl = url.href;
+      } catch {
+        // Browser URL unavailable — source_url remains absent.
+      }
+      const marketingAttribution = {
             source: "website",
+            ...(attribution
+              ? {
             first_touch: attribution.first_touch,
             last_touch: attribution.last_touch,
+                }
+              : {}),
             conversion: {
               order_total: String((data as Record<string, unknown>).totalUsd ?? ""),
               currency: String((data as Record<string, unknown>).currencyCode ?? "USD"),
               converted_at: new Date().toISOString(),
+              ...(checkoutSourceUrl ? { source_url: checkoutSourceUrl } : {}),
             },
-          }
-        : undefined;
+          };
       let occasionRef: string | null = null;
       try { occasionRef = readOccasionRef(); } catch { /* storage unavailable */ }
       const response = apiFetch<CreateWcOrderResponse>("/woo/order", {
         method: "POST",
         body: JSON.stringify({
           ...data,
-          ...(marketingAttribution ? { marketing_attribution: marketingAttribution } : {}),
+          marketing_attribution: marketingAttribution,
           ...(occasionRef ? { occasion_ref: occasionRef } : {}),
         }),
         // Tag the request with the source platform so the admin funnel

@@ -3139,6 +3139,8 @@ spend can be correlated with purchases.
 
  * @summary Place an order
  */
+export const createWooOrderBodyMarketingAttributionConversionSourceUrlMax = 2048;
+
 export const CreateWooOrderBody = zod
   .object({
     orderId: zod
@@ -3194,6 +3196,14 @@ export const CreateWooOrderBody = zod
               .date()
               .optional()
               .describe("ISO 8601 timestamp when the order was placed."),
+            source_url: zod
+              .string()
+              .url()
+              .max(createWooOrderBodyMarketingAttributionConversionSourceUrlMax)
+              .optional()
+              .describe(
+                "Canonical checkout URL where the order was submitted.",
+              ),
           })
           .optional()
           .describe("Conversion metadata recorded at order placement."),

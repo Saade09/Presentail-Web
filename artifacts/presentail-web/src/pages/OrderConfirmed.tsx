@@ -299,16 +299,14 @@ export default function OrderConfirmed() {
           }
         : {}),
     });
-    const adsConversionQueued = fireAdsPurchaseConversion({
+    fireAdsPurchaseConversion({
       transactionId: state.ref,
       value,
       currency,
       countryCode: deliveryCountryInline,
     });
     fireGA4PurchaseEvent({ transactionId: state.ref, value, currency, items: ga4Items });
-    if (adsConversionQueued) {
-      try { sessionStorage.setItem(conversionKey, "1"); } catch { /* best-effort */ }
-    }
+    try { sessionStorage.setItem(conversionKey, "1"); } catch { /* best-effort */ }
   // state is included so the effect re-runs if the FinalizeState reference changes.
   // authLoading/user are included so the event fires after session hydration on
   // full-page reloads (redirect-based payment returns). purchaseFiredRef prevents
@@ -449,7 +447,7 @@ export default function OrderConfirmed() {
               ...(user?.email ? { userData: { em: user.email } } : {}),
             });
             const deliveryCountryFinalize = typeof payload.deliveryCountry === "string" ? payload.deliveryCountry : undefined;
-            const adsConversionQueued = fireAdsPurchaseConversion({
+            fireAdsPurchaseConversion({
               transactionId: orderRef,
               value: purchaseValue,
               currency: purchaseCurrency,
@@ -464,9 +462,7 @@ export default function OrderConfirmed() {
                 }))
               : [];
             fireGA4PurchaseEvent({ transactionId: orderRef, value: purchaseValue, currency: purchaseCurrency, items: ga4ItemsFinalize });
-            if (adsConversionQueued) {
-              try { sessionStorage.setItem(conversionKey, "1"); } catch { /* best-effort */ }
-            }
+            try { sessionStorage.setItem(conversionKey, "1"); } catch { /* best-effort */ }
           } else {
             purchaseFiredRef.current = true;
           }

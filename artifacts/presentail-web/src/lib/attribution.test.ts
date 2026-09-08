@@ -101,6 +101,17 @@ describe("captureAttribution — landing directly on /checkout with ad params", 
     expect(attr!.last_touch.gclid).toBe("test123");
   });
 
+  it("captures fbclid in first-touch and last-touch attribution", () => {
+    captureAttribution(
+      "https://presentail.com/en-lb/beirut?fbclid=meta-click-123",
+      "https://facebook.com/",
+    );
+
+    const attr = readAttribution();
+    expect(attr?.first_touch.fbclid).toBe("meta-click-123");
+    expect(attr?.last_touch.fbclid).toBe("meta-click-123");
+  });
+
   it("does NOT write to localStorage when no marketing params are present", () => {
     captureAttribution("https://presentail.com/checkout", "");
 

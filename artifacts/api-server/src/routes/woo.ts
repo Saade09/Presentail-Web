@@ -2524,6 +2524,8 @@ router.post("/woo/order", async (req, res) => {
         value: result.totalUsdCents != null ? result.totalUsdCents / 100 : 0,
         currency: verifiedCurrency ?? "USD",
         countryCode: store.country,
+        eventSourceUrl:
+          body.marketing_attribution?.conversion?.source_url ?? null,
         userData: {
           email: body.billing.email ?? null,
           phone: body.billing.phone ?? null,

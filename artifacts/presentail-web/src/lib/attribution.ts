@@ -2,6 +2,7 @@ const STORAGE_KEY = "@presentail/attribution_v1";
 const TTL_MS = 90 * 24 * 60 * 60 * 1000;
 
 const MARKETING_PARAMS = [
+  "fbclid",
   "gclid",
   "gbraid",
   "wbraid",

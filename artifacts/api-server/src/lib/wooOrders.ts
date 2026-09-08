@@ -292,6 +292,7 @@ export const WooOrderSchema = z.object({
           order_total: z.string().optional(),
           currency: z.string().optional(),
           converted_at: z.string().optional(),
+          source_url: z.string().url().max(2048).optional(),
         })
         .optional(),
     })

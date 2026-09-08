@@ -10,81 +10,61 @@ function pixelIdForCountry(countrySlug: CountrySlug | null): string | null {
 }
 
 let activePixelId: string | null = null;
+let lastPageViewKey: string | null = null;
 
 /**
  * Set the active pixel ID for the current country. No-ops for CY/unknown or
  * when the corresponding env var is absent. Idempotent for repeat calls with
  * the same country.
  */
-export function initPixel(countrySlug: CountrySlug | null): void {
+export function initPixel(countrySlug: CountrySlug | null): string | null {
   const pixelId = pixelIdForCountry(countrySlug);
   activePixelId = pixelId;
+  if (!pixelId || typeof window === "undefined" || !window.fbq) return pixelId;
+
+  const initialized = new Set(window.__presentailMetaInitializedPixels ?? []);
+  if (!initialized.has(pixelId)) {
+    window.fbq("init", pixelId);
+    initialized.add(pixelId);
+    window.__presentailMetaInitializedPixels = [...initialized];
+  }
+  return pixelId;
 }
 
 /**
  * Read the Facebook browser identifier (_fbp) from document.cookie.
- * Falls back to a locally generated token stored in localStorage so we
- * always send a stable identifier without loading fbevents.js.
- *
- * The generated fallback uses the documented _fbp format:
- *   fb.1.<timestamp_seconds>.<random_int>
+ * Never fabricate this value: only fbevents.js can create an identifier that
+ * Meta can match to its browser-side data.
  */
-function getFbp(): string {
+function getFbp(): string | undefined {
   if (typeof document !== "undefined") {
     const match = document.cookie.match(/(?:^|;)\s*_fbp=([^;]+)/);
-    if (match?.[1]) return match[1];
+    if (match?.[1]) {
+      try {
+        return decodeURIComponent(match[1]);
+      } catch {
+        return match[1];
+      }
+    }
   }
-  try {
-    const stored = localStorage.getItem("_fbp_fallback");
-    if (stored) return stored;
-    const generated = `fb.1.${Math.floor(Date.now() / 1000)}.${Math.floor(Math.random() * 2147483648)}`;
-    localStorage.setItem("_fbp_fallback", generated);
-    return generated;
-  } catch {
-    return `fb.1.${Math.floor(Date.now() / 1000)}.${Math.floor(Math.random() * 2147483648)}`;
-  }
+  return undefined;
 }
 
 /**
- * Read the Facebook click ID (_fbc) from the current page URL, cookie, or
- * persisted localStorage — in that priority order.
- *
- * Priority:
- *   1. Fresh `fbclid` URL param → formatted as `fb.1.<timestamp_ms>.<fbclid>`,
- *      persisted to localStorage under `_fbc_from_url` (overwrites stale value),
- *      and returned immediately.
- *   2. `_fbc` cookie (set by the Facebook pixel JS when loaded).
- *   3. Persisted `_fbc_from_url` from localStorage (carries the click ID across
- *      subsequent events in the same session after the initial URL load).
- *   4. `undefined` when nothing is available.
+ * Read the pre-formatted Facebook click identifier captured synchronously by
+ * index.html. Reading the URL here is intentionally forbidden: React effects
+ * run after AttributionTracker has cleaned fbclid from the visible URL.
  */
 function getFbclid(): string | undefined {
-  if (typeof window !== "undefined") {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const fbclid = params.get("fbclid");
-      if (fbclid) {
-        const fbc = `fb.1.${Date.now()}.${fbclid}`;
-        try {
-          localStorage.setItem("_fbc_from_url", fbc);
-        } catch {
-          // Ignore storage failures — still return the formatted value.
-        }
-        return fbc;
-      }
-    } catch {
-      // Ignore URL-parsing errors.
-    }
-  }
   if (typeof document !== "undefined") {
     const cookieMatch = document.cookie.match(/(?:^|;)\s*_fbc=([^;]+)/);
-    if (cookieMatch?.[1]) return cookieMatch[1];
-  }
-  try {
-    const stored = localStorage.getItem("_fbc_from_url");
-    if (stored) return stored;
-  } catch {
-    // Ignore storage failures.
+    if (cookieMatch?.[1]) {
+      try {
+        return decodeURIComponent(cookieMatch[1]);
+      } catch {
+        return cookieMatch[1];
+      }
+    }
   }
   return undefined;
 }
@@ -114,9 +94,20 @@ export type FbPixelParams = {
   };
 };
 
-function postPixelEvent(
+function createEventId(eventName: string): string {
+  const prefix = `fb-${eventName.toLowerCase()}`;
+  try {
+    return `${prefix}-${crypto.randomUUID()}`;
+  } catch {
+    return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+}
+
+function relayPixelEvent(
   eventName: string,
+  eventId: string,
   params?: FbPixelParams,
+  sourceUrl?: string,
 ): void {
   if (!activePixelId) return;
   if (typeof fetch === "undefined") return;
@@ -124,17 +115,17 @@ function postPixelEvent(
   const pixelId = activePixelId;
   const fbp = getFbp();
   const fbclid = getFbclid();
-  const sourceUrl =
-    typeof window !== "undefined" ? window.location.href : undefined;
 
   const body: Record<string, unknown> = {
     eventName,
     pixelId,
-    fbp,
-    sourceUrl,
+    eventId,
+    sourceUrl:
+      sourceUrl ??
+      (typeof window !== "undefined" ? window.location.href : undefined),
   };
+  if (fbp) body.fbp = fbp;
   if (fbclid) body.fbclid = fbclid;
-  if (params?.event_id) body.eventId = params.event_id;
   if (params?.value != null) body.value = params.value;
   if (params?.currency) body.currency = params.currency;
   if (params?.content_ids) body.contentIds = params.content_ids;
@@ -162,12 +153,34 @@ function postPixelEvent(
   });
 }
 
+function browserPixelParams(params?: FbPixelParams): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  if (params?.content_name) result.content_name = params.content_name;
+  if (params?.content_ids) result.content_ids = params.content_ids;
+  if (params?.content_type) result.content_type = params.content_type;
+  if (params?.value != null) result.value = params.value;
+  if (params?.currency) result.currency = params.currency;
+  if (params?.num_items != null) result.num_items = params.num_items;
+  return result;
+}
+
 /**
  * Fire a standard pixel event scoped to the active country pixel.
  * No-ops when no pixel is active (e.g. Cyprus or pixel env vars absent).
  */
 export function trackFbEvent(event: string, params?: FbPixelParams): void {
-  postPixelEvent(event, params);
+  if (!activePixelId) return;
+  const eventId = params?.event_id ?? createEventId(event);
+  if (typeof window !== "undefined" && window.fbq) {
+    window.fbq(
+      "trackSingle",
+      activePixelId,
+      event,
+      browserPixelParams(params),
+      { eventID: eventId },
+    );
+  }
+  relayPixelEvent(event, eventId, params);
 }
 
 /**
@@ -175,5 +188,21 @@ export function trackFbEvent(event: string, params?: FbPixelParams): void {
  * No-ops when no pixel is active (e.g. Cyprus).
  */
 export function trackFbPageView(): void {
-  postPixelEvent("PageView");
+  if (!activePixelId || typeof window === "undefined") return;
+  const pageKey = `${activePixelId}:${window.location.pathname}`;
+  if (pageKey === lastPageViewKey) return;
+  lastPageViewKey = pageKey;
+
+  const initial = window.__presentailMetaInitialPageView;
+  if (
+    initial &&
+    !initial.relayed &&
+    initial.pixelId === activePixelId &&
+    initial.pathname === window.location.pathname
+  ) {
+    initial.relayed = true;
+    relayPixelEvent("PageView", initial.eventId, undefined, initial.sourceUrl);
+    return;
+  }
+  trackFbEvent("PageView");
 }

@@ -10,9 +10,82 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2" />
     <link rel="manifest" href="/site.webmanifest?v=2" />
     <meta name="theme-color" content="#0A404E" />
+    <!-- Meta click capture must run synchronously before React can clean fbclid from the URL. -->
+    <script>
+      (function () {
+        try {
+          var fbclid = new URLSearchParams(window.location.search).get("fbclid");
+          if (!fbclid) return;
+          var fbc = "fb.1." + Date.now() + "." + fbclid;
+          var parentDomain =
+            window.location.hostname === "presentail.com" ||
+            window.location.hostname.endsWith(".presentail.com")
+              ? "; Domain=.presentail.com"
+              : "";
+          document.cookie =
+            "_fbc=" +
+            encodeURIComponent(fbc) +
+            "; Max-Age=7776000; Path=/; SameSite=Lax; Secure" +
+            parentDomain;
+        } catch (_) {
+          // Attribution must never block storefront startup.
+        }
+      })();
+    </script>
     <!-- perf: warm up third-party origins before their scripts fire -->
     <link rel="preconnect" href="https://www.googletagmanager.com">
     <link rel="preconnect" href="https://www.clarity.ms">
+    <link rel="preconnect" href="https://connect.facebook.net" crossorigin>
+    <!-- Meta Pixel: load immediately so the landing PageView is not delayed by React hydration. -->
+    <script>
+      (function (f, b, e, v, n, t, s) {
+        if (f.fbq) return;
+        n = f.fbq = function () {
+          n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
+        };
+        if (!f._fbq) f._fbq = n;
+        n.push = n;
+        n.loaded = true;
+        n.version = "2.0";
+        n.queue = [];
+        t = b.createElement(e);
+        t.async = true;
+        t.src = v;
+        s = b.getElementsByTagName(e)[0];
+        s.parentNode.insertBefore(t, s);
+      })(window, document, "script", "https://connect.facebook.net/en_US/fbevents.js");
+
+      (function () {
+        var lbPixelId = "%VITE_FB_PIXEL_ID_LB%";
+        var aePixelId = "%VITE_FB_PIXEL_ID_AE%";
+        var countryMatch = window.location.pathname.match(/^\/[a-z]{2}-([a-z]{2})(?:\/|$)/i);
+        var country = countryMatch ? countryMatch[1].toLowerCase() : "lb";
+        var pixelId = country === "ae" ? aePixelId : country === "lb" ? lbPixelId : "";
+        if (!/^\d+$/.test(pixelId)) return;
+
+        var eventId;
+        try {
+          eventId = "fb-pageview-" + crypto.randomUUID();
+        } catch (_) {
+          eventId =
+            "fb-pageview-" +
+            Date.now() +
+            "-" +
+            Math.random().toString(36).slice(2);
+        }
+
+        window.__presentailMetaInitializedPixels = [pixelId];
+        window.fbq("init", pixelId);
+        window.fbq("trackSingle", pixelId, "PageView", {}, { eventID: eventId });
+        window.__presentailMetaInitialPageView = {
+          pixelId: pixelId,
+          pathname: window.location.pathname,
+          eventId: eventId,
+          sourceUrl: window.location.href,
+          relayed: false
+        };
+      })();
+    </script>
     <!-- perf: deferred for INP — async prevents blocking the main thread during page load -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=%VITE_GTAG_ADS_ID%"></script>
     <!-- perf: inline init only (no external fetch); dataLayer must be ready before async gtag.js executes -->

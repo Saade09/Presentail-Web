@@ -1542,6 +1542,11 @@ export type MarketingAttributionConversion = {
   currency?: string;
   /** ISO 8601 timestamp when the order was placed. */
   converted_at?: string;
+  /**
+   * Canonical checkout URL where the order was submitted.
+   * @maxLength 2048
+   */
+  source_url?: string;
 };
 
 /**

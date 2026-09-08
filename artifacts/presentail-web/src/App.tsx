@@ -662,12 +662,9 @@ function FbPixelTracker() {
     : null;
 
   useEffect(() => {
-    initPixel(countrySlug);
-  }, [countrySlug]);
-
-  useEffect(() => {
+    if (!initPixel(countrySlug)) return;
     trackFbPageView();
-  }, [path]);
+  }, [countrySlug, path]);
 
   return null;
 }

@@ -431,6 +431,7 @@ type CAPIPurchaseParams = {
   currency: string;
   countryCode: string | null | undefined;
   userData?: CAPIUserData;
+  eventSourceUrl?: string | null;
 };
 
 export async function sendCapiPurchase(params: CAPIPurchaseParams): Promise<void> {
@@ -447,6 +448,7 @@ export async function sendCapiPurchase(params: CAPIPurchaseParams): Promise<void
     value: params.value,
     currency: params.currency,
     userData: params.userData,
+    eventSourceUrl: params.eventSourceUrl,
     countryKey,
   });
 }

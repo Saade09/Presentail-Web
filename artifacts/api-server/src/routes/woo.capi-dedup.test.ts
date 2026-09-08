@@ -233,6 +233,12 @@ const BASE_ORDER_BODY = {
   paymentMethod: "card",
   paymentRef: PAYMENT_REF,
   currencyCode: "USD",
+  marketing_attribution: {
+    source: "website",
+    conversion: {
+      source_url: "https://presentail.com/en-lb/beirut/checkout",
+    },
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -306,6 +312,20 @@ describe("POST /woo/order — CAPI Purchase deduplication guard", () => {
     expect(sendCapiPurchaseMock).toHaveBeenCalledOnce();
     const callArgs = sendCapiPurchaseMock.mock.calls[0][0] as { eventId: string };
     expect(callArgs.eventId).toBe(`fbpurchase-${ORDER_ID}`);
+  });
+
+  it("passes the stored checkout URL to the Purchase event", async () => {
+    setupDbClaimSucceeds();
+    const app = await buildApp();
+
+    await request(app).post("/woo/order").send(BASE_ORDER_BODY);
+    await new Promise((resolve) => setTimeout(resolve, 30));
+
+    expect(sendCapiPurchaseMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventSourceUrl: "https://presentail.com/en-lb/beirut/checkout",
+      }),
+    );
   });
 
   it("does not block the order response when the DB claim throws (fire-and-forget)", async () => {
