@@ -33,6 +33,7 @@ import { computeCartTotal } from "@workspace/display-currency";
 import { CheckoutLoginDialog } from "@/components/cart/CheckoutLoginDialog";
 import { cartCheckoutCtaDecision, isFrictionlessCheckoutEnabled } from "@/lib/frictionlessCheckout";
 import { DeliveryDateRow } from "@/components/delivery/DeliveryDateRow";
+import { buildFeeNode } from "@/lib/feeNode";
 import { ExpressQuietPrompt } from "@/components/delivery/ExpressQuietPrompt";
 import { DeliverEarlierDialog } from "@/components/delivery/DeliverEarlierDialog";
 import { SuggestedMessagesDialog } from "@/components/checkout/SuggestedMessagesDialog";
@@ -409,6 +410,16 @@ export default function Cart() {
     const threshold = thresholdUsd ?? Infinity;
     return freeDeliveryEnabled !== false && subtotal >= threshold ? 0 : cityFeeUsd;
   })();
+
+  // Combined delivery total for the Midnight Delivery Summary card.
+  // null when deliveryFeeUsd is unknown (city not loaded yet) — card hides the amount.
+  // When known, equals base city fee + midnight upgrade so the shopper sees one
+  // total instead of an upgrade-only "+$20" delta that understates the full cost.
+  // Declared AFTER deliveryFeeUsd to avoid TDZ (temporal dead zone) error.
+  const midnightTotalFeeUsd: number | null =
+    isMidnightSlotActive && deliveryFeeUsd !== null
+      ? deliveryFeeUsd + slotFeeUsd
+      : null;
 
   // When express is selected, add the surcharge on top of the base delivery fee.
   // null base → still null (no city selected); 0 base (free threshold met) →
@@ -1393,7 +1404,7 @@ export default function Cart() {
                 <h2 className="text-2xl font-serif mb-4">{t("cart.deliverySummary")}</h2>
                 <div className="text-sm">
                   <DeliveryDateRow
-                    midnightFeeUsd={isMidnightSlotActive ? slotFeeUsd : null}
+                    midnightFeeUsd={midnightTotalFeeUsd}
                     invalidReason={activeDeliveryInvalidation}
                     expressArrival={activeDeliveryInvalidation === "expired" && expressAvailableNow
                       ? expressArrivalPreview
@@ -1466,7 +1477,13 @@ export default function Cart() {
                     </dd>
                   </div>
 
-                  {/* Delivery — exactly one row for the currently selected method */}
+                  {/* Delivery — exactly one row for the currently selected method.
+                      Composite methods (Midnight, late-night slot) are unified into a
+                      single row showing the combined base+upgrade total so the displayed
+                      amount matches cartTotal's USD addition before FX conversion.
+                      Showing the components as separate rows caused an AED 5 rounding
+                      discrepancy: each amount was independently rounded to the nearest 5
+                      AED, which could diverge from rounding the combined USD value once. */}
                   {deliveryMode === "express" ? (
                     <div className="flex justify-between gap-3" data-testid="row-express-delivery">
                       <dt className="min-w-0">
@@ -1481,7 +1498,46 @@ export default function Cart() {
                           : <FormattedPrice usdValue={effectiveDeliveryFeeUsd} />}
                       </dd>
                     </div>
+                  ) : deliveryMode && isMidnightSlotActive ? (
+                    // Midnight delivery — one unified row.
+                    // Shows the full combined charge (city fee + midnight upgrade) so the
+                    // amount agrees with the cart total and avoids a dual-rounding split.
+                    <div className="flex justify-between gap-3" data-testid="row-midnight-delivery">
+                      <dt className="min-w-0">
+                        <span className="block font-medium">{t("product.midnightDelivery")}</span>
+                        {deliveryFeeUsd !== null && deliveryFeeUsd > 0 && slotFeeUsd > 0 && (
+                          <span className="block text-xs text-muted-foreground mt-0.5" data-testid="text-midnight-components">
+                            {buildFeeNode(t("cart.midnightComponents"), { base: deliveryFeeUsd, upgrade: slotFeeUsd })}
+                          </span>
+                        )}
+                      </dt>
+                      <dd className="font-medium text-end shrink-0">
+                        {deliveryFeeUsd === null
+                          ? <span className="text-muted-foreground text-xs font-normal">{t("cart.deliveryTbd")}</span>
+                          : <FormattedPrice usdValue={(deliveryFeeUsd ?? 0) + slotFeeUsd} />
+                        }
+                      </dd>
+                    </div>
+                  ) : deliveryMode && slotFeeUsd > 0 ? (
+                    // Standard delivery with a late-night slot surcharge — one unified row.
+                    <div className="flex justify-between gap-3" data-testid="row-standard-delivery">
+                      <dt className="min-w-0">
+                        <span className="block font-medium">{t("cart.standardDelivery")}</span>
+                        {deliveryFeeUsd !== null && !standardDeliveryFree && (
+                          <span className="block text-xs text-muted-foreground mt-0.5" data-testid="text-slot-components">
+                            {buildFeeNode(t("cart.lateNightComponents"), { base: deliveryFeeUsd ?? 0, fee: slotFeeUsd })}
+                          </span>
+                        )}
+                      </dt>
+                      <dd className="font-medium text-end shrink-0">
+                        {deliveryFeeUsd === null
+                          ? <span className="text-muted-foreground text-xs font-normal">{t("cart.deliveryTbd")}</span>
+                          : <FormattedPrice usdValue={(deliveryFeeUsd ?? 0) + slotFeeUsd} />
+                        }
+                      </dd>
+                    </div>
                   ) : deliveryMode ? (
+                    // Standard delivery without a slot surcharge.
                     <div className="flex justify-between gap-3" data-testid="row-standard-delivery">
                       <dt className="min-w-0">
                         <span className="block font-medium">{t("cart.standardDelivery")}</span>
@@ -1506,14 +1562,6 @@ export default function Cart() {
                     <div className="flex justify-between gap-3" data-testid="row-no-delivery">
                       <dt className="font-medium">{t("cart.noDeliverySelected")}</dt>
                       <dd className="font-medium text-end text-muted-foreground">—</dd>
-                    </div>
-                  )}
-
-                  {/* Late-night slot fee / Midnight delivery */}
-                  {slotFeeUsd > 0 && (
-                    <div className="flex justify-between gap-3">
-                      <dt className="font-medium">{isMidnightSlotActive ? t("product.midnightDelivery") : t("cart.lateNightFee")}</dt>
-                      <dd className="font-medium text-end shrink-0"><FormattedPrice usdValue={slotFeeUsd} /></dd>
                     </div>
                   )}
 

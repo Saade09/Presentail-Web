@@ -29,6 +29,7 @@ Object.defineProperty(window, "matchMedia", {
 vi.mock("@/lib/analytics", () => ({
   trackEvent: vi.fn(),
   trackWebEvent: vi.fn(),
+  trackWebEventOnce: vi.fn(),
   umamiTrack: vi.fn(),
 }));
 
@@ -117,8 +118,13 @@ vi.mock("@/contexts/DeliverySelectionContext", () => ({
   DeliverySelectionProvider: ({ children }: React.PropsWithChildren) => <>{children}</>,
 }));
 
+vi.mock("@/lib/useNow", () => ({
+  useNow: () => new Date("2026-09-08T10:00:00Z"),
+}));
+
 import Cart, { COUPON_STORAGE_KEY, COUPON_DISCOUNT_KEY } from "./Cart";
 import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
+import { useLocationSelection } from "@/contexts/LocationContext";
 import { trackWebEvent } from "@/lib/analytics";
 
 const makeItem = (id: string) => ({
@@ -253,6 +259,178 @@ describe("Cart summary — promo discount row", () => {
     expect(row.textContent).toContain("FLOWERS10");
     expect(row.textContent).toContain("−");
     expect(row.textContent).toContain("$10");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Midnight delivery — unified Order Summary row
+//
+// Before the fix, Midnight delivery produced TWO rows in the Order Summary:
+//   1. "Standard delivery" (city base fee)
+//   2. "Midnight Delivery / Late night fee" (upgrade fee separately)
+//
+// This caused an AED 5 rounding discrepancy: each USD amount was independently
+// converted and rounded to the nearest 5 AED, which can differ by up to 5 AED
+// from rounding the combined USD total once (the path cartTotal uses).
+//
+// After the fix, a single "row-midnight-delivery" shows the combined total.
+// ---------------------------------------------------------------------------
+
+describe("Cart summary — midnight delivery unified row", () => {
+  // Fixture: a city with a midnight time slot. Must use an ID from
+  // MIDNIGHT_ELIGIBLE_CITY_IDS ("lb-beirut") so displayedSlotsForDate includes the slot.
+  const MIDNIGHT_CITY = {
+    id: "lb-beirut",
+    timeSlots: [
+      {
+        label: "11 PM – 1 AM",
+        startHour: 23,
+        endHour: 1,
+        cutoffHour: 21,
+        serviceType: "midnight" as const,
+        sameDayEnabled: true,
+        nextDayEnabled: false,
+        // extraFee intentionally absent — displayedSlotsForDate injects MIDNIGHT_FEE_USD (20)
+      },
+    ],
+    expressAvailable: false,
+    freeDeliveryThresholdUsd: 90,
+  };
+
+  const midnightSelection = {
+    mode: "schedule" as const,
+    date: "2026-09-08",      // matches mocked useNow date (LB = UTC+3 → 2026-09-08)
+    slotLabel: "11 PM – 1 AM",
+    slotId: null,
+    serviceType: "midnight" as const,
+    hasSelection: true,
+    setSelection: vi.fn(),
+    clear: vi.fn(),
+  };
+
+  beforeEach(() => {
+    vi.mocked(useDeliveryConfig).mockReturnValue({
+      ...BASE_CONFIG,
+      cityFeeUsd: 15, // non-zero base fee to exercise the component breakdown
+    });
+    mockUseDeliverySelection.mockReturnValue(midnightSelection as any);
+    vi.mocked(useLocationSelection).mockReturnValue({
+      countryCode: "LB",
+      city: MIDNIGHT_CITY as any,
+      country: null,
+      cityId: "lb-beirut",
+      countries: [],
+      isLoadingCountries: false,
+      isPickerOpen: false,
+      pickerForceCountryStep: false,
+      openPicker: vi.fn(),
+      closePicker: vi.fn(),
+      setLocation: vi.fn(),
+      clearLocation: vi.fn(),
+    });
+  });
+
+  it("shows a single row-midnight-delivery, not row-standard-delivery", () => {
+    // subtotal $40 (CART_ONE) < threshold $90 → city fee $15 applies
+    renderWithProviders(<Cart />, { auth: AUTH_OUT, cart: CART_ONE, currency: CURRENCY_FIXTURE });
+    expect(screen.getByTestId("row-midnight-delivery")).toBeTruthy();
+    expect(screen.queryByTestId("row-standard-delivery")).toBeNull();
+  });
+
+  it("(AED-5 regression) combined midnight fee amount equals base + upgrade as one value", () => {
+    // base = $15, upgrade = $20 → combined = $35
+    // With CURRENCY_FIXTURE formatPrice: v => `$${v}`, FormattedPrice shows "$35".
+    // If the two amounts were shown separately (the old pattern), the row amounts
+    // would be "$15" + "$20" = individually rounded, which can diverge from "$35"
+    // by 5 AED in the AED market due to roundToNearestFive applied twice.
+    renderWithProviders(<Cart />, { auth: AUTH_OUT, cart: CART_ONE, currency: CURRENCY_FIXTURE });
+    const row = screen.getByTestId("row-midnight-delivery");
+    // The combined $35 must appear in the row — not the split $15 and $20.
+    expect(row.textContent).toContain("$35");
+    expect(row.textContent).not.toContain("$15");
+    expect(row.textContent).not.toContain("$20");
+  });
+
+  it("shows the component breakdown sub-text when base and upgrade are both paid", () => {
+    renderWithProviders(<Cart />, { auth: AUTH_OUT, cart: CART_ONE, currency: CURRENCY_FIXTURE });
+    // The muted sub-text testid is present when both fees are non-zero.
+    expect(screen.getByTestId("text-midnight-components")).toBeTruthy();
+  });
+
+  it("no separate slot-fee row exists — midnight label lives only inside the combined row", () => {
+    renderWithProviders(<Cart />, { auth: AUTH_OUT, cart: CART_ONE, currency: CURRENCY_FIXTURE });
+    // product.midnightDelivery IS expected to appear — it's the label of the unified row.
+    // The old pattern added a SECOND standalone row with no testid alongside row-standard-delivery.
+    // After the fix there must be exactly one midnight row and no standard-delivery row.
+    const midnightRows = screen.getAllByTestId("row-midnight-delivery");
+    expect(midnightRows).toHaveLength(1);
+    // No separate late-night-fee label anywhere (that was the old secondary row's text).
+    expect(screen.queryByText("cart.lateNightFee")).toBeNull();
+    // No standard delivery row coexisting with the midnight row.
+    expect(screen.queryByTestId("row-standard-delivery")).toBeNull();
+  });
+
+  it("midnight with free standard delivery (above threshold) shows upgrade fee only, no sub-text", () => {
+    // CART_ABOVE subtotal $120 ≥ threshold $90 → base fee $0
+    // Combined = $0 + $20 = $20; no breakdown sub-text since base is free.
+    renderWithProviders(<Cart />, { auth: AUTH_OUT, cart: CART_ABOVE, currency: CURRENCY_FIXTURE });
+    const row = screen.getByTestId("row-midnight-delivery");
+    expect(row.textContent).toContain("$20");
+    // No component breakdown sub-text when base is free.
+    expect(screen.queryByTestId("text-midnight-components")).toBeNull();
+  });
+
+  it("cart total matches the combined midnight fee (not separately summed components)", () => {
+    // subtotal $40 + combined delivery $35 = $75 total
+    renderWithProviders(<Cart />, { auth: AUTH_OUT, cart: CART_ONE, currency: CURRENCY_FIXTURE });
+    expect(screen.getByTestId("text-cart-total").textContent).toContain("$75");
+  });
+});
+
+describe("Cart summary — late-night slot (non-midnight) unified row", () => {
+  it("shows a single row-standard-delivery with combined base+slot fee amount", () => {
+    // mode=schedule, slotLabel set → IIFE finds the night slot → slotFeeUsd=$5
+    // base=$10, slotFee=$5 → combined=$15 in one row
+    mockUseDeliverySelection.mockReturnValue({
+      mode: "schedule" as const,
+      date: "2026-09-08",
+      slotLabel: "9 PM – 11 PM",
+      slotId: null,
+      serviceType: null,   // not midnight
+      hasSelection: true,
+      setSelection: vi.fn(),
+      clear: vi.fn(),
+    } as any);
+    vi.mocked(useLocationSelection).mockReturnValue({
+      countryCode: "LB",
+      city: {
+        id: "beirut",
+        timeSlots: [
+          // A same-day night slot with no extraFee → $5 same-day fallback
+          { label: "9 PM – 11 PM", startHour: 21, endHour: 23, cutoffHour: 19, sameDayEnabled: true, nextDayEnabled: false },
+        ],
+        expressAvailable: false,
+        freeDeliveryThresholdUsd: 90,
+      } as any,
+      country: null,
+      cityId: "beirut",
+      countries: [],
+      isLoadingCountries: false,
+      isPickerOpen: false,
+      pickerForceCountryStep: false,
+      openPicker: vi.fn(),
+      closePicker: vi.fn(),
+      setLocation: vi.fn(),
+      clearLocation: vi.fn(),
+    });
+
+    renderWithProviders(<Cart />, { auth: AUTH_OUT, cart: CART_ONE, currency: CURRENCY_FIXTURE });
+
+    const row = screen.getByTestId("row-standard-delivery");
+    // Combined: base $10 + slot $5 = $15
+    expect(row.textContent).toContain("$15");
+    // Component breakdown sub-text present
+    expect(screen.getByTestId("text-slot-components")).toBeTruthy();
   });
 });
 

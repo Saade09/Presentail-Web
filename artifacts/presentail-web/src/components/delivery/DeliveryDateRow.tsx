@@ -3,7 +3,6 @@ import { CalendarDays, ChevronRight, Moon, Zap, AlertTriangle } from "lucide-rea
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { trackEvent, trackWebEvent } from "@/lib/analytics";
-import { buildFeeNode } from "@/lib/feeNode";
 import { DeliveryPickerModal } from "./DeliveryPickerModal";
 import { useCityTimeSlots, useDeliveryPromise } from "./deliveryPromise";
 import { FormattedPrice } from "@/components/FormattedPrice";
@@ -213,7 +212,7 @@ export function DeliveryDateRow({ className = "", onChangeClick, openWithExpress
                   className="whitespace-nowrap text-sm font-semibold text-primary tabular-nums"
                   data-testid="text-midnight-fee"
                 >
-                  {buildFeeNode(t("cart.expressDelta"), { amount: midnightFeeUsd })}
+                  <FormattedPrice usdValue={midnightFeeUsd} />
                 </span>
               )}
               <span className="text-xs font-medium text-primary">

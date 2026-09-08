@@ -422,6 +422,45 @@ describe("POST /checkout/fees", () => {
     expect(res.body.totalUsd).toBe(100);
   });
 
+  it("(n) premium slot fee — districtFee + slotFee components sum to the combined delivery total", async () => {
+    // AED-5 regression root cause: the client used to show districtFeeUsd and slotFeeUsd
+    // as two separately-formatted amounts (each rounded independently to nearest 5 AED),
+    // which can diverge from formatting the combined USD total once.
+    // The server /checkout/fees correctly sums all USD components first, then rounds.
+    // This test verifies that districtFeeUsd + slotFeeUsd == deliveryFeeUsd contribution
+    // to totalUsd, so any future change that double-rounds components will be caught.
+    computeDistrictFeeUsdMock.mockReturnValue(15);
+    getDeliverySlotsMock.mockReturnValue([
+      // A paid evening slot with explicit extraFee (avoids midnight city-eligibility checks
+      // while still exercising the district + slot fee combination).
+      { label: "9 PM – 11 PM", startHour: 21, endHour: 23, cutoffHour: 19, extraFee: 20, sameDayEnabled: true },
+    ]);
+
+    const app = await buildApp();
+    const res = await request(app)
+      .post("/checkout/fees")
+      .send({
+        items: BASE_ITEMS,
+        currency: "USD",
+        district: "Beirut",
+        deliverySlot: "9 PM – 11 PM",
+        cityId: "1",
+        deliveryDate: "2026-07-20", // today (same as mocked getLocalIso)
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    // District fee and slot upgrade fee reported separately.
+    expect(res.body.districtFeeUsd).toBe(15);
+    expect(res.body.slotFeeUsd).toBe(20);
+    expect(res.body.expressFeeUsd).toBe(0);
+    // Combined delivery total = district + slot.
+    expect(res.body.totalUsd).toBe(135); // 100 subtotal + 15 district + 20 slot
+    // The two components must sum exactly to the delivery contribution in totalUsd —
+    // the server never rounds them independently before summing.
+    expect(res.body.districtFeeUsd + res.body.slotFeeUsd).toBe(35);
+  });
+
   it("(m) coupon face value > product subtotal but ≤ full cart total — validateCoupon receives full cart total and full discount applied", async () => {
     // Product subtotal: $10, delivery fee: $8, full cart total: $18.
     // Coupon face value: $15 — exceeds the $10 subtotal but is within the $18 full total.
