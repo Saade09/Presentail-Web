@@ -297,7 +297,7 @@ vi.mock("@/pages/ResetPassword", () => ({ default: () => null }));
 // runs with its actual localStorage.setItem logic.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import App, { getShopShellChrome } from "@/App";
+import App, { getShopShellChrome, isCartRoute } from "@/App";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Test helpers
@@ -399,6 +399,13 @@ describe("App — attribution captured when landing directly on /checkout via ad
 });
 
 describe("ShopShell campaign chrome selection", () => {
+  it("recognizes only cart routes for the compact mobile chrome", () => {
+    expect(isCartRoute("/en-lb/beirut/cart")).toBe(true);
+    expect(isCartRoute("/cart?source=header")).toBe(true);
+    expect(isCartRoute("/en-lb/beirut/checkout")).toBe(false);
+    expect(isCartRoute("/en-lb/beirut/category/balloons")).toBe(false);
+  });
+
   it("uses the regular header and campaign footer on the late-night route", () => {
     expect(
       getShopShellChrome("/en-lb/beirut/late-night-flower-delivery"),

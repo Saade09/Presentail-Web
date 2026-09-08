@@ -69,7 +69,10 @@ import { CheckoutSkeleton } from "@/components/skeletons/CheckoutSkeleton";
 import { AccountSkeleton } from "@/components/skeletons/AccountSkeleton";
 import { HeaderSkeleton } from "@/components/skeletons/HeaderSkeleton";
 import { useIsMobile } from "@/hooks/use-mobile";
-
+import {
+  CART_RETURN_HISTORY_KEY,
+  CompactMobileCartHeader,
+} from "@/components/homepage/CompactMobileCartHeader";
 function withSuspense<P extends object>(
   Component: React.ComponentType<P>,
   Fallback: React.ComponentType,
@@ -268,6 +271,7 @@ function CustomerOnly({ children }: { children: React.ReactNode }) {
 
 function ScrollToTop() {
   const isPop = useRef(false);
+  const previousPath = useRef<string | null>(null);
 
   useEffect(() => {
     history.scrollRestoration = "manual";
@@ -303,6 +307,25 @@ function ScrollToTop() {
   }, []);
 
   const [pathname] = useLocation();
+  useEffect(() => {
+    const previous = previousPath.current;
+    if (typeof window !== "undefined") {
+      try {
+        if (isCartRoute(pathname)) {
+          sessionStorage.setItem(
+            CART_RETURN_HISTORY_KEY,
+            previous && isShoppingRoute(previous) ? "1" : "0",
+          );
+        } else if (previous && isCartRoute(previous)) {
+          sessionStorage.removeItem(CART_RETURN_HISTORY_KEY);
+        }
+      } catch {
+        // sessionStorage unavailable (e.g. private mode with storage blocked)
+      }
+    }
+    previousPath.current = pathname;
+  }, [pathname]);
+
   useEffect(() => {
     if (isPop.current) {
       isPop.current = false;
@@ -343,6 +366,10 @@ export function getShopShellChrome(path: string) {
   };
 }
 
+export function isCartRoute(path: string): boolean {
+  const pathname = path.split(/[?#]/, 1)[0].replace(/\/+$/, "");
+  return pathname === "/cart" || pathname.endsWith("/cart");
+}
 function ShopShell() {
   const [path] = useLocation();
   const isMobile = useIsMobile();
@@ -351,16 +378,33 @@ function ShopShell() {
     path.endsWith("/order-confirmed") ||
     path.endsWith("/checkout/payment-resume") ||
     path.includes("/checkout/payment-resume?");
-  const { useLandingHeader, useLandingFooter, isCartRoute } = getShopShellChrome(path);
-  const hideGlobalFooter = isCartRoute && isMobile;
+  const isCartPage = isCartRoute(path);
+  const { useLandingHeader, useLandingFooter } = getShopShellChrome(path);
+  // Hide the global footer when the sticky checkout bar is visible (<1024px on
+  // cart). Cart.tsx uses lg:hidden for the sticky bar, so mirror that breakpoint.
+  const isBelowLg = useIsMobile(1024);
+  const hideGlobalFooter = isCartPage && isBelowLg;
   return (
     <LocationPickerGate>
       <ScrollToTop />
       <div className="min-h-screen flex flex-col">
         {!isCheckoutPage && (
-          <Suspense fallback={<HeaderSkeleton />}>
-            {useLandingHeader ? <LandingPageHeader /> : <HomepageHeader />}
-          </Suspense>
+          isCartPage ? (
+            <>
+              <div className="lg:hidden">
+                <CompactMobileCartHeader />
+              </div>
+              <div className="hidden lg:block">
+                <Suspense fallback={<HeaderSkeleton />}>
+                  {useLandingHeader ? <LandingPageHeader /> : <HomepageHeader />}
+                </Suspense>
+              </div>
+            </>
+          ) : (
+            <Suspense fallback={<HeaderSkeleton />}>
+              {useLandingHeader ? <LandingPageHeader /> : <HomepageHeader />}
+            </Suspense>
+          )
         )}
         <main className="flex-1">
           <RouteErrorBoundary>
@@ -801,3 +845,15 @@ function App() {
 }
 
 export default App;
+
+function isShoppingRoute(path: string): boolean {
+  const pathname = path.split(/[?#]/, 1)[0];
+  const parsed = parseLocalePath(pathname);
+  if (!parsed.hasLocalePrefix || !parsed.lang || !parsed.country) {
+    return SHOPPING_ROUTE_RE.test(pathname);
+  }
+  return parsed.rest === "" || SHOPPING_ROUTE_RE.test(parsed.rest);
+}
+
+const SHOPPING_ROUTE_RE =
+  /^\/(?:shop|product(?:\/|$)|category(?:\/|$)|occasion(?:\/|$)|brand(?:\/|$)|brands(?:\/|$)|occasions(?:\/|$)|best-sellers(?:\/|$))/;

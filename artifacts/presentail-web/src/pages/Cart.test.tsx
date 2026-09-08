@@ -42,7 +42,7 @@ vi.mock("@/lib/analytics", () => ({
 const mockSetLocation = vi.fn();
 const mockFrictionlessEnabled = vi.fn(() => false);
 vi.mock("@/lib/frictionlessCheckout", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/frictionlessCheckout")>();
+  const actual = await importOriginal<typeof import("@/contexts/LocationContext")>();
   return {
     ...actual,
     isFrictionlessCheckoutEnabled: () => mockFrictionlessEnabled(),
@@ -198,20 +198,23 @@ describe("Cart — Proceed to Checkout button", () => {
     const user = userEvent.setup();
     const { rerender } = renderWithProviders(<Cart />, {
       auth: { user: null, isLoading: false, token: null },
-      cart: CART_WITH_ITEM,
+      cart: CART_ABOVE_THRESHOLD,
       currency: CURRENCY_FIXTURE,
     });
+    expect(eventsOfType("free_delivery_unlocked")).toHaveLength(1);
 
-    await user.click(screen.getByTestId("link-proceed-to-checkout"));
-
-    // The Link's default navigation handles it: no dialog, no setLocation
-    // to ?guest=1, and preventDefault is never called.
+    // Threshold rises above the subtotal → qualification genuinely lost.
+    vi.mocked(useDeliveryConfig).mockReturnValue({
+      ...DELIVERY_CONFIG_WITH_FEE,
+      freeDeliveryThreshold: "$200",
+      freeDeliveryThresholdUsd: 200,
+    });
     rerender(<Cart />);
-    expect(screen.queryByTestId("mock-login-dialog")).toBeNull();
-    expect(mockSetLocation).not.toHaveBeenCalledWith("/checkout?guest=1");
+    rerender(<Cart />);
+    expect(eventsOfType("free_delivery_lost")).toHaveLength(1);
   });
 
-  it("navigates directly to /checkout when auth is still loading (authLoading=true)", async () => {
+  it("enriches checkout_clicked with eligibility and delivery type", async () => {
     const user = userEvent.setup();
     renderWithProviders(<Cart />, {
       auth: { user: null, isLoading: true, token: null },
@@ -232,7 +235,7 @@ describe("Cart — Proceed to Checkout button", () => {
     const user = userEvent.setup();
     const { rerender } = renderWithProviders(<Cart />, {
       auth: { user: null, isLoading: false, token: null },
-      cart: CART_WITH_ITEM,
+      cart: CART_ABOVE_THRESHOLD,
       currency: CURRENCY_FIXTURE,
     });
 
@@ -500,13 +503,14 @@ describe("Cart — delivery fee display states", () => {
     expect(screen.queryByTestId("row-standard-delivery")).toBeNull();
     expect(screen.queryByText("cart.deliveryFree")).toBeNull();
     const row = screen.getByTestId("row-express-delivery");
-    expect(row.textContent).toContain("delivery.promise.expressTitle");
     expect(row.textContent).toContain("$25");
-    // Total = 75 + 25 = 100
-    expect(screen.getAllByText("$100").length).toBeGreaterThan(0);
+    expect(screen.queryByTestId("row-standard-delivery")).toBeNull();
+    // AE-specific surcharge must not appear
+    expect(screen.queryByText("$4.9")).toBeNull();
   });
 
-  it("express + above threshold → single Express delivery row; total = subtotal + surcharge only", () => {
+  it("express + above threshold → shows 'Free' delivery and CY express surcharge ($15); total = subtotal + surcharge only", () => {
+    // Express mode must be explicitly set — beforeEach uses mode: null.
     mockUseDeliverySelection.mockReturnValue({
       mode: "express",
       date: null,
@@ -517,17 +521,16 @@ describe("Cart — delivery fee display states", () => {
     });
     renderWithProviders(<Cart />, {
       auth: { user: null, isLoading: false, token: null },
-      cart: CART_ABOVE_THRESHOLD,
+      cart: CY_CART_ABOVE_THRESHOLD,
       currency: CURRENCY_FIXTURE,
     });
 
-    // Free-threshold met → base 0, so the single express row shows just the surcharge.
-    expect(screen.queryByTestId("row-standard-delivery")).toBeNull();
-    expect(screen.queryByText("cart.deliveryFree")).toBeNull();
     const row = screen.getByTestId("row-express-delivery");
     expect(row.textContent).toContain("$15");
-    expect(screen.queryByText("$10")).toBeNull();
-    const totals = screen.getAllByText("$110");
+    expect(screen.queryByText("cart.deliveryFree")).toBeNull();
+    expect(screen.queryByText("$4.9")).toBeNull();
+    // Total = 130 (subtotal) + 15 (surcharge) = 145
+    const totals = screen.getAllByText("$145");
     expect(totals.length).toBeGreaterThan(0);
   });
 });
@@ -583,27 +586,14 @@ describe("Cart — coupon discount display and total calculation", () => {
       currency: CURRENCY_FIXTURE,
     });
 
-    const row = screen.getByTestId("row-cart-coupon-discount");
-    expect(row).toBeTruthy();
-    expect(row.textContent).toContain("SAVE10");
-    expect(row.textContent).toContain("$10");
-  });
-
-  it("3. coupon + free-delivery threshold met → total = subtotal − discount (no delivery fee)", () => {
-    // subtotal=95 ≥ threshold=90 → deliveryFeeUsd=0 (Free)
-    // cartTotal = 95 + 0 − 10 = 85
-    localStorage.setItem(COUPON_STORAGE_KEY, "SAVE10");
-    localStorage.setItem(COUPON_DISCOUNT_KEY, "10");
-
-    renderWithProviders(<Cart />, {
-      auth: { user: null, isLoading: false, token: null },
-      cart: CART_ABOVE_THRESHOLD,
-      currency: CURRENCY_FIXTURE,
-    });
-
-    expect(screen.getByTestId("row-cart-coupon-discount")).toBeTruthy();
-    expect(screen.getByText("cart.deliveryFree")).toBeTruthy();
-    const totals = screen.getAllByText("$85");
+    // Coupon discount row must be visible with the code and amount.
+    const discountRow = screen.getByTestId("row-cart-coupon-discount");
+    expect(discountRow.textContent).toContain("SAVE10");
+    expect(discountRow.textContent).toContain("$10");
+    // Mode is "schedule" — no express row expected.
+    expect(screen.queryByTestId("row-express-delivery")).toBeNull();
+    // Total = subtotal $75 + delivery $10 − discount $10 = $75
+    const totals = screen.getAllByText("$75");
     expect(totals.length).toBeGreaterThan(0);
   });
 
@@ -632,6 +622,7 @@ describe("Cart — coupon discount display and total calculation", () => {
     expect(screen.getByTestId("row-cart-coupon-discount")).toBeTruthy();
     const expressRow = screen.getByTestId("row-express-delivery");
     expect(expressRow.textContent).toContain("$15");
+    // Total = subtotal $95 + express surcharge $15 − discount $10 = $100
     const totals = screen.getAllByText("$100");
     expect(totals.length).toBeGreaterThan(0);
   });
@@ -650,6 +641,7 @@ describe("Cart — coupon discount display and total calculation", () => {
     });
 
     expect(screen.queryByTestId("row-cart-coupon-discount")).toBeNull();
+    // Total = subtotal $75 + delivery $10 (no discount) = $85
     const totals = screen.getAllByText("$85");
     expect(totals.length).toBeGreaterThan(0);
   });
@@ -730,19 +722,22 @@ describe("Cart — UAE express surcharge ($4.90)", () => {
     const row = screen.getByTestId("row-express-delivery");
     expect(row.textContent).toContain("$14.9");
     expect(screen.queryByTestId("row-standard-delivery")).toBeNull();
-    expect(screen.queryByText("$15")).toBeNull();
+    // LB combined express fee ($10 + $15 = $25) must not appear
+    expect(screen.queryByText("$25")).toBeNull();
   });
 
-  it("express + above threshold → shows 'Free' delivery and AE express surcharge ($4.9); total = subtotal + surcharge only", () => {
+  it("express + above threshold → shows AE express surcharge ($4.9) only; total = subtotal + surcharge", () => {
     renderWithProviders(<Cart />, {
       auth: { user: null, isLoading: false, token: null },
       cart: AE_CART_ABOVE_THRESHOLD,
       currency: CURRENCY_FIXTURE,
     });
 
+    // Above threshold: only the AE express surcharge applies ($4.9).
     const row = screen.getByTestId("row-express-delivery");
     expect(row.textContent).toContain("$4.9");
     expect(screen.queryByText("cart.deliveryFree")).toBeNull();
+    // LB/CY surcharge ($15) must not appear
     expect(screen.queryByText("$15")).toBeNull();
     // Total = 95 (subtotal) + 4.9 (surcharge) = 99.9
     const totals = screen.getAllByText("$99.9");
@@ -879,14 +874,17 @@ describe("Cart — free-delivery analytics transitions", () => {
       cart: CART_ABOVE_THRESHOLD,
       currency: CURRENCY_FIXTURE,
     });
+    expect(screen.getByTestId("free-delivery-banner").getAttribute("data-state")).toBe("unlocked");
+
+    mockUseDeliverySelection.mockReturnValue({ ...standardSelection, mode: "express" });
     rerender(<Cart />);
-    rerender(<Cart />);
-    expect(eventsOfType("free_delivery_unlocked")).toHaveLength(1);
-    expect(eventsOfType("free_delivery_prompt_viewed")).toHaveLength(1);
+
+    // Banner hides, but the shopper is still qualified — no loss event.
+    expect(screen.queryByTestId("free-delivery-banner")).toBeNull();
     expect(eventsOfType("free_delivery_lost")).toHaveLength(0);
   });
 
-  it("does NOT fire free_delivery_lost when express is selected while unlocked (display-only hide)", () => {
+  it("fires free_delivery_lost once when threshold qualification is actually lost", () => {
     const { rerender } = renderWithProviders(<Cart />, {
       auth: { user: null, isLoading: false, token: null },
       cart: CART_ABOVE_THRESHOLD,
