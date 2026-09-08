@@ -330,6 +330,7 @@ export const AnalyticsEventName = {
   campaign_sticky_cta_impression: "campaign_sticky_cta_impression",
   campaign_sticky_cta_click: "campaign_sticky_cta_click",
   trustpilot_reviews_click: "trustpilot_reviews_click",
+  customer_reviews_view_all_click: "customer_reviews_view_all_click",
   midnight_option_viewed: "midnight_option_viewed",
   midnight_option_selected: "midnight_option_selected",
   midnight_option_ineligible: "midnight_option_ineligible",
@@ -344,6 +345,8 @@ export const AnalyticsEventName = {
   landmark_district_auto_changed: "landmark_district_auto_changed",
   landmark_selection_removed: "landmark_selection_removed",
   landmark_order_completed: "landmark_order_completed",
+  real_delivery_shop_click: "real_delivery_shop_click",
+  real_delivery_view_more_click: "real_delivery_view_more_click",
 } as const;
 
 /**
@@ -651,6 +654,38 @@ unavailable-in-city page.
    * @minimum 1
    */
   recommendationPosition?: number;
+  /**
+   * For `real_delivery_shop_click` events: the localized product name
+shown on the social-proof card. Sourced from the server-supplied
+catalog, not from user input.
+
+   * @maxLength 256
+   */
+  productName?: string;
+  /**
+   * For `real_delivery_shop_click` events: 1-based position of the
+card in the real-delivery carousel at the time of the click.
+
+   * @minimum 1
+   */
+  carouselPosition?: number;
+  /**
+   * For `real_delivery_shop_click` and `real_delivery_view_more_click`
+events: the city identifier selected by the shopper when the
+social-proof section was visible. Not the recipient's city —
+never contains PII.
+
+   * @maxLength 64
+   */
+  selectedCity?: string;
+  /**
+   * For `real_delivery_shop_click` and `real_delivery_view_more_click`
+events: the campaign landing-page pathname. Sourced from
+`window.location.pathname`, not from user input.
+
+   * @maxLength 512
+   */
+  landingPath?: string;
 }
 
 export interface AnalyticsEventResponse {
@@ -2310,6 +2345,26 @@ export interface BeirutLateNightCampaignResponse {
   luxury: BeirutLateNightSection;
 }
 
+export interface CampaignRealDeliveryItem {
+  /** Opaque approved asset reference. Never an order id or raw object URL. */
+  imageRef: string;
+  /** Server-controlled bounded image-proxy URL. */
+  imageUrl: string;
+  /** Active purchasable product slug. */
+  productId: string;
+  productName: string;
+  cityName: string;
+  /** @minimum 0 */
+  position: number;
+}
+
+export interface CampaignRealDeliveriesResponse {
+  ok: boolean;
+  items: CampaignRealDeliveryItem[];
+  /** Approved same-domain destination for the section CTA. */
+  viewMoreUrl: string | null;
+}
+
 export type ProxyOsImageParams = {
   /**
    * Fully-qualified `https://os.presentail.com/api/storage/` image URL.
@@ -2334,6 +2389,7 @@ export type ProxyOsImageF = (typeof ProxyOsImageF)[keyof typeof ProxyOsImageF];
 export const ProxyOsImageF = {
   webp: "webp",
   jpeg: "jpeg",
+  avif: "avif",
 } as const;
 
 export type BulkReclassifyPlantsParams = {
@@ -2486,6 +2542,27 @@ export type GetHomepageCollectionBestSellersParams = {
    */
   lang?: string;
 };
+
+export type GetCampaignRealDeliveriesParams = {
+  /**
+   * ISO 3166-1 alpha-2 delivery country code.
+   */
+  countryCode: string;
+  /**
+   * Selected delivery city identifier.
+   */
+  cityId: string;
+  lang?: GetCampaignRealDeliveriesLang;
+};
+
+export type GetCampaignRealDeliveriesLang =
+  (typeof GetCampaignRealDeliveriesLang)[keyof typeof GetCampaignRealDeliveriesLang];
+
+export const GetCampaignRealDeliveriesLang = {
+  en: "en",
+  ar: "ar",
+  fr: "fr",
+} as const;
 
 export type GetDeliveryConfigParams = {
   /**

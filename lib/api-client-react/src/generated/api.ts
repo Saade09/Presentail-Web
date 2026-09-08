@@ -34,6 +34,7 @@ import type {
   AuthWebBridgeResponse,
   BeirutLateNightCampaignResponse,
   BulkReclassifyPlantsParams,
+  CampaignRealDeliveriesResponse,
   CatalogMetadataResponse,
   CatalogOccasionsResponse,
   CheckoutPaymentIntentRequest,
@@ -64,6 +65,7 @@ import type {
   FrequentlyBoughtTogetherResponse,
   GeoCurrencyResponse,
   GetAdminPageDescriptionsParams,
+  GetCampaignRealDeliveriesParams,
   GetCoupons200,
   GetDeliveryConfigParams,
   GetFrequentlyBoughtTogetherParams,
@@ -3056,6 +3058,116 @@ export function useGetBeirutLateNightCampaign<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetBeirutLateNightCampaignQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns only redacted, explicitly approved photos from completed orders that match the selected country and purchasable city catalog.
+ * @summary Get approved real-delivery social proof for the flower campaign
+ */
+export const getGetCampaignRealDeliveriesUrl = (
+  params: GetCampaignRealDeliveriesParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/campaign/real-deliveries?${stringifiedParams}`
+    : `/api/campaign/real-deliveries`;
+};
+
+export const getCampaignRealDeliveries = async (
+  params: GetCampaignRealDeliveriesParams,
+  options?: RequestInit,
+): Promise<CampaignRealDeliveriesResponse> => {
+  return customFetch<CampaignRealDeliveriesResponse>(
+    getGetCampaignRealDeliveriesUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetCampaignRealDeliveriesQueryKey = (
+  params?: GetCampaignRealDeliveriesParams,
+) => {
+  return [
+    `/api/campaign/real-deliveries`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetCampaignRealDeliveriesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCampaignRealDeliveries>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetCampaignRealDeliveriesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCampaignRealDeliveries>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetCampaignRealDeliveriesQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getCampaignRealDeliveries>>
+  > = ({ signal }) =>
+    getCampaignRealDeliveries(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCampaignRealDeliveries>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCampaignRealDeliveriesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCampaignRealDeliveries>>
+>;
+export type GetCampaignRealDeliveriesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get approved real-delivery social proof for the flower campaign
+ */
+
+export function useGetCampaignRealDeliveries<
+  TData = Awaited<ReturnType<typeof getCampaignRealDeliveries>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetCampaignRealDeliveriesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCampaignRealDeliveries>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCampaignRealDeliveriesQueryOptions(
+    params,
+    options,
+  );
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

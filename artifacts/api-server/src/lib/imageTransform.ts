@@ -2,7 +2,7 @@ import sharp from "sharp";
 import { ImageDeliveryError } from "./imageDelivery";
 import { recordImageTransformState } from "./imageProxyMetrics";
 
-export type ImageFormat = "webp" | "jpeg";
+export type ImageFormat = "webp" | "jpeg" | "avif";
 
 export interface TransformOptions {
   width: number;
@@ -69,7 +69,9 @@ export function resolveWidth(raw: string | undefined): number {
  * Resolve format from a raw string, defaulting to "webp".
  */
 export function resolveFormat(raw: string | undefined): ImageFormat {
-  return raw === "jpeg" ? "jpeg" : "webp";
+  if (raw === "jpeg") return "jpeg";
+  if (raw === "avif") return "avif";
+  return "webp";
 }
 
 /**
@@ -99,12 +101,19 @@ export async function transformImage(
     let data: Buffer;
     if (format === "jpeg") {
       data = await pipeline.jpeg({ quality, mozjpeg: true }).toBuffer();
+    } else if (format === "avif") {
+      data = await pipeline.avif({ quality }).toBuffer();
     } else {
       data = await pipeline.webp({ quality }).toBuffer();
     }
     return {
       data,
-      contentType: format === "jpeg" ? "image/jpeg" : "image/webp",
+      contentType:
+        format === "jpeg"
+          ? "image/jpeg"
+          : format === "avif"
+            ? "image/avif"
+            : "image/webp",
     };
   } finally {
     releaseTransformSlot();

@@ -145,7 +145,7 @@ export const ProxyOsImageQueryParams = zod.object({
       "Target pixel width. The image is resized to this width while preserving\naspect ratio. Clamped to a maximum of 1600. Defaults to 800 when omitted.\n",
     ),
   f: zod
-    .enum(["webp", "jpeg"])
+    .enum(["webp", "jpeg", "avif"])
     .optional()
     .describe("Output format. Defaults to `webp`."),
 });
@@ -796,6 +796,12 @@ export const recordAnalyticsEventBodySelectedCityMax = 64;
 
 export const recordAnalyticsEventBodyActiveLanguageMax = 8;
 
+export const recordAnalyticsEventBodyProductNameMax = 256;
+
+export const recordAnalyticsEventBodySelectedCityMaxOne = 64;
+
+export const recordAnalyticsEventBodyLandingPathMax = 512;
+
 export const RecordAnalyticsEventBody = zod.object({
   name: zod
     .enum([
@@ -859,6 +865,7 @@ export const RecordAnalyticsEventBody = zod.object({
       "campaign_sticky_cta_impression",
       "campaign_sticky_cta_click",
       "trustpilot_reviews_click",
+      "customer_reviews_view_all_click",
       "midnight_option_viewed",
       "midnight_option_selected",
       "midnight_option_ineligible",
@@ -872,6 +879,8 @@ export const RecordAnalyticsEventBody = zod.object({
       "landmark_district_auto_changed",
       "landmark_selection_removed",
       "landmark_order_completed",
+      "real_delivery_shop_click",
+      "real_delivery_view_more_click",
     ])
     .describe(
       "Allowlisted analytics event name. Adding a new event requires a\nspec change so we never log unbounded user-controlled strings.\n\nThe four `cart_viewed` \/ `checkout_started` \/\n`payment_method_selected` \/ `order_placed` events form the\nbroader purchase funnel that the server-side\n`checkoutPurchaseFunnelMonitor` evaluates step-to-step so we\nnotice when any single step collapses.\n\n`web_vital` events carry real-user Core Web Vital measurements\n(LCP, INP, CLS, TTFB, FCP). The metric name is stored in `action`\nand the raw value (ms for timing metrics, unitless for CLS) in\n`metricValue`. The server-side `webVitalsMonitor` evaluates the\nprior UTC day's LCP median and alerts via Slack when it crosses\nthe configured threshold.\n\n`mobile_ttid` events carry time-to-interactive measurements for\nkey mobile screens (home, product, brand, category, occasion). The\nscreen name is stored in `action` and the elapsed time in ms in\n`metricValue`. The same `webVitalsMonitor` daily digest includes\nmobile TTID rows so web and mobile performance are visible in a\nsingle Slack message.\n\n`geo_currency_fallback` is recorded server-side whenever the IP\ngeolocation lookup for `\/api\/geo\/currency` fails on both providers\n(ipapi.co and ipwho.is), causing the shopper to be silently shown\nUSD prices. The `geoCurrencyFallbackMonitor` counts these events\nper hour and fires a Slack alert when the count exceeds the\nconfigured threshold.\n\n`payment_wallet_opened` is emitted when the native wallet sheet\n(Apple Pay \/ Google Pay) successfully opens on web or mobile. The\n`action` field carries `apple_pay` or `google_pay` on both web\nand mobile (determined by the browser \/ platform at confirmation time).\n\n`payment_wallet_fallback` is emitted when the wallet sheet could\nnot be opened and the checkout silently falls back to the card\nform. The `errorCode` field carries the reason:\n`constructor_failed` (web — PaymentRequest constructor threw),\n`show_failed` (web — pr.show() threw synchronously), or\n`not_available` (mobile — isPlatformPaySupported returned false).\n\n`product_lifecycle_410` is recorded by `serve.mjs` whenever a\nproduct URL returns HTTP 410 Gone because the product slug is\nabsent from `scripts\/productRedirects.mjs` (product discontinued\nwith no redirect entry). The `productId` field carries the slug.\nThe server-side `productLifecycle410Monitor` queries these events\ndaily and fires a Slack alert listing all affected slugs so ops\ncan add redirect entries before link equity is permanently lost.\n",
@@ -1085,6 +1094,34 @@ export const RecordAnalyticsEventBody = zod.object({
     .optional()
     .describe(
       "For `recommended_product_clicked` events: 1-based position of\nthe clicked product in the recommendations row shown on the\nunavailable-in-city page.\n",
+    ),
+  productName: zod
+    .string()
+    .max(recordAnalyticsEventBodyProductNameMax)
+    .optional()
+    .describe(
+      "For `real_delivery_shop_click` events: the localized product name\nshown on the social-proof card. Sourced from the server-supplied\ncatalog, not from user input.\n",
+    ),
+  carouselPosition: zod
+    .number()
+    .min(1)
+    .optional()
+    .describe(
+      "For `real_delivery_shop_click` events: 1-based position of the\ncard in the real-delivery carousel at the time of the click.\n",
+    ),
+  selectedCity: zod
+    .string()
+    .max(recordAnalyticsEventBodySelectedCityMaxOne)
+    .optional()
+    .describe(
+      "For `real_delivery_shop_click` and `real_delivery_view_more_click`\nevents: the city identifier selected by the shopper when the\nsocial-proof section was visible. Not the recipient's city —\nnever contains PII.\n",
+    ),
+  landingPath: zod
+    .string()
+    .max(recordAnalyticsEventBodyLandingPathMax)
+    .optional()
+    .describe(
+      "For `real_delivery_shop_click` and `real_delivery_view_more_click`\nevents: the campaign landing-page pathname. Sourced from\n`window.location.pathname`, not from user input.\n",
     ),
 });
 
@@ -2316,6 +2353,46 @@ export const GetBeirutLateNightCampaignResponse = zod
   .describe(
     "Server-side evaluation result for the Beirut late-night delivery campaign.\nstatus tonight means the campaign is live and bookable right now.\nstatus next-available means the campaign is not bookable tonight but a\nfuture window was found. status unavailable means no window is available.\n",
   );
+
+/**
+ * Returns only redacted, explicitly approved photos from completed orders that match the selected country and purchasable city catalog.
+ * @summary Get approved real-delivery social proof for the flower campaign
+ */
+export const GetCampaignRealDeliveriesQueryParams = zod.object({
+  countryCode: zod.coerce
+    .string()
+    .describe("ISO 3166-1 alpha-2 delivery country code."),
+  cityId: zod.coerce.string().describe("Selected delivery city identifier."),
+  lang: zod.enum(["en", "ar", "fr"]).optional(),
+});
+
+export const getCampaignRealDeliveriesResponseItemsItemPositionMin = 0;
+
+export const GetCampaignRealDeliveriesResponse = zod.object({
+  ok: zod.boolean(),
+  items: zod.array(
+    zod.object({
+      imageRef: zod
+        .string()
+        .describe(
+          "Opaque approved asset reference. Never an order id or raw object URL.",
+        ),
+      imageUrl: zod
+        .string()
+        .describe("Server-controlled bounded image-proxy URL."),
+      productId: zod.string().describe("Active purchasable product slug."),
+      productName: zod.string(),
+      cityName: zod.string(),
+      position: zod
+        .number()
+        .min(getCampaignRealDeliveriesResponseItemsItemPositionMin),
+    }),
+  ),
+  viewMoreUrl: zod
+    .string()
+    .nullable()
+    .describe("Approved same-domain destination for the section CTA."),
+});
 
 /**
  * Returns the express-delivery time label, the free-delivery threshold

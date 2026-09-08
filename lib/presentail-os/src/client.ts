@@ -15,6 +15,8 @@ import type {
   OSCreateOrderResponse,
   OSAddressBookPlace,
   OSAddressBookPlacesResponse,
+  OSRealDeliveryPhotoRecord,
+  OSRealDeliveryPhotosResponse,
 } from "./types";
 import { parsePositivePlainDecimal } from "./pricing";
 
@@ -1000,6 +1002,57 @@ export async function fetchOsOccasionStats(
   }
 
   return (await tryEndpoint("/api/statistics/occasions")) ?? (await tryEndpoint("/api/analytics/occasions"));
+}
+
+/**
+ * Fetch the explicitly approved, privacy-reviewed real-delivery photo feed.
+ *
+ * The OS endpoint is intentionally separate from order history. It must return
+ * only records that the OS publication guard considers safe; the storefront
+ * applies the same guard again before any record becomes public.
+ */
+/**
+ * Fetch the approved real-delivery photo feed from Presentail OS.
+ *
+ * OS pre-filters eligibility (approved, completed, active, in-stock).
+ * The API key must stay server-side — never pass it to the browser.
+ *
+ * @param options.country  ISO country code, e.g. "LB", "AE"
+ * @param options.city     Human-readable city name, e.g. "Beirut", "Dubai"
+ */
+export async function fetchOsRealDeliveryPhotos(
+  config: PresentailOsConfig,
+  options: { country: string; city: string },
+): Promise<OSRealDeliveryPhotosResponse> {
+  const { apiKey, baseUrl = DEFAULT_BASE_URL } = config;
+  if (!apiKey) {
+    throw new Error("OS API key is required for fetchOsRealDeliveryPhotos.");
+  }
+
+  const url = new URL(`${baseUrl}/api/storefront/real-deliveries`);
+  url.searchParams.set("country", options.country.toUpperCase());
+  url.searchParams.set("city", options.city);
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "PresentailApp/1.0",
+      "x-api-key": apiKey,
+    },
+    signal: requestSignal(config.signal),
+  });
+  if (!response.ok) {
+    throw new Error(`Presentail OS real-deliveries API returned HTTP ${response.status}`);
+  }
+
+  const body = (await response.json().catch(() => ({}))) as unknown;
+  if (!body || typeof body !== "object") return { photos: [] };
+  const record = body as OSRealDeliveryPhotosResponse;
+  return {
+    photos: Array.isArray(record.photos) ? (record.photos as OSRealDeliveryPhotoRecord[]) : [],
+    view_more_url:
+      typeof record.view_more_url === "string" ? record.view_more_url : undefined,
+  };
 }
 
 /**

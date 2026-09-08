@@ -55,6 +55,7 @@ import cyberSourceRouter from "./cyberSource";
 import adminProductSocialShareRouter from "./adminProductSocialShare";
 import addressBookPlacesRouter from "./addressBookPlaces";
 import jobBoardRouter from "./jobBoard";
+import realDeliveriesRouter from "./realDeliveries";
 
 const router: IRouter = Router();
 
@@ -114,5 +115,6 @@ router.use(stripeWebhookRouter);
 router.use(cyberSourceRouter);
 router.use(addressBookPlacesRouter);
 router.use(jobBoardRouter);
+router.use(realDeliveriesRouter);
 
 export default router;

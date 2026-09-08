@@ -41,7 +41,6 @@ import {
   CampaignTrustpilotStrip,
 } from "@/pages/CampaignHero";
 import {
-  GRID_SIZE,
   CampaignGrid,
   CampaignOccasions,
   CampaignBenefitBand,
@@ -51,7 +50,9 @@ import {
   CampaignReviews,
   CampaignFaq,
   CampaignSeoEditorial,
+  CampaignRealDeliveries,
 } from "@/pages/CampaignSections";
+import { TrustpilotCarousel } from "@/components/homepage/TrustpilotCarousel";
 import { CampaignLandingLegacy } from "./CampaignLandingLegacy";
 
 const ATTRIBUTION_QUERY_KEYS = [
@@ -504,6 +505,7 @@ function CampaignLandingRedesign() {
           availabilityState={availabilityState}
           currencyCodeOverride={campaignCurrencyCode}
           compactTop
+          maxProducts={6}
           activeQuickFilter={quickFilterEnabled ? activeQuickFilter : undefined}
           onQuickFilterSelect={quickFilterEnabled ? selectQuickFilter : undefined}
           productQuery={quickFilterEnabled ? currentBrowserSearch : undefined}
@@ -520,14 +522,17 @@ function CampaignLandingRedesign() {
         />
       </div>
 
-      {/* 3. Occasion shortcuts */}
+      {/* 3. Approved florist photos from completed deliveries */}
+      <CampaignRealDeliveries />
+
+      {/* 4. Occasion shortcuts */}
       <CampaignOccasions
         onShortcutClick={(slug) =>
           fireCampaignEvent("occasion_shortcut_click", slug)
         }
       />
 
-      {/* 4. Delivery-location selector */}
+      {/* 5. Delivery-location selector */}
       <CampaignLocationBar
         cityLabel={cityLabel}
         onLocationClick={() => {
@@ -536,33 +541,41 @@ function CampaignLandingRedesign() {
         }}
       />
 
-      {/* 5. Customer-benefit band */}
+      {/* 6. Customer-benefit band */}
       <CampaignBenefitBand />
 
-      {/* 6. Official Trustpilot Mini TrustBox */}
+      {/* 7. Compact Trustpilot strip */}
       <CampaignTrustpilotStrip />
 
-      {/* 7. Trust bar (availability / speed / currency) */}
+      {/* 8. Trust bar (availability / speed / currency) */}
       <CampaignTrustBar
         availabilityText={availabilityText}
         deliveryText={deliveryText}
         currencyText={currencyText}
       />
 
-      {/* 8. Customer reviews — official Trustpilot carousel, all markets */}
-      <CampaignReviews
-        onVisible={() => fireCampaignEvent("trustpilot_carousel_interaction")}
-      />
+      {/* 9. Customer reviews — Trustpilot carousel, all markets */}
+      <CampaignReviews onVisible={() => fireCampaignEvent("trustpilot_carousel_interaction")} />
 
-      {/* 9. Luxury collection editorial banner */}
+      {/* 10. Luxury collection editorial banner */}
       <CampaignLuxuryBanner
         onCtaClick={() => fireCampaignEvent("luxury_collection_cta_click")}
       />
 
-      {/* 10. Why-customers-choose section */}
+      {/* 11. Why-customers-choose section */}
       <CampaignWhyChoose />
 
-      {/* 11. Luxury grid */}
+      {/* 12. Full Trustpilot review carousel */}
+      <section
+        className="container mx-auto max-w-content px-page pt-10"
+        aria-label={t("campaign.redesign.trustpilotCarousel.ariaLabel")}
+      >
+        <TrustpilotCarousel
+          onVisible={() => fireCampaignEvent("trustpilot_carousel_interaction")}
+        />
+      </section>
+
+      {/* 13. Luxury grid */}
       <CampaignGrid
         id="campaign-lux"
         section="luxury"
@@ -576,20 +589,20 @@ function CampaignLandingRedesign() {
         currencyCodeOverride={campaignCurrencyCode}
       />
 
-      {/* 13. "More flowers to love" rail */}
+      {/* 14. "More flowers to love" rail */}
       <CampaignMoreFlowers
-        products={catalog.flowers.slice(GRID_SIZE)}
+        products={catalog.flowers.slice(6)}
         isLoading={catalogLoading}
         currencyCodeOverride={campaignCurrencyCode}
         onViewAll={() => fireCampaignEvent("browse_all_flowers")}
       />
 
-      {/* 14. FAQ accordion — copy is market-aware for Beirut and the UAE */}
+      {/* 15. FAQ accordion — copy is market-aware for Beirut and the UAE */}
       <CampaignFaq
         onExpand={(key) => fireCampaignEvent("faq_expand", key)}
       />
 
-      {/* 15. SEO editorial copy section — copy is market-aware */}
+      {/* 16. SEO editorial copy section — copy is market-aware */}
       <CampaignSeoEditorial />
 
       {/* Mobile sticky CTA */}

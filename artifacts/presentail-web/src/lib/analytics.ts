@@ -316,6 +316,8 @@ type AnalyticsEventName =
   | "trustpilot_carousel_interaction"
   | "faq_expand"
   | "browse_all_flowers"
+  | "real_delivery_shop_click"
+  | "real_delivery_view_more_click"
   /** Delivery method selection events on PDP */
   | "delivery_method_defaulted"
   | "delivery_method_selected"
@@ -440,6 +442,11 @@ export type AnalyticsEvent = {
   selected_city?: string;
   active_language?: string;
   link_type?: "widget" | "external_link" | "fallback";
+  /** Privacy-safe real-delivery social proof fields. */
+  productName?: string;
+  carouselPosition?: number;
+  selectedCity?: string;
+  landingPath?: string;
 };
 
 function generateSessionId(): string {

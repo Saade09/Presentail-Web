@@ -200,4 +200,36 @@ unavailable-in-city page.
    * @minimum 1
    */
   recommendationPosition?: number;
+  /**
+   * For `real_delivery_shop_click` events: the localized product name
+shown on the social-proof card. Sourced from the server-supplied
+catalog, not from user input.
+
+   * @maxLength 256
+   */
+  productName?: string;
+  /**
+   * For `real_delivery_shop_click` events: 1-based position of the
+card in the real-delivery carousel at the time of the click.
+
+   * @minimum 1
+   */
+  carouselPosition?: number;
+  /**
+   * For `real_delivery_shop_click` and `real_delivery_view_more_click`
+events: the city identifier selected by the shopper when the
+social-proof section was visible. Not the recipient's city —
+never contains PII.
+
+   * @maxLength 64
+   */
+  selectedCity?: string;
+  /**
+   * For `real_delivery_shop_click` and `real_delivery_view_more_click`
+events: the campaign landing-page pathname. Sourced from
+`window.location.pathname`, not from user input.
+
+   * @maxLength 512
+   */
+  landingPath?: string;
 }

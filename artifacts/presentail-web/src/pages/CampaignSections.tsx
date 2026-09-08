@@ -1,4 +1,3 @@
-import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -30,6 +29,10 @@ import {
 import { OCCASION_STATIC_IMAGES } from "@/lib/categoryGroups";
 
 // ─── CampaignProductCard ──────────────────────────────────────────────────────
+import { Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { useGetCampaignRealDeliveries } from "@workspace/api-client-react";
+import { buildLocalePath, cityIdToSlug, parseLocalePath, type CountrySlug, type Lang } from "@/lib/locale-route";
+import { useEffect, useRef, useState } from "react";
 
 function CampaignProductCard({
   product,
@@ -191,6 +194,7 @@ export function CampaignGrid({
   currencyCodeOverride,
   onViewAll,
   compactTop,
+  maxProducts,
   activeQuickFilter,
   onQuickFilterSelect,
   productQuery,
@@ -210,6 +214,7 @@ export function CampaignGrid({
   currencyCodeOverride?: string;
   onViewAll?: () => void;
   compactTop?: boolean;
+  maxProducts?: number;
   activeQuickFilter?: CampaignQuickFilterKey;
   onQuickFilterSelect?: (filter: CampaignQuickFilterKey) => void;
   productQuery?: string;
@@ -218,7 +223,7 @@ export function CampaignGrid({
   onEmptyReset?: () => void;
 }) {
   const { t } = useLocale();
-  const displayProducts = products.slice(0, GRID_SIZE);
+  const displayProducts = products.slice(0, maxProducts ?? GRID_SIZE);
 
   return (
     <section
@@ -327,8 +332,14 @@ export function CampaignGrid({
   );
 }
 
-// ─── CampaignOccasions ────────────────────────────────────────────────────────
-
+type RealDeliveryItem = {
+  imageRef: string;
+  imageUrl: string;
+  productId: string;
+  productName: string;
+  cityName: string;
+  position: number;
+};
 const OCCASION_SLUGS = [
   "birthday",
   "anniversary",
@@ -924,6 +935,19 @@ export function CampaignReviews({
   );
 }
 
+function realDeliveryProductHref(productId: string, cityId: string | null, language: string): string {
+  if (typeof window === "undefined") return `/product/${productId}`;
+  const parsed = parseLocalePath(window.location.pathname);
+  if (!parsed.country || !parsed.hasLocalePrefix) return `/product/${productId}`;
+  const lang = (parsed.lang ?? language) as Lang;
+  return buildLocalePath({
+    lang,
+    country: parsed.country as CountrySlug,
+    city: parsed.city ?? (cityId ? cityIdToSlug(cityId) : null),
+    rest: `/product/${encodeURIComponent(productId)}`,
+  });
+}
+
 // ─── Legacy components (kept for backwards compat) ────────────────────────────
 
 export function CampaignAddressExplainer() {
@@ -1006,3 +1030,190 @@ export function CampaignAddressExplainer() {
   );
 }
 
+
+export function CampaignRealDeliveries() {
+  const { countryCode, cityId } = useLocationSelection();
+  const { language, t } = useLocale();
+  const [activeIndex, setActiveIndex] = useState(0);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const { data } = useGetCampaignRealDeliveries(
+    {
+      countryCode: countryCode ?? "",
+      cityId: cityId ?? "",
+      lang: language === "el" ? "en" : language,
+    },
+    {
+      query: {
+        enabled: Boolean(countryCode && cityId),
+        queryKey: ["campaign", "real-deliveries", countryCode, cityId, language],
+      },
+    },
+  );
+
+  const items = (data?.items ?? []) as RealDeliveryItem[];
+
+  // Reset carousel position when the feed changes (different city/country/language).
+  // We depend on `data` (the query result object) so this fires once per new response,
+  // not on every render where `items` would be a new array reference.
+  useEffect(() => {
+    setActiveIndex(0);
+    const track = trackRef.current;
+    if (track) track.scrollLeft = 0;
+  }, [data]);
+
+  const desktopPage = Math.floor(activeIndex / 3);
+  const desktopPageCount = Math.ceil(items.length / 3);
+  if (items.length === 0 || !data?.viewMoreUrl) return null;
+
+  const recordShopClick = (item: RealDeliveryItem, index: number) => {
+    trackEvent({
+      name: "real_delivery_shop_click",
+      productId: item.productId,
+      productName: item.productName,
+      carouselPosition: index + 1,
+      selectedCity: cityId ?? undefined,
+      landingPath: typeof window === "undefined" ? undefined : window.location.pathname,
+      sectionKey: `${CAMPAIGN_SECTION_KEY}:real-deliveries`,
+    });
+  };
+
+  const moveTo = (nextIndex: number) => {
+    const normalized = (nextIndex + items.length) % items.length;
+    setActiveIndex(normalized);
+    const track = trackRef.current;
+    const card = track?.children[normalized] as HTMLElement | undefined;
+    card?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
+  };
+
+  const onScroll = () => {
+    const track = trackRef.current;
+    if (!track || track.children.length === 0) return;
+    const firstCard = track.children[0] as HTMLElement;
+    const cardWidth = firstCard.getBoundingClientRect().width + 12;
+    setActiveIndex(Math.max(0, Math.min(items.length - 1, Math.round(track.scrollLeft / cardWidth))));
+  };
+
+  return (
+    <section
+      className="container mx-auto max-w-content px-page pt-10"
+      aria-labelledby="campaign-real-deliveries-heading"
+      data-testid="campaign-real-deliveries"
+    >
+      <div className="mb-5 text-center">
+        <h2 id="campaign-real-deliveries-heading" className="font-serif text-2xl md:text-3xl">
+          {t("campaign.redesign.realDeliveries.heading")}
+        </h2>
+        <p className="mt-1.5 text-sm text-neutral-500">
+          {t("campaign.redesign.realDeliveries.subtitle")}
+        </p>
+      </div>
+
+      <div className="relative">
+        <div
+          ref={trackRef}
+          onScroll={onScroll}
+          className="flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:grid md:grid-cols-3 md:overflow-visible"
+          aria-live="polite"
+        >
+          {items.map((item, index) => {
+            const productHref = realDeliveryProductHref(item.productId, cityId, language);
+            return (
+              <article
+                key={`${item.imageRef}-${item.productId}`}
+                className={`${Math.floor(index / 3) === desktopPage ? "block" : "md:hidden"} w-[80vw] max-w-[330px] shrink-0 snap-start overflow-hidden rounded-2xl border border-[#d9dfd8] bg-white shadow-[0_8px_24px_rgba(0,65,78,0.08)] md:w-auto md:max-w-none`}
+              >
+                <Link
+                  href={productHref}
+                  onClick={() => recordShopClick(item, index)}
+                  className="group block"
+                >
+                  <div className="relative aspect-[4/5] overflow-hidden bg-stone-100">
+                    <picture>
+                      <source
+                        type="image/avif"
+                        srcSet={item.imageUrl.replace("f=webp", "f=avif")}
+                      />
+                      <img
+                        src={item.imageUrl}
+                        alt={`Real delivered ${item.productName} arrangement photographed before delivery.`}
+                        width={800}
+                        height={1000}
+                        loading={index === 0 ? "eager" : "lazy"}
+                        decoding="async"
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02] motion-reduce:transition-none"
+                      />
+                    </picture>
+                    <span className="absolute start-3 top-3 inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-[#00414e] shadow-sm">
+                      <Check aria-hidden="true" className="h-3.5 w-3.5" />
+                      {t("campaign.redesign.realDeliveries.verified")}
+                    </span>
+                  </div>
+                  <div className="space-y-2 p-4">
+                    <h3 className="font-serif text-base leading-snug text-neutral-900">
+                      {item.productName}
+                    </h3>
+                    <p className="text-xs text-neutral-500">
+                      {t("campaign.redesign.realDeliveries.location", { city: item.cityName })}
+                    </p>
+                    <span className="inline-block pt-1 text-sm font-medium text-[#006273] group-hover:underline">
+                      {t("campaign.redesign.realDeliveries.shop")}
+                    </span>
+                  </div>
+                </Link>
+              </article>
+            );
+          })}
+        </div>
+
+        {items.length > 3 && (
+          <div className="hidden md:flex">
+            <button
+              type="button"
+              aria-label={t("campaign.redesign.realDeliveries.previous")}
+              onClick={() => moveTo((desktopPage - 1 + desktopPageCount) % desktopPageCount * 3)}
+              className="absolute -start-5 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-[#d9dfd8] bg-white text-[#00414e] shadow-sm transition hover:bg-[#f3f8f5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#006273]"
+            >
+              <ChevronLeft aria-hidden="true" className="h-5 w-5 rtl:rotate-180" />
+            </button>
+            <button
+              type="button"
+              aria-label={t("campaign.redesign.realDeliveries.next")}
+              onClick={() => moveTo(((desktopPage + 1) % desktopPageCount) * 3)}
+              className="absolute -end-5 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-[#d9dfd8] bg-white text-[#00414e] shadow-sm transition hover:bg-[#f3f8f5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#006273]"
+            >
+              <ChevronRight aria-hidden="true" className="h-5 w-5 rtl:rotate-180" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 flex items-center justify-center gap-1.5" aria-label={`${activeIndex + 1} of ${items.length}`}>
+        {items.map((item, index) => (
+          <button
+            type="button"
+            key={item.imageRef}
+            aria-label={`${index + 1} of ${items.length}`}
+            aria-current={activeIndex === index ? "true" : undefined}
+            onClick={() => moveTo(index)}
+            className={`h-2 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#006273] motion-reduce:transition-none ${activeIndex === index ? "w-5 bg-[#006273]" : "w-2 bg-[#b8c9c4]"}`}
+          />
+        ))}
+      </div>
+
+      <a
+        href={data.viewMoreUrl}
+        onClick={() =>
+          trackEvent({
+            name: "real_delivery_view_more_click",
+            selectedCity: cityId ?? undefined,
+            landingPath: typeof window === "undefined" ? undefined : window.location.pathname,
+            sectionKey: `${CAMPAIGN_SECTION_KEY}:real-deliveries`,
+          })
+        }
+        className="mx-auto mt-4 block w-fit py-2 text-sm font-medium text-[#006273] underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#006273]"
+      >
+        {t("campaign.redesign.realDeliveries.viewMore")}
+      </a>
+    </section>
+  );
+}

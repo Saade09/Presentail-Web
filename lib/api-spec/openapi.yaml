@@ -218,7 +218,7 @@ paths:
           description: Output format. Defaults to `webp`.
           schema:
             type: string
-            enum: [webp, jpeg]
+            enum: [webp, jpeg, avif]
       responses:
         "200":
           description: Converted image
@@ -1182,6 +1182,38 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/BeirutLateNightCampaignResponse"
+  /campaign/real-deliveries:
+    get:
+      operationId: getCampaignRealDeliveries
+      tags: [campaign]
+      summary: Get approved real-delivery social proof for the flower campaign
+      description: Returns only redacted, explicitly approved photos from completed orders that match the selected country and purchasable city catalog.
+      parameters:
+        - name: countryCode
+          in: query
+          required: true
+          schema:
+            type: string
+          description: ISO 3166-1 alpha-2 delivery country code.
+        - name: cityId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Selected delivery city identifier.
+        - name: lang
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [en, ar, fr]
+      responses:
+        "200":
+          description: Safe real-delivery display data. No order or recipient identifiers are returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignRealDeliveriesResponse"
   /delivery-config:
     get:
       operationId: getDeliveryConfig
@@ -2826,6 +2858,8 @@ components:
         - landmark_district_auto_changed
         - landmark_selection_removed
         - landmark_order_completed
+        - real_delivery_shop_click
+        - real_delivery_view_more_click
     AnalyticsEventRequest:
       type: object
       properties:
@@ -3053,6 +3087,34 @@ components:
             For `recommended_product_clicked` events: 1-based position of
             the clicked product in the recommendations row shown on the
             unavailable-in-city page.
+        productName:
+          type: string
+          maxLength: 256
+          description: |
+            For `real_delivery_shop_click` events: the localized product name
+            shown on the social-proof card. Sourced from the server-supplied
+            catalog, not from user input.
+        carouselPosition:
+          type: integer
+          minimum: 1
+          description: |
+            For `real_delivery_shop_click` events: 1-based position of the
+            card in the real-delivery carousel at the time of the click.
+        selectedCity:
+          type: string
+          maxLength: 64
+          description: |
+            For `real_delivery_shop_click` and `real_delivery_view_more_click`
+            events: the city identifier selected by the shopper when the
+            social-proof section was visible. Not the recipient's city —
+            never contains PII.
+        landingPath:
+          type: string
+          maxLength: 512
+          description: |
+            For `real_delivery_shop_click` and `real_delivery_view_more_click`
+            events: the campaign landing-page pathname. Sourced from
+            `window.location.pathname`, not from user input.
       required:
         - name
     AnalyticsEventResponse:
@@ -5454,3 +5516,46 @@ components:
         - nextAvailableWindow
         - availableTonight
         - luxury
+    CampaignRealDeliveryItem:
+      type: object
+      properties:
+        imageRef:
+          type: string
+          description: Opaque approved asset reference. Never an order id or raw object URL.
+        imageUrl:
+          type: string
+          description: Server-controlled bounded image-proxy URL.
+        productId:
+          type: string
+          description: Active purchasable product slug.
+        productName:
+          type: string
+        cityName:
+          type: string
+        position:
+          type: integer
+          minimum: 0
+      required:
+        - imageRef
+        - imageUrl
+        - productId
+        - productName
+        - cityName
+        - position
+    CampaignRealDeliveriesResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CampaignRealDeliveryItem"
+        viewMoreUrl:
+          type: string
+          nullable: true
+          description: Approved same-domain destination for the section CTA.
+      required:
+        - ok
+        - items
+        - viewMoreUrl

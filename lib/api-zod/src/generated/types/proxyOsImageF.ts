@@ -11,4 +11,5 @@ export type ProxyOsImageF = (typeof ProxyOsImageF)[keyof typeof ProxyOsImageF];
 export const ProxyOsImageF = {
   webp: "webp",
   jpeg: "jpeg",
+  avif: "avif",
 } as const;

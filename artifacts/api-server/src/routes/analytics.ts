@@ -96,6 +96,10 @@ router.post(
       selected_city,
       active_language,
       link_type,
+      productName,
+      carouselPosition,
+      selectedCity,
+      landingPath,
     } = parsed.data;
 
     let userId: string | undefined;
@@ -125,6 +129,9 @@ router.post(
     const clippedSelectedCity = clip(selected_city, 64);
     const clippedActiveLanguage = clip(active_language, 8);
     const clippedLinkType = clip(link_type, 32);
+    const clippedProductName = clip(productName, 256);
+    const clippedSelectedCity2 = clip(selectedCity, 64);
+    const clippedLandingPath = clip(landingPath, 512);
 
     // Clamp metric values to [0, 60000] — CLS ratios are tiny, timing
     // metrics max out well below 60 s in practice.
@@ -175,6 +182,10 @@ router.post(
           selected_city: clippedSelectedCity,
           active_language: clippedActiveLanguage,
           link_type: clippedLinkType,
+          productName: clippedProductName,
+          carouselPosition,
+          selectedCity: clippedSelectedCity2,
+          landingPath: clippedLandingPath,
           userId,
           signedIn: Boolean(userId),
           analyticsSampling: samplingDecision
@@ -220,6 +231,18 @@ router.post(
       }
       if (clippedLinkType) {
         properties.link_type = clippedLinkType;
+      }
+      if (clippedProductName) {
+        properties.productName = clippedProductName;
+      }
+      if (typeof carouselPosition === "number" && Number.isFinite(carouselPosition)) {
+        properties.carouselPosition = carouselPosition;
+      }
+      if (clippedSelectedCity2) {
+        properties.selectedCity = clippedSelectedCity2;
+      }
+      if (clippedLandingPath) {
+        properties.landingPath = clippedLandingPath;
       }
       if (samplingDecision) {
         properties.analyticsSampling =

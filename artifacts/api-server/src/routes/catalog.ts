@@ -15,7 +15,7 @@ import {
 import { getOsBrandProductCounts, getOsBrands, getOsCategories, getOsCategoryProductCounts, getOsCategoryProductCountsByCountry, getOsOccasionProductCounts, getOsOccasionProductCountsByCountry, getOsOccasions, getOsOccasionsForCity, getOsOccasionsForCountry, getOsProductOccasions, getOsRawCatalogBrands, getOsProductEmbeddedCategories, getOsProductPricingMap, getCachedBestSellerIds, getOsProducts, isOsProductsReady } from "../lib/osProductsCache";
 import { getRankingConfig } from "./homepage";
 import { scoreCollections, getCollectionClickScores } from "../lib/collectionRanking";
-import { transformImage, resolveWidth, resolveFormat, resolveQuality } from "../lib/imageTransform";
+import { transformImage, resolveWidth, resolveFormat, resolveQuality, type ImageFormat } from "../lib/imageTransform";
 import { buildCatalogProductImageUrl, CATALOG_CARD_IMAGE_WIDTH } from "../lib/catalogProductImagePolicy";
 import { db } from "@workspace/db";
 import { plantEnvironmentCacheTable } from "@workspace/db/schema";
@@ -40,7 +40,7 @@ const PUBLIC_CATALOG_CACHE_CONTROL =
 async function fetchAndTransformCatalogImage(
   rawUrl: string,
   apiKey: string,
-  options: { width: number; format: "webp" | "jpeg"; quality: number },
+  options: { width: number; format: ImageFormat; quality: number },
 ) {
   return withImageLoadLimit(async () => {
     const target = parseOsImageUrl(rawUrl);

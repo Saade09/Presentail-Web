@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { Router, type Response as ExpressResponse } from "express";
-import { transformImage, resolveWidth, resolveFormat } from "../lib/imageTransform";
+import { transformImage, resolveWidth, resolveFormat, type ImageFormat } from "../lib/imageTransform";
 import {
   IMAGE_FETCH_TIMEOUT_MS,
   ImageDeliveryError,
@@ -17,6 +17,7 @@ import {
   recordImageProxyRequestStart,
   type ImageProxyOutcome,
 } from "../lib/imageProxyMetrics";
+import { resolveSignedDeliveryRef } from "../lib/realDeliveries";
 
 const router = Router();
 
@@ -110,7 +111,7 @@ async function fetchSource(target: URL, apiKey: string, log: (data: unknown, mes
 async function loadAndTransform(
   target: URL,
   width: number,
-  format: "webp" | "jpeg",
+  format: ImageFormat,
   apiKey: string,
   log: (data: unknown, message: string) => void,
 ): Promise<CacheEntry> {
@@ -189,16 +190,21 @@ router.get("/img/proxy", async (req, res) => {
   const startedAt = Date.now();
   let outcome: ImageProxyOutcome = "upstream_error";
   let upstreamStatus: number | undefined;
+  let sourceForLog = "";
   try {
+    const deliveryRef =
+      typeof req.query.deliveryRef === "string" ? req.query.deliveryRef.trim() : "";
     const rawUrl = typeof req.query.url === "string" ? req.query.url.trim() : "";
-    if (!rawUrl) {
+    const sourceUrl = deliveryRef ? resolveSignedDeliveryRef(deliveryRef) : rawUrl;
+    sourceForLog = sourceUrl ?? "";
+    if (!sourceUrl) {
       outcome = "bad_request";
-      return res.status(400).json({ ok: false, message: "Missing url" }); // i18n-ignore
+      return res.status(400).json({ ok: false, message: "Missing image reference" }); // i18n-ignore
     }
 
     let target: URL;
     try {
-      target = parseOsImageUrl(rawUrl);
+      target = parseOsImageUrl(sourceUrl);
     } catch (error) {
       outcome = "bad_request";
       return res.status(400).json({ ok: false, message: "URL not allowed" }); // i18n-ignore
@@ -245,7 +251,7 @@ router.get("/img/proxy", async (req, res) => {
       {
         asset: (() => {
           try {
-            return safeImageIdentifier(parseOsImageUrl(String(req.query.url ?? "")));
+             return safeImageIdentifier(parseOsImageUrl(sourceForLog));
           } catch {
             return "invalid";
           }

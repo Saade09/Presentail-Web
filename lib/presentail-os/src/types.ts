@@ -328,6 +328,48 @@ export type OSOccasionStatsResponse = {
   occasions: OSOccasionStat[];
 };
 
+// ── Real-delivery photo feed contract (Presentail OS) ────────────────────────
+//
+// Shape returned by GET /api/storefront/real-deliveries?country=LB&city=Beirut
+// (authenticated with x-api-key). OS pre-filters all eligibility — the storefront
+// trusts `eligibility.*` and must never expose asset_url, product.id raw, or any
+// order/customer identifier in a public response.
+export type OSRealDeliveryPhotoRecord = {
+  /** Stable OS photo identifier. Use as React key and deduplication token. */
+  photo_id: string;
+  /** Opaque OS asset identifier (internal use only). */
+  asset_id: string;
+  /** OS public-object URL. Server-side only — route through the image proxy. */
+  asset_url: string;
+  /** ISO-8601 capture timestamp, newest first. */
+  captured_at: string;
+  product: {
+    /** OS numeric product database PK. Map to catalog slug for storefront URLs. */
+    id: number;
+    name: string;
+    image_url: string;
+  };
+  location: {
+    /** ISO country code, e.g. "LB", "AE". */
+    country: string;
+    /** Human-readable city name, e.g. "Beirut", "Dubai". */
+    city: string;
+  };
+  /** All four must be true for the photo to be eligible for display. */
+  eligibility: {
+    approved: boolean;
+    completed: boolean;
+    product_active: boolean;
+    in_stock: boolean;
+  };
+};
+
+export type OSRealDeliveryPhotosResponse = {
+  photos?: OSRealDeliveryPhotoRecord[];
+  /** Approved same-domain destination for the "View more" CTA. May be absent. */
+  view_more_url?: string;
+};
+
 // ── Order creation types ───────────────────────────────────────────────────
 
 export type OSOrderLineItem = {

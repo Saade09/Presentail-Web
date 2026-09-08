@@ -140,4 +140,6 @@ export const AnalyticsEventName = {
   landmark_district_auto_changed: "landmark_district_auto_changed",
   landmark_selection_removed: "landmark_selection_removed",
   landmark_order_completed: "landmark_order_completed",
+  real_delivery_shop_click: "real_delivery_shop_click",
+  real_delivery_view_more_click: "real_delivery_view_more_click",
 } as const;

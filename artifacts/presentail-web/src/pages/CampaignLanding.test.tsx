@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   countryCode: "AE",
   language: "en",
   getCollectionOptions: vi.fn((input: unknown) => input),
+  getRealDeliveries: vi.fn(() => ({ data: undefined })),
   useQueries: vi.fn(() => []),
   trackEvent: vi.fn(),
   trackWebEvent: vi.fn(),
@@ -21,6 +22,7 @@ vi.mock("@tanstack/react-query", () => ({
 
 vi.mock("@workspace/api-client-react", () => ({
   getGetHomepageCollectionBestSellersQueryOptions: mocks.getCollectionOptions,
+  useGetCampaignRealDeliveries: mocks.getRealDeliveries,
 }));
 
 vi.mock("@/contexts/LocationContext", () => ({
@@ -115,12 +117,12 @@ vi.mock("@/lib/campaign", () => ({
 }));
 
 vi.mock("@/pages/CampaignSections", () => ({
-  GRID_SIZE: 8,
   CampaignGrid: ({ section, title }: { section: string; title: string }) => (
     <section data-testid={`campaign-grid-${section}`}>
       <h2>{title}</h2>
     </section>
   ),
+  CampaignRealDeliveries: () => <section data-testid="campaign-section-real-deliveries" />,
   CampaignOccasions: () => <section data-testid="campaign-section-occasions" />,
   CampaignBenefitBand: () => <section data-testid="campaign-section-benefits" />,
   CampaignLuxuryBanner: () => <section data-testid="campaign-section-luxury-banner" />,

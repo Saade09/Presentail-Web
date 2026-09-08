@@ -188,6 +188,46 @@ export const campaignStrings: Dict = {
     ar: "تقييمات العملاء على Trustpilot",
     fr: "Avis clients Trustpilot",
   },
+  "campaign.redesign.realDeliveries.heading": {
+    en: "See what customers actually receive",
+    ar: "شاهد ما يستلمه العملاء فعلاً",
+    fr: "Découvrez ce que nos clients reçoivent réellement",
+  },
+  "campaign.redesign.realDeliveries.subtitle": {
+    en: "Real arrangements, photographed by our florists before delivery.",
+    ar: "تنسيقات حقيقية صوّرها بائعو الزهور لدينا قبل التوصيل.",
+    fr: "De vraies compositions, photographiées par nos fleuristes avant la livraison.",
+  },
+  "campaign.redesign.realDeliveries.verified": {
+    en: "Verified delivery",
+    ar: "توصيل موثّق",
+    fr: "Livraison vérifiée",
+  },
+  "campaign.redesign.realDeliveries.location": {
+    en: "Delivered in {city}",
+    ar: "تم التوصيل في {city}",
+    fr: "Livré à {city}",
+  },
+  "campaign.redesign.realDeliveries.shop": {
+    en: "Shop this arrangement →",
+    ar: "تسوّق هذا التنسيق ←",
+    fr: "Acheter cette composition →",
+  },
+  "campaign.redesign.realDeliveries.viewMore": {
+    en: "View more real deliveries",
+    ar: "شاهد المزيد من التوصيلات الحقيقية",
+    fr: "Voir plus de vraies livraisons",
+  },
+  "campaign.redesign.realDeliveries.previous": {
+    en: "Previous real delivery",
+    ar: "التوصيلة الحقيقية السابقة",
+    fr: "Livraison réelle précédente",
+  },
+  "campaign.redesign.realDeliveries.next": {
+    en: "Next real delivery",
+    ar: "التوصيلة الحقيقية التالية",
+    fr: "Livraison réelle suivante",
+  },
 
   // ── Beirut paid-search hero variant (v2) — used only on en-lb/beirut ──
   "campaign.v2.badge.open": {
@@ -616,6 +656,14 @@ export const campaignStringsFr: Record<string, string> = {
   "campaign.redesign.arrivesToday": "Livré aujourd'hui",
   "campaign.redesign.trustpilot.fallback": "Voir nos avis sur Trustpilot.",
   "campaign.redesign.trustpilotCarousel.ariaLabel": "Avis clients sur Trustpilot",
+  "campaign.redesign.realDeliveries.heading": "Découvrez ce que nos clients reçoivent réellement",
+  "campaign.redesign.realDeliveries.subtitle": "De vraies compositions, photographiées par nos fleuristes avant la livraison.",
+  "campaign.redesign.realDeliveries.verified": "Livraison vérifiée",
+  "campaign.redesign.realDeliveries.location": "Livré à {city}",
+  "campaign.redesign.realDeliveries.shop": "Acheter cette composition →",
+  "campaign.redesign.realDeliveries.viewMore": "Voir plus de vraies livraisons",
+  "campaign.redesign.realDeliveries.previous": "Livraison réelle précédente",
+  "campaign.redesign.realDeliveries.next": "Livraison réelle suivante",
 
   // ── Beirut paid-search hero variant (v2) ──
   "campaign.v2.badge.open": "Toutes nos boutiques au Liban sont ouvertes",
