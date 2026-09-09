@@ -110,6 +110,7 @@ export function HeroBannerSlide({ banner, isMobile, active }: Props) {
               src={resolvedSrc}
               alt={banner.title ?? "Banner"}
               className="w-full h-full object-cover"
+              style={{ objectPosition: "center 30%" }}
               loading={active ? "eager" : "lazy"}
               {...(active ? { fetchPriority: "high" } : {})}
               {...(responsiveProps ? { srcSet: responsiveProps.srcset, sizes: responsiveProps.sizes } : {})}
