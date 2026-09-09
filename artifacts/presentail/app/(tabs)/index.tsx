@@ -44,6 +44,8 @@ import { fetchCategoryProducts, applyPricingToProducts, type WooProduct } from "
 import { usePricingMap } from "@/hooks/usePricingMap";
 import { homepageShuffleSeed, seededShuffle } from "@/lib/shuffle";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCart } from "@/contexts/CartContext";
+import { SideMenu } from "@/components/SideMenu";
 import {
   getNativePermissionStatus,
   getNotificationStatus,
@@ -123,11 +125,24 @@ function HomeHeader({
   onOpenDelivery,
   headerOpacity,
   scrollY: _scrollY,
+  compactProgress,
+  compactActive,
+  onOpenMenu,
+  onOpenAccount,
+  onOpenCart,
+  cartCount,
 }: {
   topPad: number;
   onOpenDelivery: () => void;
   headerOpacity: Animated.AnimatedInterpolation<number>;
   scrollY: Animated.Value;
+  compactProgress: Animated.AnimatedInterpolation<number>;
+  /** Driven by a scrollY listener in HomeScreen so native-driver propagation is guaranteed. */
+  compactActive: boolean;
+  onOpenMenu: () => void;
+  onOpenAccount: () => void;
+  onOpenCart: () => void;
+  cartCount: number;
 }) {
   const colors = useColors();
   const router = useRouter();
@@ -154,8 +169,16 @@ function HomeHeader({
   const pillBg = "#ffffff";
   const pillTextColor = colors.primary;
 
+  // Full-header content fades out as compact fades in.
+  const fullContentOpacity = compactProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0],
+    extrapolate: "clamp",
+  });
+
   return (
     <View style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 10 }} pointerEvents="box-none">
+      {/* White background that fades in as user scrolls */}
       <Animated.View
         style={{
           position: "absolute",
@@ -168,133 +191,265 @@ function HomeHeader({
         }}
       />
 
+      {/* Bottom divider line — fades in with compact state */}
+      <Animated.View
+        style={{
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: StyleSheet.hairlineWidth,
+          backgroundColor: colors.border,
+          opacity: compactProgress,
+        }}
+      />
+
       <View style={{ paddingTop: topPad }} pointerEvents="box-none">
-        <View
-          style={{
-            height: 56,
-            flexDirection: sideRowDir,
-            alignItems: "center",
-            justifyContent: "space-between",
-            paddingHorizontal: 14,
-          }}
-          pointerEvents="box-none"
-        >
-          <View
-            style={{
-              flexDirection: sideRowDir,
-              alignItems: "center",
-              zIndex: 1,
-            }}
-          >
-            <Pressable
-              hitSlop={6}
-              onPress={onOpenDelivery}
-              accessibilityLabel={t.deliveryChooseLocation}
-              style={({ pressed }) => ({
+        {/* Fixed-height 56 px inner row — height never changes so no layout shift */}
+        <View style={{ height: 56 }} pointerEvents="box-none">
+
+          {/* ── Full at-rest header row ── */}
+          <Animated.View
+            style={[
+              StyleSheet.absoluteFill,
+              {
                 flexDirection: sideRowDir,
                 alignItems: "center",
-                gap: 6,
-                borderRadius: 999,
-                paddingHorizontal: 10,
-                paddingVertical: 6,
-                opacity: pressed ? 0.7 : 1,
-              })}
+                justifyContent: "space-between",
+                paddingHorizontal: 14,
+                opacity: fullContentOpacity,
+              },
+            ]}
+            pointerEvents={compactActive ? "none" : "box-none"}
+          >
+            <View
+              style={{
+                flexDirection: sideRowDir,
+                alignItems: "center",
+                zIndex: 1,
+              }}
             >
-              <Animated.View
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  backgroundColor: pillBg,
+              <Pressable
+                hitSlop={6}
+                onPress={onOpenDelivery}
+                accessibilityLabel={t.deliveryChooseLocation}
+                style={({ pressed }) => ({
+                  flexDirection: sideRowDir,
+                  alignItems: "center",
+                  gap: 6,
                   borderRadius: 999,
-                }}
-              />
-              <CountryFlag code={selectedCountry?.code ?? "LB"} width={20} height={13} />
-              <View
-                style={{
-                  flexDirection: "column",
-                  alignItems: isRTL ? "flex-end" : "flex-start",
-                  maxWidth: 120,
-                }}
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  opacity: pressed ? 0.7 : 1,
+                })}
               >
-                <Animated.Text
+                <Animated.View
                   style={{
-                    fontFamily: "Inter_500Medium",
-                    fontSize: 9,
-                    lineHeight: 11,
-                    letterSpacing: 0.6,
-                    textTransform: "uppercase",
-                    color: pillTextColor,
-                    opacity: 0.8,
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: pillBg,
+                    borderRadius: 999,
                   }}
-                  numberOfLines={1}
-                >
-                  {t.deliveryHeading}
-                </Animated.Text>
-                <Animated.Text
+                />
+                <CountryFlag code={selectedCountry?.code ?? "LB"} width={20} height={13} />
+                <View
                   style={{
-                    fontFamily: "Inter_600SemiBold",
-                    fontSize: 12,
-                    lineHeight: 14,
-                    color: pillTextColor,
+                    flexDirection: "column",
+                    alignItems: isRTL ? "flex-end" : "flex-start",
+                    maxWidth: 120,
                   }}
-                  numberOfLines={1}
                 >
-                  {deliveryPlaceName}
-                </Animated.Text>
-              </View>
-              <Animated.View>
-                <Feather name="chevron-down" size={13} color="#fff" />
-                <Animated.View style={[StyleSheet.absoluteFill, { opacity: headerOpacity }]}>
-                  <Feather name="chevron-down" size={13} color={colors.primary} />
+                  <Animated.Text
+                    style={{
+                      fontFamily: "Inter_500Medium",
+                      fontSize: 9,
+                      lineHeight: 11,
+                      letterSpacing: 0.6,
+                      textTransform: "uppercase",
+                      color: pillTextColor,
+                      opacity: 0.8,
+                    }}
+                    numberOfLines={1}
+                  >
+                    {t.deliveryHeading}
+                  </Animated.Text>
+                  <Animated.Text
+                    style={{
+                      fontFamily: "Inter_600SemiBold",
+                      fontSize: 12,
+                      lineHeight: 14,
+                      color: pillTextColor,
+                    }}
+                    numberOfLines={1}
+                  >
+                    {deliveryPlaceName}
+                  </Animated.Text>
+                </View>
+                <Animated.View>
+                  <Feather name="chevron-down" size={13} color="#fff" />
+                  <Animated.View style={[StyleSheet.absoluteFill, { opacity: headerOpacity }]}>
+                    <Feather name="chevron-down" size={13} color={colors.primary} />
+                  </Animated.View>
                 </Animated.View>
-              </Animated.View>
-            </Pressable>
-          </View>
+              </Pressable>
+            </View>
 
-          <View
-            pointerEvents="none"
-            style={{
-              position: "absolute",
-              left: 0,
-              right: 0,
-              top: 0,
-              bottom: 0,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Animated.View>
-              <Wordmark size={70} inverse />
-              <Animated.View style={[StyleSheet.absoluteFill, { opacity: headerOpacity }]}>
-                <Wordmark size={70} />
-              </Animated.View>
-            </Animated.View>
-          </View>
-
-          <View
-            style={{
-              flexDirection: sideRowDir,
-              alignItems: "center",
-              paddingHorizontal: 4,
-              zIndex: 1,
-            }}
-          >
-            <Pressable
-              hitSlop={10}
-              onPress={() => router.push("/(tabs)/catalog")}
-              accessibilityLabel="Search" // i18n-ignore
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                top: 0,
+                bottom: 0,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
             >
               <Animated.View>
-                <Feather name="search" size={26} color="#fff" />
+                <Wordmark size={70} inverse />
                 <Animated.View style={[StyleSheet.absoluteFill, { opacity: headerOpacity }]}>
-                  <Feather name="search" size={26} color={colors.primary} />
+                  <Wordmark size={70} />
                 </Animated.View>
               </Animated.View>
-            </Pressable>
-          </View>
+            </View>
+
+            <View
+              style={{
+                flexDirection: sideRowDir,
+                alignItems: "center",
+                paddingHorizontal: 4,
+                zIndex: 1,
+              }}
+            >
+              <Pressable
+                hitSlop={10}
+                onPress={() => router.push("/(tabs)/catalog")}
+                accessibilityLabel="Search" // i18n-ignore
+              >
+                <Animated.View>
+                  <Feather name="search" size={26} color="#fff" />
+                  <Animated.View style={[StyleSheet.absoluteFill, { opacity: headerOpacity }]}>
+                    <Feather name="search" size={26} color={colors.primary} />
+                  </Animated.View>
+                </Animated.View>
+              </Pressable>
+            </View>
+          </Animated.View>
+
+          {/* ── Compact scrolled header row ── */}
+          <Animated.View
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                flexDirection: sideRowDir,
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingHorizontal: 8,
+                opacity: compactProgress,
+              },
+            ]}
+            pointerEvents={compactActive ? "box-none" : "none"}
+          >
+            {/* Left group: hamburger + search */}
+            <View
+              style={{
+                flexDirection: sideRowDir,
+                alignItems: "center",
+                gap: 2,
+              }}
+            >
+              <Pressable
+                onPress={onOpenMenu}
+                hitSlop={8}
+                accessibilityLabel="Menu" // i18n-ignore
+                style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}
+              >
+                <Feather name="menu" size={24} color={colors.primary} />
+              </Pressable>
+              <Pressable
+                onPress={() => router.push("/(tabs)/catalog")}
+                hitSlop={8}
+                accessibilityLabel="Search" // i18n-ignore
+                style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}
+              >
+                <Feather name="search" size={22} color={colors.primary} />
+              </Pressable>
+            </View>
+
+            {/* Center: wordmark */}
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                top: 0,
+                bottom: 0,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Wordmark size={60} />
+            </View>
+
+            {/* Right group: account + cart with badge */}
+            <View
+              style={{
+                flexDirection: sideRowDir,
+                alignItems: "center",
+                gap: 2,
+              }}
+            >
+              <Pressable
+                onPress={onOpenAccount}
+                hitSlop={8}
+                accessibilityLabel={t.account}
+                style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}
+              >
+                <Feather name="user" size={22} color={colors.primary} />
+              </Pressable>
+              <Pressable
+                onPress={onOpenCart}
+                hitSlop={8}
+                accessibilityLabel={t.cart}
+                style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}
+              >
+                <Feather name="shopping-bag" size={22} color={cartCount > 0 ? colors.gold : colors.primary} />
+                {cartCount > 0 && (
+                  <View
+                    style={{
+                      position: "absolute",
+                      top: 6,
+                      right: 6,
+                      minWidth: 16,
+                      height: 16,
+                      borderRadius: 8,
+                      backgroundColor: colors.gold,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      paddingHorizontal: 3,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontFamily: "Inter_600SemiBold",
+                        fontSize: 10,
+                        lineHeight: 16,
+                        color: "#fff",
+                      }}
+                    >
+                      {cartCount > 99 ? "99+" : String(cartCount)}
+                    </Text>
+                  </View>
+                )}
+              </Pressable>
+            </View>
+          </Animated.View>
+
         </View>
       </View>
     </View>
@@ -303,7 +458,7 @@ function HomeHeader({
 
 function HomeScreen() {
   const { height: screenH } = useWindowDimensions();
-  const heroHeight = Math.round(screenH * 0.88);
+  const heroHeight = Math.round(screenH * 0.60);
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { isRTL } = useLanguage();
@@ -313,8 +468,11 @@ function HomeScreen() {
   const bottomPad = isWeb ? 34 : 24;
   const [notifModalOpen, setNotifModalOpen] = useState(false);
   const [deliverySheetOpen, setDeliverySheetOpen] = useState(false);
+  const [sideMenuOpen, setSideMenuOpen] = useState(false);
   const { token: authToken, user } = useAuth();
   const { loading: productsLoading } = useWooProducts();
+  const { count: cartCount } = useCart();
+  const router = useRouter();
 
   // Fire a mobile TTID event the first time the home screen finishes its
   // initial product load. Skipped on web (Expo Router runs on web too but
@@ -331,6 +489,28 @@ function HomeScreen() {
     outputRange: [0, 0, 1],
     extrapolate: "clamp",
   });
+
+  // compactProgress goes 0→1 over the last 60 px after headerOpacity reaches 1,
+  // driving the crossfade from the full at-rest header to the compact sticky row.
+  const compactProgress = scrollY.interpolate({
+    inputRange: [heroHeight * 0.85, heroHeight * 0.85 + 60],
+    outputRange: [0, 1],
+    extrapolate: "clamp",
+  });
+
+  // compactActive tracks whether the compact row should capture touches.
+  // Listening to scrollY (Animated.Value) — NOT the interpolation — because
+  // AnimatedInterpolation does not propagate JS listener callbacks through
+  // native-driver scroll graphs on iOS/Android.
+  const [compactActive, setCompactActive] = useState(false);
+  const compactThreshold = heroHeight * 0.85 + 30; // midpoint of the 60 px transition
+  useEffect(() => {
+    const id = scrollY.addListener(({ value }) => {
+      const active = value > compactThreshold;
+      setCompactActive((prev) => (prev === active ? prev : active));
+    });
+    return () => scrollY.removeListener(id);
+  }, [scrollY, compactThreshold]);
 
   useEffect(() => {
     if (Platform.OS === "web") return;
@@ -409,6 +589,12 @@ function HomeScreen() {
           onOpenDelivery={() => setDeliverySheetOpen(true)}
           headerOpacity={headerOpacity}
           scrollY={scrollY}
+          compactProgress={compactProgress}
+          compactActive={compactActive}
+          onOpenMenu={() => setSideMenuOpen(true)}
+          onOpenAccount={() => router.push("/(tabs)/account")}
+          onOpenCart={() => router.push("/(tabs)/cart")}
+          cartCount={cartCount}
         />
       </View>
       <NotificationPermissionModal
@@ -419,6 +605,14 @@ function HomeScreen() {
       <DeliveryLocationSheet
         visible={deliverySheetOpen}
         onClose={() => setDeliverySheetOpen(false)}
+      />
+      <SideMenu
+        visible={sideMenuOpen}
+        onClose={() => setSideMenuOpen(false)}
+        onOpenDelivery={() => {
+          setSideMenuOpen(false);
+          setTimeout(() => setDeliverySheetOpen(true), 200);
+        }}
       />
     </>
   );
@@ -449,7 +643,7 @@ function AnimatedDot({ active }: { active: boolean }) {
 
 function Hero() {
   const { width: screenW, height: screenH } = useWindowDimensions();
-  const heroHeight = Math.round(screenH * 0.88);
+  const heroHeight = Math.round(screenH * 0.60);
   const colors = useColors();
   const router = useRouter();
   const t = useT();
