@@ -20,6 +20,7 @@ import {
   type CampaignCatalogProduct,
   type CampaignAvailabilityState,
   type CampaignQuickFilterKey,
+  type PriceBandConfig,
   CAMPAIGN_QUICK_FILTER_KEYS,
 } from "@/lib/campaignLanding";
 import {
@@ -130,19 +131,32 @@ export const GRID_SIZE = 8;
 export function CampaignQuickFilters({
   activeFilter,
   onSelect,
+  bandConfig,
+  resultCount,
 }: {
   activeFilter: CampaignQuickFilterKey;
   onSelect: (filter: CampaignQuickFilterKey) => void;
+  bandConfig?: PriceBandConfig;
+  resultCount?: number;
 }) {
   const { t } = useLocale();
-  const labels: Record<CampaignQuickFilterKey, string> = {
+
+  const hasPriceLow = bandConfig?.low != null;
+  const hasPriceMid = bandConfig?.mid != null;
+
+  const staticLabels: Partial<Record<CampaignQuickFilterKey, string>> = {
     "available-today": t("campaign.redesign.quickFilters.availableToday"),
-    "under-60": t("campaign.redesign.quickFilters.under60"),
-    "50-100": t("campaign.redesign.quickFilters.priceRange"),
     roses: t("campaign.redesign.quickFilters.roses"),
     luxury: t("campaign.redesign.quickFilters.luxury"),
     "best-sellers": t("campaign.redesign.quickFilters.bestSellers"),
   };
+
+  // Only show price chips when the active currency has approved thresholds.
+  const visibleFilters = CAMPAIGN_QUICK_FILTER_KEYS.filter((filter) => {
+    if (filter === "price_low") return hasPriceLow;
+    if (filter === "price_mid") return hasPriceMid;
+    return true;
+  });
 
   return (
     <div
@@ -152,8 +166,14 @@ export function CampaignQuickFilters({
       data-testid="campaign-quick-filters"
     >
       <div className="flex min-w-0 gap-2 overflow-x-auto overscroll-x-contain pe-5 [scrollbar-width:none] md:overflow-visible md:pe-0 [&::-webkit-scrollbar]:hidden">
-        {CAMPAIGN_QUICK_FILTER_KEYS.map((filter) => {
+        {visibleFilters.map((filter) => {
           const selected = activeFilter === filter;
+          let label = staticLabels[filter] ?? "";
+          if (filter === "price_low" && hasPriceLow) {
+            label = t(bandConfig!.low!.labelKey);
+          } else if (filter === "price_mid" && hasPriceMid) {
+            label = t(bandConfig!.mid!.labelKey);
+          }
           return (
             <button
               key={filter}
@@ -168,7 +188,7 @@ export function CampaignQuickFilters({
                   : "border-[#c8d3cf] bg-white text-[#16434a] hover:border-[#00414e] hover:bg-[#f4f8f5]"
               }`}
             >
-              {labels[filter]}
+              {label}
             </button>
           );
         })}
@@ -177,6 +197,12 @@ export function CampaignQuickFilters({
         className="pointer-events-none absolute inset-y-0 end-0 w-10 bg-gradient-to-l from-[#fffdf8] to-transparent md:hidden"
         aria-hidden="true"
       />
+      {/* Polite live region: announces result count to screen readers after filtering */}
+      {resultCount != null && (
+        <div aria-live="polite" aria-atomic="true" className="sr-only">
+          {t("campaign.redesign.quickFilters.resultAnnouncement", { count: resultCount })}
+        </div>
+      )}
     </div>
   );
 }
@@ -197,6 +223,7 @@ export function CampaignGrid({
   maxProducts,
   activeQuickFilter,
   onQuickFilterSelect,
+  quickFilterBandConfig,
   productQuery,
   emptyMessage,
   emptyActionText,
@@ -217,6 +244,8 @@ export function CampaignGrid({
   maxProducts?: number;
   activeQuickFilter?: CampaignQuickFilterKey;
   onQuickFilterSelect?: (filter: CampaignQuickFilterKey) => void;
+  /** Resolved price-band config for the active currency, used by the quick-filter chips. */
+  quickFilterBandConfig?: PriceBandConfig;
   productQuery?: string;
   emptyMessage?: string;
   emptyActionText?: string;
@@ -271,6 +300,8 @@ export function CampaignGrid({
         <CampaignQuickFilters
           activeFilter={activeQuickFilter}
           onSelect={onQuickFilterSelect}
+          bandConfig={quickFilterBandConfig}
+          resultCount={isLoading ? undefined : displayProducts.length}
         />
       )}
 

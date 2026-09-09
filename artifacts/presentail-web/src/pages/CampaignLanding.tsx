@@ -22,6 +22,7 @@ import {
   CAMPAIGN_QUICK_FILTER_QUERY_PARAM,
   CAMPAIGN_QUERY_CATEGORY_SLUGS,
   getCampaignMarket,
+  getPriceBandConfig,
   isTargetCampaignCity,
   resolveCampaignAvailability,
   computeCountdownMinutes,
@@ -302,22 +303,40 @@ function CampaignLandingRedesign() {
     : "unverified";
   const quickFilterEnabled = cityId === "lb-beirut";
   const activeQuickFilter = parseCampaignQuickFilter(search);
+  const campaignCurrencyCode =
+    market?.countryCode === "AE" ? "AED" : currencyCode;
+  const bandConfig = getPriceBandConfig(campaignCurrencyCode);
   const currentBrowserSearch =
     typeof window !== "undefined"
       ? preserveCampaignAttribution(window.location.search)
       : search;
+  // ── URL canonicalization ───────────────────────────────────────────────────
+  // Runs on initial load AND whenever the active filter, currency, or URL
+  // changes. Handles three cases:
+  //   1. URL has a legacy key (under-60, 50-100) — rewrite to the semantic key.
+  //   2. URL has a price filter not available in the current currency (e.g.
+  //      price_low with EUR) — fall back to "available-today" so the grid is
+  //      never empty due to an invisible chip.
+  //   3. URL is missing the quick_filter param — write the default.
+  // Never fires the quick_shop_filter_select analytics event.
   useEffect(() => {
     if (!quickFilterEnabled) return;
     const rawFilter = new URLSearchParams(currentBrowserSearch).get(
       CAMPAIGN_QUICK_FILTER_QUERY_PARAM,
     );
-    if (rawFilter === activeQuickFilter) return;
+    // Determine the canonical filter for the active currency.
+    const isPriceLowUnavailable = activeQuickFilter === "price_low" && !bandConfig.low;
+    const isPriceMidUnavailable = activeQuickFilter === "price_mid" && !bandConfig.mid;
+    const canonicalFilter =
+      isPriceLowUnavailable || isPriceMidUnavailable ? "available-today" : activeQuickFilter;
+    if (rawFilter === canonicalFilter) return;
     navigate(
-      `${location}${serializeCampaignQuickFilter(currentBrowserSearch, activeQuickFilter)}`,
+      `${location}${serializeCampaignQuickFilter(currentBrowserSearch, canonicalFilter)}`,
       { replace: true },
     );
   }, [
     activeQuickFilter,
+    bandConfig,
     currentBrowserSearch,
     location,
     navigate,
@@ -330,9 +349,13 @@ function CampaignLandingRedesign() {
     return filterCampaignProducts(source, activeQuickFilter, {
       countryCode,
       cityId,
+      currencyCode: campaignCurrencyCode,
+      bandConfig,
     });
   }, [
     activeQuickFilter,
+    bandConfig,
+    campaignCurrencyCode,
     catalog.flowers,
     catalog.luxury,
     cityId,
@@ -361,6 +384,23 @@ function CampaignLandingRedesign() {
     return result;
   };
 
+  const getFilterLabel = (filter: CampaignQuickFilterKey): string => {
+    switch (filter) {
+      case "available-today":
+        return t("campaign.redesign.quickFilters.availableToday");
+      case "price_low":
+        return bandConfig.low ? t(bandConfig.low.labelKey) : "";
+      case "price_mid":
+        return bandConfig.mid ? t(bandConfig.mid.labelKey) : "";
+      case "roses":
+        return t("campaign.redesign.quickFilters.roses");
+      case "luxury":
+        return t("campaign.redesign.quickFilters.luxury");
+      case "best-sellers":
+        return t("campaign.redesign.quickFilters.bestSellers");
+    }
+  };
+
   const selectQuickFilter = (nextFilter: CampaignQuickFilterKey) => {
     if (!quickFilterEnabled) return;
     const previousFilter = activeQuickFilter;
@@ -374,7 +414,21 @@ function CampaignLandingRedesign() {
     const nextResultCount = filterCampaignProducts(nextSource, nextFilter, {
       countryCode,
       cityId,
+      currencyCode: campaignCurrencyCode,
+      bandConfig,
     }).length;
+    const lowerThreshold =
+      nextFilter === "price_low"
+        ? undefined
+        : nextFilter === "price_mid"
+          ? bandConfig.mid?.min
+          : undefined;
+    const upperThreshold =
+      nextFilter === "price_low"
+        ? bandConfig.low?.max
+        : nextFilter === "price_mid"
+          ? bandConfig.mid?.max
+          : undefined;
     navigate(`${location}${nextSearch}`);
     trackWebEvent({
       type: "quick_shop_filter_select",
@@ -382,9 +436,14 @@ function CampaignLandingRedesign() {
       properties: {
         filter_name: nextFilter,
         previous_filter: previousFilter,
+        semantic_filter_key: nextFilter,
+        displayed_filter_label: getFilterLabel(nextFilter),
+        active_currency: campaignCurrencyCode,
+        lower_threshold: lowerThreshold,
+        upper_threshold: upperThreshold,
+        result_count: nextResultCount,
         selected_city: cityId,
         selected_country: countryCode,
-        result_count: nextResultCount,
         page_path:
           typeof window !== "undefined" ? window.location.pathname : location,
         ...(Object.keys(googleAdsParams()).length > 0
@@ -431,8 +490,6 @@ function CampaignLandingRedesign() {
           speed: city.expressDeliveryLabel.trim(),
         })
       : t("campaign.redesign.status.speedNeutral");
-  const campaignCurrencyCode =
-    market?.countryCode === "AE" ? "AED" : currencyCode;
   const currencyText = t("campaign.redesign.status.currency", {
     currency: campaignCurrencyCode,
   });
@@ -508,6 +565,7 @@ function CampaignLandingRedesign() {
           maxProducts={6}
           activeQuickFilter={quickFilterEnabled ? activeQuickFilter : undefined}
           onQuickFilterSelect={quickFilterEnabled ? selectQuickFilter : undefined}
+          quickFilterBandConfig={quickFilterEnabled ? bandConfig : undefined}
           productQuery={quickFilterEnabled ? currentBrowserSearch : undefined}
           emptyMessage={
             quickFilterEnabled ? t("campaign.redesign.quickFilters.empty") : undefined

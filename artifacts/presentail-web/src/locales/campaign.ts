@@ -136,10 +136,26 @@ export const campaignStrings: Dict = {
   "campaign.redesign.quickFilters.under60": {
     en: "Under $60",
     ar: "أقل من 60 دولاراً",
+    fr: "Moins de 60 $",
+    el: "Κάτω από $60",
   },
   "campaign.redesign.quickFilters.priceRange": {
-    en: "$50–$100",
-    ar: "50–100 دولار",
+    en: "$60–$100",
+    ar: "60–100 دولار",
+    fr: "60–100 $",
+    el: "$60–$100",
+  },
+  "campaign.redesign.quickFilters.underAed250": {
+    en: "Under AED 250",
+    ar: "أقل من 250 درهماً",
+    fr: "Moins de 250 AED",
+    el: "Κάτω από 250 AED",
+  },
+  "campaign.redesign.quickFilters.aed250to500": {
+    en: "AED 250–500",
+    ar: "250–500 درهم",
+    fr: "250–500 AED",
+    el: "250–500 AED",
   },
   "campaign.redesign.quickFilters.roses": { en: "Roses", ar: "ورود" },
   "campaign.redesign.quickFilters.luxury": { en: "Luxury", ar: "فاخر" },
@@ -150,6 +166,12 @@ export const campaignStrings: Dict = {
   "campaign.redesign.quickFilters.empty": {
     en: "No flowers match this filter right now.",
     ar: "لا توجد زهور تطابق هذا الفلتر حالياً.",
+  },
+  "campaign.redesign.quickFilters.resultAnnouncement": {
+    en: "{count} arrangements shown",
+    ar: "يتم عرض {count} تنسيقاً",
+    fr: "{count} compositions affichées",
+    el: "{count} συνθέσεις εμφανίζονται",
   },
   "campaign.redesign.quickFilters.reset": {
     en: "Show available today",
