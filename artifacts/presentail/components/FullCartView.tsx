@@ -40,6 +40,7 @@ import {
   formatDeliveryRow,
   getCountryHour,
   isExpressDeliveryAvailable,
+  isMidnightSlot,
   resolveSlotLabel,
   slotTimeRangeForLabel,
 } from "@workspace/delivery";
@@ -234,7 +235,7 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
   const [cardMessageSheetVisible, setCardMessageSheetVisible] = React.useState(false);
   const { items, detailed, total, setQty, remove, setCustomNote, clear, cartMessage, setCartMessage, priceUpdatedProductIds, dismissPriceUpdated } = useCart();
   const { selectedCountry, selectedCity } = useDeliveryLocation();
-  const { currencyCode, convert } = useCurrency();
+  const { currencyCode, convert, formatNative } = useCurrency();
   const t = useT();
   const deliverySelection = useDeliverySelection();
 
@@ -253,7 +254,8 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
   const expressSurchargeUsd = expressSurchargeForCountry(countryCode);
   const isExpress = deliverySelection.mode === "express";
   const expressFeeUsd = isExpress ? expressSurchargeUsd : 0;
-  const grandTotalUsd = total + expressFeeUsd;
+  // Compute the city-level delivery fee, waived when free-delivery threshold is met.
+  const districtFeeUsd = (freeDeliveryEnabled && total >= thresholdUsd) ? 0 : (selectedCity?.fee ?? 0);
   // Resolve the persisted slot label against the current country's slot list
   // and country-local hour so a previously-picked AE slot stays AE (not
   // rewritten to LB) and a today-slot whose cutoff has already passed
@@ -267,6 +269,16 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
     () => selectedCity?.timeSlots ?? [],
     [selectedCity],
   );
+  // Resolve the selected slot to derive midnight status and extra fee.
+  const selectedSlot = React.useMemo(
+    () => deliverySelection.slotLabel
+      ? cityTimeSlots.find((s) => s.label === deliverySelection.slotLabel) ?? null
+      : null,
+    [deliverySelection.slotLabel, cityTimeSlots],
+  );
+  const slotFeeUsd = !isExpress ? (selectedSlot?.extraFee ?? 0) : 0;
+  const isMidnightActive = selectedSlot ? isMidnightSlot(selectedSlot, selectedCity?.id) : false;
+  const grandTotalUsd = total + districtFeeUsd + expressFeeUsd + slotFeeUsd;
   // Express availability: honour the OS flag/cutoff when the city has OS config,
   // otherwise fall back to the hardcoded 8 AM–10 PM window.
   const expressAvailableForCity = React.useMemo(() => {
@@ -829,25 +841,55 @@ export function FullCartView({ showBackButton = true, bottomOffset }: FullCartVi
                 style={{ fontFamily: "Inter_500Medium", color: colors.primary, fontSize: 13 }}
               />
             </View>
-            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-              <AppText style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13 }}>
-                {t.cartDelivery}
-              </AppText>
-              <AppText style={{ fontFamily: "Inter_500Medium", color: colors.gold, fontSize: 13 }}>
-                {t.cartFree}
-              </AppText>
-            </View>
-            {isExpress ? (
-              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                <AppText style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13 }}>
-                  {t.expressDelivery}
-                </AppText>
-                <Price
-                  value={expressFeeUsd}
-                  style={{ fontFamily: "Inter_500Medium", color: colors.primary, fontSize: 13 }}
-                />
+            {isMidnightActive ? (
+              <View style={{ gap: 3 }}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                  <AppText style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13 }}>
+                    {t.cartMidnightDelivery}
+                  </AppText>
+                  <Price
+                    value={districtFeeUsd + slotFeeUsd}
+                    style={{ fontFamily: "Inter_500Medium", color: colors.primary, fontSize: 13 }}
+                  />
+                </View>
+                {districtFeeUsd > 0 && slotFeeUsd > 0 && (
+                  <AppText style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 11 }}>
+                    {t.cartMidnightComponents
+                      .replace("{base}", formatNative(convert(districtFeeUsd)))
+                      .replace("{upgrade}", formatNative(convert(slotFeeUsd)))}
+                  </AppText>
+                )}
               </View>
-            ) : null}
+            ) : (
+              <>
+                <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                  <AppText style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13 }}>
+                    {t.cartDelivery}
+                  </AppText>
+                  {districtFeeUsd === 0 ? (
+                    <AppText style={{ fontFamily: "Inter_500Medium", color: colors.gold, fontSize: 13 }}>
+                      {t.cartFree}
+                    </AppText>
+                  ) : (
+                    <Price
+                      value={districtFeeUsd}
+                      style={{ fontFamily: "Inter_500Medium", color: colors.primary, fontSize: 13 }}
+                    />
+                  )}
+                </View>
+                {isExpress ? (
+                  <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                    <AppText style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 13 }}>
+                      {t.expressDelivery}
+                    </AppText>
+                    <Price
+                      value={expressFeeUsd}
+                      style={{ fontFamily: "Inter_500Medium", color: colors.primary, fontSize: 13 }}
+                    />
+                  </View>
+                ) : null}
+              </>
+            )}
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
               <AppText style={{ fontFamily: headingFontMedium, color: colors.primary, fontSize: 18 }}>
                 {t.cartTotal}

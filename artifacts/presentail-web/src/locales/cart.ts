@@ -111,8 +111,8 @@ export const cartStrings: Dict = {
   "cart.lateNightFee": { en: "Late night fee", ar: "رسوم التوصيل الليلي المتأخر" },
   // Order Summary — muted component breakdown beneath composite delivery rows
   // no-translate — {base} and {upgrade}/{fee} are replaced with FormattedPrice nodes at render time
-  "cart.midnightComponents": { en: "{base} standard + {upgrade} midnight", ar: "{base} عادي + {upgrade} منتصف الليل" },
-  "cart.lateNightComponents": { en: "{base} standard + {fee} late night", ar: "{base} عادي + {fee} رسوم ليلية" },
+  "cart.midnightComponents": { en: "Includes {base} base delivery + {upgrade} midnight upgrade", ar: "يشمل {base} توصيل أساسي + {upgrade} ترقية منتصف الليل" },
+  "cart.lateNightComponents": { en: "Includes {base} base delivery + {fee} late night fee", ar: "يشمل {base} توصيل أساسي + {fee} رسوم ليلية" },
   // Contextual three-state free-delivery card (cart page)
   "cart.banner.addMore": { en: "Add {amount} more to unlock free standard delivery", ar: "أضف {amount} أخرى لفتح التوصيل القياسي المجاني" },
   "cart.banner.shopAddons": { en: "Shop add-ons", ar: "تسوّق الإضافات" },
@@ -268,8 +268,8 @@ export const cartStringsFr: Record<string, string> = {
   "cart.deliveryFree": "Gratuit",
   "cart.deliveryTbd": "Calculé à la caisse",
   "cart.lateNightFee": "Frais de livraison tardive",
-  "cart.midnightComponents": "{base} standard + {upgrade} minuit",
-  "cart.lateNightComponents": "{base} standard + {fee} soirée tardive",
+  "cart.midnightComponents": "Comprend {base} livraison de base + {upgrade} surclassement minuit",
+  "cart.lateNightComponents": "Comprend {base} livraison de base + {fee} soirée tardive",
   // Contextual three-state free-delivery card (cart page)
   "cart.banner.addMore": "Ajoutez {amount} de plus pour débloquer la livraison standard gratuite",
   "cart.banner.shopAddons": "Voir les extras",
@@ -410,8 +410,8 @@ export const cartStringsEl: Record<string, string> = {
   "cart.deliveryFree": "Δωρεάν",
   "cart.deliveryTbd": "Υπολογίζεται κατά την ολοκλήρωση",
   "cart.lateNightFee": "Χρέωση βραδινής παράδοσης",
-  "cart.midnightComponents": "{base} τυπική + {upgrade} μεσάνυχτα",
-  "cart.lateNightComponents": "{base} τυπική + {fee} αργά βράδυ",
+  "cart.midnightComponents": "Περιλαμβάνει {base} βασική παράδοση + {upgrade} αναβάθμιση μεσάνυχτα",
+  "cart.lateNightComponents": "Περιλαμβάνει {base} βασική παράδοση + {fee} χρέωση αργά βράδυ",
   // Contextual three-state free-delivery card (cart page)
   "cart.banner.addMore": "Προσθέστε {amount} ακόμη για να ξεκλειδώσετε δωρεάν κανονική παράδοση",
   "cart.banner.shopAddons": "Δείτε τα έξτρα",
