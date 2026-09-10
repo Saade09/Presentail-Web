@@ -283,6 +283,7 @@ export function MainNavbar() {
     cityBase ? (path === "/" ? `~${cityBase}` : `~${cityBase}${path}`) : `~${path}`;
 
   const [searchOpen, setSearchOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   // Gate mounting until first open so the cmdk chunk is never fetched on
   // initial page load — it only loads when the user first clicks search.
   const [hasOpenedSearch, setHasOpenedSearch] = useState(false);
@@ -502,6 +503,16 @@ export function MainNavbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileSubPanel, setMobileSubPanel] = useState<string | null>(null);
 
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 8);
+    };
+
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [pinnedMenu, setPinnedMenu] = useState<string | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -552,8 +563,19 @@ export function MainNavbar() {
   }, [activeMenu]);
 
   return (
-    <div ref={wrapperRef} className="bg-white sticky top-0 z-[60] border-b border-gray-200">
-      <div className="container mx-auto max-w-content px-page h-[var(--header-h)] grid grid-cols-[auto_1fr_auto] md:grid-cols-3 items-center gap-4">
+    <div
+      ref={wrapperRef}
+      data-testid="main-navbar"
+      className={`bg-white sticky top-0 z-[60] border-b border-gray-200 transition-[height] duration-200 ease-out ${
+        isScrolled ? "h-[68px] md:h-[var(--header-h)]" : "h-[90px] md:h-[var(--header-h)]"
+      }`}
+    >
+      <div
+        data-testid="main-navbar-row"
+        className={`container mx-auto max-w-content px-page grid grid-cols-[auto_1fr_auto] md:grid-cols-3 items-center gap-4 ${
+          isScrolled ? "h-[68px] md:h-[var(--header-h)]" : "h-[90px] md:h-[var(--header-h)]"
+        }`}
+      >
 
         {/* ── Left: nav ────────────────────────────────────── */}
         <div className="flex items-center gap-2">
@@ -566,7 +588,7 @@ export function MainNavbar() {
             }}
           >
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="md:hidden" aria-label={t("nav.menuAria")} data-testid="button-mobile-menu">
+              <Button variant="ghost" size="icon" className="h-11 w-11 md:hidden" aria-label={t("nav.menuAria")} data-testid="button-mobile-menu">
                 <Menu className="w-5 h-5" />
               </Button>
             </SheetTrigger>
@@ -798,7 +820,7 @@ export function MainNavbar() {
           <Button
             variant="ghost"
             size="icon"
-            className="md:hidden"
+            className="h-11 w-11 md:hidden"
             aria-label={t("nav.searchAria")}
             data-testid="button-search-mobile"
             onClick={() => { setSearchOpen(true); setHasOpenedSearch(true); }}
@@ -844,7 +866,7 @@ export function MainNavbar() {
         {/* ── Center: logo ──────────────────────────────────── */}
         <div className="flex justify-center">
           <Link href={toCityHref("/")} className="flex items-center" aria-label={t("nav.logoAria")} data-testid="link-logo">
-            <Logo height={88} />
+            <Logo className="h-[67px] w-auto md:h-[88px]" />
           </Link>
         </div>
 
@@ -879,20 +901,20 @@ export function MainNavbar() {
               aria-label={t("nav.accountAria")}
               {...prefetchProps(loadSignIn, loadSignUp)}
             >
-              <Button variant="ghost" size="icon" aria-label={t("nav.accountAria")} data-testid="button-account">
+              <Button variant="ghost" size="icon" className="h-11 w-11 md:h-9 md:w-9" aria-label={t("nav.accountAria")} data-testid="button-account">
                 <User className="!w-[22px] !h-[22px]" />
               </Button>
             </Link>
           ) : (
             <span className="opacity-30" inert={true}>
-              <Button variant="ghost" size="icon" aria-label={t("nav.accountAria")} data-testid="button-account">
+              <Button variant="ghost" size="icon" className="h-11 w-11 md:h-9 md:w-9" aria-label={t("nav.accountAria")} data-testid="button-account">
                 <User className="!w-[22px] !h-[22px]" />
               </Button>
             </span>
           )}
 
           <Link href={toCityHref("/cart")} aria-label={t("nav.bagAria")} {...prefetchProps(loadCart, loadCheckout)}>
-            <Button variant="ghost" size="icon" className="relative" aria-label={t("nav.bagAria")} data-testid="button-cart">
+            <Button variant="ghost" size="icon" className="relative h-11 w-11 md:h-9 md:w-9" aria-label={t("nav.bagAria")} data-testid="button-cart">
               <ShoppingCart className="!w-[22px] !h-[22px]" />
               <AnimatePresence>
                 {itemCount > 0 && (

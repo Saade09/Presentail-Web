@@ -5,7 +5,7 @@
 // (separate from the desktop `megaMenus`).
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, within } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test-utils";
 
@@ -62,7 +62,7 @@ vi.mock("@/components/search/SearchOverlay", () => ({
 }));
 
 vi.mock("@/components/Logo", () => ({
-  Logo: () => <span>Presentail</span>,
+  Logo: ({ className }: { className?: string }) => <span className={className}>Presentail</span>,
 }));
 
 vi.mock("@/components/account/AccountDropdown", () => ({
@@ -203,6 +203,41 @@ describe("MainNavbar — mobile brands sub-panel", () => {
     // translation key (the test-utils `t` identity function returns the key).
     const brandsTile = screen.getByRole("button", { name: /nav\.brands/i });
     expect(brandsTile).toBeDefined();
+  });
+
+  it("keeps the mobile header compact while preserving full-size control targets", () => {
+    renderWithProviders(<MainNavbar />);
+
+    expect(screen.getByTestId("button-mobile-menu").classList).toContain("h-11");
+    expect(screen.getByTestId("button-mobile-menu").classList).toContain("w-11");
+    expect(screen.getByTestId("button-search-mobile").classList).toContain("h-11");
+    expect(screen.getByTestId("button-search-mobile").classList).toContain("w-11");
+    expect(screen.getByTestId("button-account").classList).toContain("h-11");
+    expect(screen.getByTestId("button-account").classList).toContain("w-11");
+    expect(screen.getByTestId("button-cart").classList).toContain("h-11");
+    expect(screen.getByTestId("button-cart").classList).toContain("w-11");
+    expect(screen.getByTestId("link-logo").firstElementChild?.classList).toContain("h-[67px]");
+  });
+
+  it("keeps the full header at the top and shortens it after scrolling", () => {
+    renderWithProviders(<MainNavbar />);
+    const navbar = screen.getByTestId("main-navbar");
+    const navbarRow = screen.getByTestId("main-navbar-row");
+
+    expect(navbar.classList).toContain("h-[90px]");
+    expect(navbarRow.classList).toContain("h-[90px]");
+
+    Object.defineProperty(window, "scrollY", { configurable: true, value: 24 });
+    fireEvent.scroll(window);
+
+    expect(navbar.classList).toContain("h-[68px]");
+    expect(navbarRow.classList).toContain("h-[68px]");
+
+    Object.defineProperty(window, "scrollY", { configurable: true, value: 0 });
+    fireEvent.scroll(window);
+
+    expect(navbar.classList).toContain("h-[90px]");
+    expect(navbarRow.classList).toContain("h-[90px]");
   });
 
   it("keeps static category tiles visible when metadata has no usable inventory counts", async () => {

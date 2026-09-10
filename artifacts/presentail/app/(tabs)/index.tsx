@@ -350,6 +350,7 @@ function HomeHeader({
                 justifyContent: "space-between",
                 paddingHorizontal: 8,
                 opacity: compactProgress,
+                overflow: "hidden",
               },
             ]}
             pointerEvents={compactActive ? "box-none" : "none"}
@@ -393,7 +394,7 @@ function HomeHeader({
                 justifyContent: "center",
               }}
             >
-              <Wordmark size={60} />
+               <Wordmark size={60} />
             </View>
 
             {/* Right group: account + cart with badge */}
