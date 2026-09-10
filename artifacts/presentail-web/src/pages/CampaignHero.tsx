@@ -4,7 +4,11 @@ import { Button } from "@/components/ui/button";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { trackEvent } from "@/lib/analytics";
-import { injectTrustpilotScript, pollAndLoadTrustpilotWidget } from "@/lib/trustpilot";
+import {
+  injectTrustpilotScript,
+  pollAndLoadTrustpilotWidget,
+  TRUSTPILOT_PROFILE_URL,
+} from "@/lib/trustpilot";
 
 const HERO_IMAGE_768 = `${import.meta.env.BASE_URL}campaign/flower-hero-768.webp`;
 const HERO_IMAGE_1440 = `${import.meta.env.BASE_URL}campaign/flower-hero-1440.webp`;
@@ -240,15 +244,6 @@ export function CampaignLocationBar({
 
 // ─── CampaignTrustpilotCard ───────────────────────────────────────────────────
 
-declare global {
-  interface Window {
-    Trustpilot?: {
-      loadFromElement: (element: Element, force?: boolean) => void;
-    };
-  }
-}
-
-const TRUSTPILOT_PROFILE_URL = "https://www.trustpilot.com/review/presentail.com";
 const TRUSTPILOT_TEMPLATE_ID = "53aa8807dec7e10d38f59f32";
 const TRUSTPILOT_BUSINESS_UNIT_ID = "5d1782b3588afe00012431d9";
 const TRUSTPILOT_TOKEN = "67c8c2d2-17c0-4add-bcda-ed2e5ce5eb5e";
@@ -266,7 +261,8 @@ export function CampaignTrustpilotStrip() {
   const { language, dir, t } = useLocale();
   const { countryCode, cityId } = useLocationSelection();
   const ref = useRef<HTMLDivElement>(null);
-  const [failed, setFailed] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [status, setStatus] = useState<"pending" | "loaded" | "failed">("pending");
   const locale = getCampaignTrustpilotLocale(language, countryCode);
 
   const trackReviewClick = (linkType: "widget" | "external_link" | "fallback") => {
@@ -284,21 +280,23 @@ export function CampaignTrustpilotStrip() {
     const el = ref.current;
     if (!el) return;
     let active = true;
-    setFailed(false);
+    setStatus("pending");
 
-    const { onScriptLoad, cleanup } = pollAndLoadTrustpilotWidget(el, () => {
+    const handleFailure = () => {
       if (!active) return;
       console.warn("[Trustpilot] Campaign widget failed to load; showing fallback.");
-      setFailed(true);
+      setStatus("failed");
+    };
+    const { onScriptLoad, cleanup } = pollAndLoadTrustpilotWidget(el, handleFailure, () => {
+      if (active) {
+        cardRef.current?.setAttribute("data-trustpilot-state", "loaded");
+      }
     });
-    injectTrustpilotScript(
-      onScriptLoad,
-      () => {
-        if (!active) return;
-        console.warn("[Trustpilot] Campaign bootstrap failed; showing fallback.");
-        setFailed(true);
-      },
-    );
+    injectTrustpilotScript(onScriptLoad, () => {
+      if (!active) return;
+      console.warn("[Trustpilot] Campaign bootstrap failed; showing fallback.");
+      setStatus("failed");
+    });
 
     return () => {
       active = false;
@@ -311,9 +309,11 @@ export function CampaignTrustpilotStrip() {
       <div
         className="mx-auto min-h-[150px] w-full max-w-2xl overflow-hidden rounded-2xl border border-[#d9dfd8] bg-[#fffdf8] p-0.5 shadow-sm"
         dir={dir}
+        ref={cardRef}
+        data-trustpilot-state={status}
         data-testid="campaign-trustpilot-card"
       >
-        {failed ? (
+        {status === "failed" ? (
           <a
             href={TRUSTPILOT_PROFILE_URL}
             target="_blank"
@@ -328,6 +328,7 @@ export function CampaignTrustpilotStrip() {
           <div
             ref={ref}
             className="trustpilot-widget h-[150px] w-full max-w-full overflow-hidden"
+            aria-busy={status === "pending"}
             data-locale={locale}
             data-template-id={TRUSTPILOT_TEMPLATE_ID}
             data-businessunit-id={TRUSTPILOT_BUSINESS_UNIT_ID}
@@ -345,9 +346,9 @@ export function CampaignTrustpilotStrip() {
                 event.stopPropagation();
                 trackReviewClick("external_link");
               }}
-              className="sr-only"
+              className="flex min-h-[150px] items-center justify-center px-5 text-center text-sm text-[#00515a] underline-offset-4 hover:underline"
             >
-              Trustpilot
+              {t("campaign.redesign.trustpilot.fallback")}
             </a>
           </div>
         )}

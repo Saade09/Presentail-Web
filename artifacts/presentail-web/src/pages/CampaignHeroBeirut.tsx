@@ -4,7 +4,11 @@ import { MapPin, Send, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/contexts/LocaleContext";
 import { buildUnsplashSrcset } from "@/lib/imageUtils";
-import { injectTrustpilotScript, pollAndLoadTrustpilotWidget } from "@/lib/trustpilot";
+import {
+  injectTrustpilotScript,
+  pollAndLoadTrustpilotWidget,
+  TRUSTPILOT_PROFILE_URL,
+} from "@/lib/trustpilot";
 
 /**
  * CampaignHeroBeirut — paid-search hero variant for the Beirut flower-delivery
@@ -366,6 +370,8 @@ export function CampaignHeroBeirut({
 export function CampaignTrustBarBeirut() {
   const { t } = useLocale();
   const tpRef = useRef<HTMLDivElement>(null);
+  const ratingRef = useRef<HTMLDivElement>(null);
+  const [status, setStatus] = useState<"pending" | "loaded" | "failed">("pending");
 
   // Initialize the Trustpilot Mini widget after mount. Follows the same
   // injectTrustpilotScript + loadFromElement pattern used by TrustpilotCarousel
@@ -375,11 +381,27 @@ export function CampaignTrustBarBeirut() {
     const el = tpRef.current;
     if (!el) return;
 
-    const { onScriptLoad, cleanup } = pollAndLoadTrustpilotWidget(el);
+    let active = true;
+    setStatus("pending");
+    const handleFailure = () => {
+      if (active) setStatus("failed");
+    };
+    const { onScriptLoad, cleanup } = pollAndLoadTrustpilotWidget(
+      el,
+      handleFailure,
+      () => {
+        if (active) {
+          ratingRef.current?.setAttribute("data-trustpilot-state", "loaded");
+        }
+      },
+    );
     // Trust bar is above the fold — load immediately, no IntersectionObserver.
-    injectTrustpilotScript(onScriptLoad);
+    injectTrustpilotScript(onScriptLoad, handleFailure);
 
-    return cleanup;
+    return () => {
+      active = false;
+      cleanup();
+    };
   }, []);
 
   const cells: { icon: ReactNode; title: string; sub: string; key: string }[] = [
@@ -446,26 +468,44 @@ export function CampaignTrustBarBeirut() {
             className="flex items-center justify-center px-4 py-3"
             data-testid="trust-cell-rating"
           >
-            <div style={{ width: "100%", maxWidth: 240 }}>
-              <div
-                ref={tpRef}
-                className="trustpilot-widget"
-                data-locale="en-US"
-                data-template-id="53aa8807dec7e10d38f59f32"
-                data-businessunit-id="5d1782b3588afe00012431d9"
-                data-style-height="130"
-                data-style-width="100%"
-                data-token="c3c9abbc-8bdc-41bb-9779-402f9a758680"
-                style={{ width: "100%", height: 130, minHeight: 130 }}
-              >
+            <div
+              ref={ratingRef}
+              style={{ width: "100%", maxWidth: 240 }}
+              data-trustpilot-state={status}
+            >
+              {status === "failed" ? (
                 <a
-                  href="https://www.trustpilot.com/review/presentail.com"
+                  href={TRUSTPILOT_PROFILE_URL}
                   target="_blank"
                   rel="noopener noreferrer"
+                  className="flex min-h-[130px] items-center justify-center text-center text-sm font-medium text-primary underline-offset-4 hover:underline"
+                  data-testid="link-beirut-trustpilot-fallback"
                 >
-                  Trustpilot
+                  {t("campaign.redesign.trustpilot.fallback")}
                 </a>
-              </div>
+              ) : (
+                <div
+                  ref={tpRef}
+                  className="trustpilot-widget"
+                  aria-busy={status === "pending"}
+                  data-locale="en-US"
+                  data-template-id="53aa8807dec7e10d38f59f32"
+                  data-businessunit-id="5d1782b3588afe00012431d9"
+                  data-style-height="130"
+                  data-style-width="100%"
+                  data-token="c3c9abbc-8bdc-41bb-9779-402f9a758680"
+                  style={{ width: "100%", height: 130, minHeight: 130 }}
+                >
+                  <a
+                    href={TRUSTPILOT_PROFILE_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex min-h-[130px] items-center justify-center text-center text-sm text-primary underline-offset-4 hover:underline"
+                  >
+                    {t("campaign.redesign.trustpilot.fallback")}
+                  </a>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -34,6 +34,7 @@ vi.mock("@/contexts/LocationContext", () => ({
 vi.mock("@/lib/trustpilot", () => ({
   injectTrustpilotScript: mocks.inject,
   pollAndLoadTrustpilotWidget: mocks.poll,
+  TRUSTPILOT_PROFILE_URL: "https://www.trustpilot.com/review/presentail.com",
 }));
 
 vi.mock("@/lib/analytics", () => ({

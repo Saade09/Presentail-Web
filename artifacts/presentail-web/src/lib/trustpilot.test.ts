@@ -55,6 +55,19 @@ describe("injectTrustpilotScript", () => {
     expect(onLoad).toHaveBeenCalledOnce();
   });
 
+  it("handles an existing script whose load event happened before attachment", async () => {
+    const { injectTrustpilotScript, TRUSTPILOT_SCRIPT_SRC } = await loadModule();
+    const existing = document.createElement("script");
+    existing.src = TRUSTPILOT_SCRIPT_SRC;
+    existing.dataset.loaded = "1";
+    document.head.appendChild(existing);
+    const onLoad = vi.fn();
+
+    injectTrustpilotScript(onLoad);
+
+    expect(onLoad).toHaveBeenCalledOnce();
+  });
+
   it("retries two seconds after the first load error", async () => {
     const { injectTrustpilotScript, TRUSTPILOT_SCRIPT_SRC } = await loadModule();
     injectTrustpilotScript(vi.fn());
@@ -80,6 +93,22 @@ describe("injectTrustpilotScript", () => {
     expect(onError).toHaveBeenCalledOnce();
   });
 
+  it("notifies every concurrent waiter exactly once after terminal failure", async () => {
+    const { injectTrustpilotScript, TRUSTPILOT_SCRIPT_SRC } = await loadModule();
+    const firstError = vi.fn();
+    const secondError = vi.fn();
+
+    injectTrustpilotScript(vi.fn(), firstError);
+    injectTrustpilotScript(vi.fn(), secondError);
+    trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0].dispatchEvent(new Event("error"));
+    await vi.advanceTimersByTimeAsync(2000);
+    trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0].dispatchEvent(new Event("error"));
+    trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0]?.dispatchEvent(new Event("error"));
+
+    expect(firstError).toHaveBeenCalledOnce();
+    expect(secondError).toHaveBeenCalledOnce();
+  });
+
   it("loads immediately without a script event when the SDK already exists", async () => {
     const { injectTrustpilotScript, TRUSTPILOT_SCRIPT_SRC } = await loadModule();
     window.Trustpilot = { loadFromElement: vi.fn() };
@@ -89,6 +118,18 @@ describe("injectTrustpilotScript", () => {
 
     expect(onLoad).toHaveBeenCalledOnce();
     expect(trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)).toHaveLength(0);
+  });
+
+  it("recovers when the SDK appears after a missed script event", async () => {
+    const { injectTrustpilotScript } = await loadModule();
+    const onLoad = vi.fn();
+
+    injectTrustpilotScript(onLoad);
+    await vi.advanceTimersByTimeAsync(250);
+    window.Trustpilot = { loadFromElement: vi.fn() };
+    await vi.advanceTimersByTimeAsync(250);
+
+    expect(onLoad).toHaveBeenCalledOnce();
   });
 });
 
@@ -145,6 +186,30 @@ describe("pollAndLoadTrustpilotWidget", () => {
     expect(loadFromElement).toHaveBeenCalledWith(secondEl, true);
   });
 
+  it("waits for a delayed SDK global during empty-script recovery", async () => {
+    const {
+      injectTrustpilotScript,
+      pollAndLoadTrustpilotWidget,
+      TRUSTPILOT_SCRIPT_SRC,
+    } = await loadModule();
+    const el = document.createElement("div");
+    const loadFromElement = vi.fn();
+    const loader = pollAndLoadTrustpilotWidget(el);
+
+    injectTrustpilotScript(loader.onScriptLoad);
+    trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0].dispatchEvent(new Event("load"));
+    await vi.advanceTimersByTimeAsync(20 * 250);
+
+    const recoveryScript = trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0];
+    recoveryScript.dispatchEvent(new Event("load"));
+    await vi.advanceTimersByTimeAsync(5 * 250);
+    window.Trustpilot = { loadFromElement };
+    await vi.advanceTimersByTimeAsync(250);
+
+    expect(loadFromElement).toHaveBeenCalledOnce();
+    expect(loadFromElement).toHaveBeenCalledWith(el, true);
+  });
+
   it("gives up after one empty-script recovery attempt", async () => {
     const {
       injectTrustpilotScript,
@@ -168,16 +233,18 @@ describe("pollAndLoadTrustpilotWidget", () => {
   it("catches loadFromElement errors", async () => {
     const { pollAndLoadTrustpilotWidget } = await loadModule();
     const error = new Error("widget failed");
+    const onGiveUp = vi.fn();
     window.Trustpilot = { loadFromElement: vi.fn(() => { throw error; }) };
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     expect(() =>
-      pollAndLoadTrustpilotWidget(document.createElement("div")).onScriptLoad(),
+      pollAndLoadTrustpilotWidget(document.createElement("div"), onGiveUp).onScriptLoad(),
     ).not.toThrow();
     expect(warn).toHaveBeenCalledWith(
       "[Trustpilot] loadFromElement threw:",
       error,
     );
+    expect(onGiveUp).toHaveBeenCalledOnce();
   });
 
   it("cleanup cancels a pending poll timer", async () => {

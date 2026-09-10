@@ -1,13 +1,10 @@
-import { useEffect, useRef } from "react";
-import { injectTrustpilotScript, pollAndLoadTrustpilotWidget } from "@/lib/trustpilot";
-
-declare global {
-  interface Window {
-    Trustpilot?: {
-      loadFromElement: (element: Element, force?: boolean) => void;
-    };
-  }
-}
+import { useEffect, useRef, useState } from "react";
+import { useLocale } from "@/contexts/LocaleContext";
+import {
+  injectTrustpilotScript,
+  pollAndLoadTrustpilotWidget,
+  TRUSTPILOT_PROFILE_URL,
+} from "@/lib/trustpilot";
 
 export function TrustpilotCarousel({
   onVisible,
@@ -19,39 +16,72 @@ export function TrustpilotCarousel({
   locale?: string;
 } = {}) {
   const ref = useRef<HTMLDivElement>(null);
+  const onVisibleRef = useRef(onVisible);
+  const onFailedRef = useRef(onFailed);
+  const { t } = useLocale();
+  const [status, setStatus] = useState<"pending" | "loaded" | "failed">("pending");
+  const fallbackLabel = t("campaign.redesign.trustpilot.fallback");
+  onVisibleRef.current = onVisible;
+  onFailedRef.current = onFailed;
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    setStatus("pending");
+    let active = true;
+    const handleFailure = () => {
+      if (!active) return;
+      setStatus("failed");
+      onFailedRef.current?.();
+    };
 
-    const { onScriptLoad, cleanup } = pollAndLoadTrustpilotWidget(el, onFailed);
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            observer.disconnect();
-            onVisible?.();
-            injectTrustpilotScript(onScriptLoad, onFailed);
-          }
+    const { onScriptLoad, cleanup } = pollAndLoadTrustpilotWidget(
+      el,
+      handleFailure,
+      () => {
+        if (active) {
+          el.parentElement?.setAttribute("data-trustpilot-state", "loaded");
         }
       },
-      { rootMargin: "200px", threshold: 0 },
     );
 
-    observer.observe(el);
+    if (typeof IntersectionObserver === "undefined") {
+      injectTrustpilotScript(onScriptLoad, handleFailure);
+    } else {
+      const observer = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting) {
+              observer.disconnect();
+              onVisibleRef.current?.();
+              injectTrustpilotScript(onScriptLoad, handleFailure);
+            }
+          }
+        },
+        { rootMargin: "200px", threshold: 0 },
+      );
+
+      observer.observe(el);
+
+      return () => {
+        active = false;
+        observer.disconnect();
+        cleanup();
+      };
+    }
 
     return () => {
-      observer.disconnect();
+      active = false;
       cleanup();
     };
-  // locale is embedded in the DOM attribute and read once by the widget on load;
-  // if locale changes we do not re-initialize (would require a full widget remount).
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [locale]);
 
   return (
-    <div style={{ overflow: "hidden", minHeight: "240px", height: "240px" }}>
+    <div
+      style={{ overflow: "hidden", minHeight: "240px", height: "240px" }}
+      data-trustpilot-state={status}
+      aria-busy={status === "pending"}
+    >
       <div
         ref={ref}
         className="trustpilot-widget"
@@ -65,11 +95,17 @@ export function TrustpilotCarousel({
         data-review-languages="en"
       >
         <a
-          href="https://www.trustpilot.com/review/presentail.com"
+          href={TRUSTPILOT_PROFILE_URL}
           target="_blank"
           rel="noopener noreferrer"
+          className={
+            status === "failed"
+              ? "flex min-h-[240px] items-center justify-center px-5 text-center text-sm font-medium text-primary underline-offset-4 hover:underline"
+              : "flex min-h-[240px] items-center justify-center px-5 text-center text-sm text-primary underline-offset-4 hover:underline"
+          }
+          data-testid={status === "failed" ? "link-trustpilot-fallback" : undefined}
         >
-          Trustpilot
+          {fallbackLabel}
         </a>
       </div>
     </div>

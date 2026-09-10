@@ -16,6 +16,7 @@ import { trackEvent } from "@/lib/analytics";
 import { fireGtagEvent } from "@/lib/gtag";
 import { CAMPAIGN_SECTION_KEY } from "@/lib/campaign";
 import { TrustpilotCarousel } from "@/components/homepage/TrustpilotCarousel";
+import { TRUSTPILOT_PROFILE_URL } from "@/lib/trustpilot";
 import {
   type CampaignCatalogProduct,
   type CampaignAvailabilityState,
@@ -925,7 +926,7 @@ export function CampaignReviews({
           {t("campaign.redesign.reviews.heading")}
         </h2>
         <a
-          href="https://www.trustpilot.com/review/presentail.com"
+          href={TRUSTPILOT_PROFILE_URL}
           target="_blank"
           rel="noopener noreferrer"
           onClick={handleViewAllClick}
@@ -939,9 +940,9 @@ export function CampaignReviews({
       {/* RTL containment: the Trustpilot widget is LTR-only regardless of page dir */}
       <div dir="ltr">
         {failed ? (
-          <p className="py-4 text-sm text-neutral-500">
+          <div className="flex min-h-[240px] items-center justify-center py-4 text-sm text-neutral-500">
             <a
-              href="https://www.trustpilot.com/review/presentail.com"
+              href={TRUSTPILOT_PROFILE_URL}
               target="_blank"
               rel="noopener noreferrer"
               onClick={handleViewAllClick}
@@ -950,7 +951,7 @@ export function CampaignReviews({
             >
               {t("campaign.redesign.trustpilot.fallback")}
             </a>
-          </p>
+          </div>
         ) : (
           <TrustpilotCarousel
             locale={locale}
