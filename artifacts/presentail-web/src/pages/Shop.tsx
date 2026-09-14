@@ -31,6 +31,7 @@ import { getCategorySeoContent } from "@/data/categorySeoContent.mjs";
 import { cityIdToSlug } from "@/lib/locale-route";
 import { PageBreadcrumb, type Crumb } from "@/components/PageBreadcrumb";
 import { ShopFilters, type PriceBucket, type PriceBucketDef, type ColorFacet } from "@/components/ShopFilters";
+import { SameDayDeliveryBanner } from "@/components/SameDayDeliveryBanner";
 
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { buildFeeNode } from "@/lib/feeNode";
@@ -874,6 +875,12 @@ export default function Shop() {
                   city?.expressAvailable ?? true,
                 )}
           </p>
+        )}
+
+        {(isOccasionRoute || isCategoryRoute) && (countryCode === "AE" || countryCode === "LB") && (
+          <div className="mb-3 md:mb-4">
+            <SameDayDeliveryBanner countryCode={countryCode} />
+          </div>
         )}
 
         {occasion === "birthday" && (
