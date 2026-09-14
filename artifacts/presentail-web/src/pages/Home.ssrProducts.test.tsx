@@ -36,6 +36,7 @@ vi.mock("@/lib/banners", () => ({ useHomepageBanners: vi.fn(() => ({ data: undef
 vi.mock("@/lib/api", () => ({ apiFetch: vi.fn(async () => ({ countryCode: null })) }));
 vi.mock("@/lib/queries", () => ({
   useProducts: vi.fn(() => ({ data: undefined, isLoading: false })),
+  useCatalogMetadata: vi.fn(() => ({ data: undefined })),
 }));
 vi.mock("@/hooks/use-mobile", () => ({ useIsMobile: vi.fn(() => false) }));
 

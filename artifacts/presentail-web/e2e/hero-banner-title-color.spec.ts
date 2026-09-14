@@ -197,6 +197,17 @@ test.describe("HeroBannerSlide — title colour", () => {
     );
   });
 
+  test("city H1 is rendered exactly once inside the hero", async ({ page }) => {
+    await page.goto("/en-lb/beirut/");
+
+    const heading = page.locator('[data-testid="hero-city-heading"]');
+    await expect(heading).toBeVisible({ timeout: 15_000 });
+    await expect(heading).toHaveText("Flower & Gift Delivery in Beirut");
+    await expect(page.locator("h1")).toHaveCount(1);
+    await expect(page.locator('[data-testid="hero-banner-carousel"] h1')).toHaveCount(1);
+    await expect(page.locator('nav[aria-label="Breadcrumb"]')).toHaveCount(0);
+  });
+
   test("banner slide renders at mobile viewport width", async ({ page, viewport }) => {
     // This test is most meaningful under the "Mobile Chrome" project
     // (390 × 844) but passes on desktop too since the slide renders at all

@@ -115,7 +115,7 @@ function readSsrProducts(): Product[] | null {
 
 export default function Home() {
   const { country, city, cityId } = useLocationSelection();
-  const { t, cityName, language, countryName } = useLocale();
+  const { t, cityName, language } = useLocale();
   const isMobile = useIsMobile();
   const countryCode = country?.code ?? undefined;
   const isCyprus = countryCode === "CY";
@@ -221,6 +221,7 @@ export default function Home() {
           .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
           .join(" ")
       : "";
+  const siblingCities = country?.cities?.filter((c) => c.id !== cityId) ?? [];
   // Hand-written per-city landing overrides (e.g. Tripoli): the same shared
   // data feeds the server-injected initial HTML, so the H1, intro, "why"
   // points and FAQs stay identical before and after hydration.
@@ -243,45 +244,27 @@ export default function Home() {
   return (
     <>
     <div className="min-h-screen max-w-content mx-auto" data-testid="page-country-homepage">
-      {/* Visible H1 — matches the server-injected H1 so there is exactly one
-          visible page heading before and after hydration. Google deweights
-          sr-only/hidden headings, so the H1 must be readable on-page. */}
-      {h1Text && (
-        <h1 className="px-4 md:px-0 pt-4 pb-2 font-serif text-xl md:text-2xl text-primary">{h1Text}</h1>
-      )}
+      {/* Banner sits flush against the container edges — same alignment as the product grid */}
+      <div data-testid="hero-section">
+        <HeroBannerCarousel
+          banners={banners ?? []}
+          isLoading={isLoading}
+          cityHeading={h1Text}
+          autoPlay
+          intervalMs={5000}
+        />
+      </div>
+
+      {/* Keep the city-specific intro in the below-hero content flow so it
+          remains available without pushing the campaign artwork down. */}
       {cityIntroText && (
-        <p className="px-4 md:px-0 pb-4 text-sm md:text-base text-muted-foreground max-w-3xl">
+        <p
+          data-testid="city-intro-text"
+          className="px-4 md:px-0 pt-4 pb-4 text-sm md:text-base text-muted-foreground max-w-3xl"
+        >
           {cityIntroText}
         </p>
       )}
-      {/* Visible breadcrumb — mirrors the BreadcrumbList JSON-LD injected by
-          the server so users and crawlers see the same trail: Home › Country › City.
-          Plain <a> tags bypass the city-scoped wouter router so the hrefs work
-          as absolute paths regardless of which nested shell renders this page. */}
-      {country && cityLabel && (
-        <nav
-          aria-label={t("home.breadcrumb.nav")}
-          className="px-4 md:px-0 pt-2 pb-1 text-xs text-muted-foreground flex items-center gap-1 flex-wrap"
-        >
-          <a href="/" className="hover:text-primary transition-colors">
-            {t("home.breadcrumb.home")}
-          </a>
-          <span aria-hidden="true" className="opacity-50">›</span>
-          <a
-            href={`/${language}-${countryCodeToSlug(country.code)}`}
-            className="hover:text-primary transition-colors"
-          >
-            {countryName(country.code, country.name)}
-          </a>
-          <span aria-hidden="true" className="opacity-50">›</span>
-          <span className="text-foreground">{cityLabel}</span>
-        </nav>
-      )}
-
-      {/* Banner sits flush against the container edges — same alignment as the product grid */}
-      <div data-testid="hero-section">
-        <HeroBannerCarousel banners={banners ?? []} isLoading={isLoading} autoPlay intervalMs={5000} />
-      </div>
 
       {isCyprus ? (
         /* ── Cyprus: 4×4 grid of the first 16 products sorted by display price asc ── */
@@ -432,15 +415,14 @@ export default function Home() {
         network of city landing pages within the same country, and gives
         shoppers an easy way to switch to a nearby city. Plain <a> tags bypass
         the city-scoped wouter router so hrefs work as absolute paths. */}
-    {country && country.cities.filter((c) => c.id !== cityId).length > 0 && (
+    {countryCode && siblingCities.length > 0 && (
       <section className="container mx-auto px-4 pb-4 max-w-content">
         <p className="text-sm text-muted-foreground">
           <span className="font-medium">{t("home.siblingCities.heading")}: </span>
-          {country.cities
-            .filter((c) => c.id !== cityId)
+          {siblingCities
             .map((c, idx, arr) => {
               const citySlug = cityIdToSlug(c.id);
-              const countrySlug = countryCodeToSlug(country.code);
+              const countrySlug = countryCodeToSlug(countryCode);
               const href = `/${language}-${countrySlug}/${citySlug}`;
               return (
                 <span key={c.id}>

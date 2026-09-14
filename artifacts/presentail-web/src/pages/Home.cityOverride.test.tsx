@@ -30,7 +30,13 @@ vi.mock("wouter", () => ({
 }));
 
 // Heavy, data-driven homepage sections are irrelevant to the parity check.
-vi.mock("@/components/homepage/HeroBannerCarousel", () => ({ HeroBannerCarousel: () => null }));
+vi.mock("@/components/homepage/HeroBannerCarousel", () => ({
+  HeroBannerCarousel: ({ cityHeading }: { cityHeading?: string }) => (
+    <div data-testid="hero-banner-carousel">
+      {cityHeading && <h1 data-testid="hero-city-heading">{cityHeading}</h1>}
+    </div>
+  ),
+}));
 vi.mock("@/components/homepage/HomepageCollections", () => ({ HomepageCollections: () => null }));
 vi.mock("@/components/homepage/BestSellersPreview", () => ({ BestSellersPreview: () => null }));
 vi.mock("@/components/homepage/TrustpilotCarousel", () => ({ TrustpilotCarousel: () => null }));
@@ -44,6 +50,7 @@ vi.mock("@workspace/api-client-react", () => ({
 }));
 vi.mock("@/lib/queries", () => ({
   useProducts: vi.fn(() => ({ data: undefined, isLoading: false })),
+  useCatalogMetadata: vi.fn(() => ({ data: undefined })),
 }));
 vi.mock("@/hooks/use-mobile", () => ({ useIsMobile: vi.fn(() => false) }));
 

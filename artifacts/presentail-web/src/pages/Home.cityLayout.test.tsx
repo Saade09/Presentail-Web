@@ -3,17 +3,16 @@
 // Regression test for the shared city landing-page template layout.
 //
 // Required section order:
-//   1. Visible city-specific H1
+//   1. Hero banner with one visible city-specific H1
 //   2. One short introductory sentence
-//   3. Hero banner
-//   4. Product categories and product grid
-//   5. Full city SEO description (coverage paragraph)
-//   6. FAQ
-//   7. Footer
+//   3. Product categories and product grid
+//   4. Full city SEO description (coverage paragraph)
+//   5. FAQ
+//   6. Footer
 //
 // Tests cover:
 //   [1]  Exactly one visible H1.
-//   [2]  Only the short introduction appears above the hero.
+//   [2]  The short introduction appears below the hero.
 //   [3]  The full SEO description appears exactly once.
 //   [4]  The full SEO description is below the hero section.
 //   [5]  The full SEO description is above the SEO/FAQ section wrapper.
@@ -58,7 +57,11 @@ vi.mock("wouter", () => ({
 
 // Heavy homepage sections are irrelevant to layout order checks.
 vi.mock("@/components/homepage/HeroBannerCarousel", () => ({
-  HeroBannerCarousel: () => null,
+  HeroBannerCarousel: ({ cityHeading }: { cityHeading?: string }) => (
+    <div data-testid="hero-banner-carousel">
+      {cityHeading && <h1 data-testid="hero-city-heading">{cityHeading}</h1>}
+    </div>
+  ),
 }));
 vi.mock("@/components/homepage/HomepageCollections", () => ({
   HomepageCollections: () => null,
@@ -85,6 +88,7 @@ vi.mock("@workspace/api-client-react", () => ({
 }));
 vi.mock("@/lib/queries", () => ({
   useProducts: vi.fn(() => ({ data: undefined, isLoading: false })),
+  useCatalogMetadata: vi.fn(() => ({ data: undefined })),
 }));
 vi.mock("@/hooks/use-mobile", () => ({ useIsMobile: vi.fn(() => false) }));
 
@@ -133,14 +137,21 @@ function assertCoverageOrder(cityId: string, _cityLabel: string, countryCode: st
 
   renderWithProviders(<Home />, { locale: EN_LOCALE });
 
-  // [1] Exactly one visible H1.
+  // [1] Exactly one visible H1, owned by the hero rather than a pre-hero block.
   const h1s = screen.getAllByRole("heading", { level: 1 });
   expect(h1s).toHaveLength(1);
+  const heroSection = document.querySelector("[data-testid='hero-section']");
+  expect(heroSection).not.toBeNull();
+  expect(heroSection!.querySelectorAll("h1")).toHaveLength(1);
+  expect(heroSection!.querySelector("h1")).toBe(h1s[0]);
+  expect(document.querySelector("nav[aria-label='home.breadcrumb.nav']")).toBeNull();
 
-  // [2] Short intro appears (above-fold content check — it is NOT the coverage paragraph).
+  // [2] Short intro remains available below the hero.
   const override = getCityHomeSeoOverride(cityId, "en");
   if (override?.intro) {
-    expect(screen.getByText(override.intro)).toBeTruthy();
+    const intro = screen.getByText(override.intro);
+    expect(intro).toBeTruthy();
+    expect(isBefore(heroSection!, intro)).toBe(true);
   }
 
   // [3] Full SEO description (coverage paragraph) appears exactly once.
@@ -149,8 +160,6 @@ function assertCoverageOrder(cityId: string, _cityLabel: string, countryCode: st
   const coverageEl = coverageEls[0];
 
   // [4] Coverage text is BELOW the hero section.
-  const heroSection = document.querySelector("[data-testid='hero-section']");
-  expect(heroSection).not.toBeNull();
   expect(isBefore(heroSection!, coverageEl)).toBe(true);
 
   // [5] Coverage text is ABOVE the SEO/FAQ section wrapper.

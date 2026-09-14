@@ -10,6 +10,7 @@ type Props = {
   autoPlay?: boolean;
   intervalMs?: number;
   isLoading?: boolean;
+  cityHeading?: string;
 };
 
 const SWIPE_THRESHOLD = 50;
@@ -19,14 +20,35 @@ export function HeroBannerCarousel({
   autoPlay = false,
   intervalMs = 6000,
   isLoading,
+  cityHeading,
 }: Props) {
   const [index, setIndex] = useState(0);
   const isMobile = useIsMobile();
   const { t, dir } = useLocale();
 
   const count = banners.length;
+  const hasCityHeading = Boolean(cityHeading?.trim());
 
   const touchStartX = useRef<number | null>(null);
+
+  const cityHeadingOverlay = hasCityHeading ? (
+    <>
+      <div
+        className="absolute inset-x-0 top-0 h-28 sm:h-32 md:h-44 bg-gradient-to-b from-black/75 via-black/30 to-transparent z-[15] pointer-events-none"
+        aria-hidden="true"
+      />
+      <h1
+        dir={dir}
+        data-testid="hero-city-heading"
+        className="absolute z-20 top-4 sm:top-5 md:top-7 start-5 sm:start-7 md:start-14 end-5 sm:end-7 md:end-14 max-w-[calc(100%-2.5rem)] sm:max-w-[70%] md:max-w-[58%] text-start text-xs sm:text-sm md:text-base font-medium leading-snug tracking-[0.06em] text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]"
+      >
+        {cityHeading}
+      </h1>
+    </>
+  ) : null;
+
+  const heroClassName =
+    "relative w-full aspect-[6/5] sm:aspect-[16/9] md:aspect-[21/9] overflow-hidden bg-muted";
 
   useEffect(() => {
     if (!autoPlay || count <= 1) return;
@@ -69,18 +91,30 @@ export function HeroBannerCarousel({
 
   if (isLoading) {
     return (
-      <div className="w-full aspect-[6/5] sm:aspect-[16/9] md:aspect-[21/9] bg-muted animate-pulse" />
+      <div
+        className={heroClassName}
+        data-testid="hero-banner-carousel"
+      >
+        <div className="absolute inset-0 bg-muted animate-pulse" aria-hidden="true" />
+        {cityHeadingOverlay}
+      </div>
     );
   }
 
-  if (!count) return null;
+  if (!count) {
+    return hasCityHeading ? (
+      <div className={heroClassName} data-testid="hero-banner-carousel">
+        {cityHeadingOverlay}
+      </div>
+    ) : null;
+  }
 
   const PrevIcon = dir === "rtl" ? ChevronRight : ChevronLeft;
   const NextIcon = dir === "rtl" ? ChevronLeft : ChevronRight;
 
   return (
     <div
-      className="relative w-full aspect-[6/5] sm:aspect-[16/9] md:aspect-[21/9] overflow-hidden bg-muted"
+      className={heroClassName}
       data-testid="hero-banner-carousel"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
@@ -96,6 +130,8 @@ export function HeroBannerCarousel({
           <HeroBannerSlide banner={banner} isMobile={isMobile} active={i === index} />
         </div>
       ))}
+
+      {cityHeadingOverlay}
 
       {count > 1 && (
         <>
