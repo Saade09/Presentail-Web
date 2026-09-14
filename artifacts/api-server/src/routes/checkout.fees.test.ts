@@ -461,6 +461,27 @@ describe("POST /checkout/fees", () => {
     expect(res.body.districtFeeUsd + res.body.slotFeeUsd).toBe(35);
   });
 
+  it("(n) express delivery with noAddress — express surcharge still charged (noAddress toggle does not waive the fee)", async () => {
+    expressSurchargeUsdMock.mockReturnValue(5);
+    computeDistrictFeeUsdMock.mockReturnValue(8);
+
+    const app = await buildApp();
+    const res = await request(app)
+      .post("/checkout/fees")
+      .send({
+        items: BASE_ITEMS,
+        currency: "USD",
+        district: "Beirut",
+        expressDelivery: true,
+        noAddress: true,
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.expressFeeUsd).toBe(5);
+    expect(res.body.totalUsd).toBe(113); // 100 subtotal + 8 district + 5 express
+  });
+
   it("(m) coupon face value > product subtotal but ≤ full cart total — validateCoupon receives full cart total and full discount applied", async () => {
     // Product subtotal: $10, delivery fee: $8, full cart total: $18.
     // Coupon face value: $15 — exceeds the $10 subtotal but is within the $18 full total.

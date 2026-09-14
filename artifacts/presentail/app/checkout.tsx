@@ -871,13 +871,11 @@ function CheckoutScreen() {
     // district/city fee applies (matching the server's fee computation).
     const baseDeliveryFee = district?.fee ?? 0;
     const districtFee = (isFreeDeliveryEnabled && subtotal >= freeDeliveryThreshold) ? 0 : baseDeliveryFee;
-    // Express surcharge is waived when noAddress is on — no confirmed address
-    // means we cannot guarantee an express window, so the fee is removed.
-    const expressFee = (deliveryMode === "express" && !noAddress) ? expressSurcharge : 0;
+    const expressFee = deliveryMode === "express" ? expressSurcharge : 0;
     const slotFee = deliveryMode !== "express" ? (slot?.extraFee ?? 0) : 0;
     const grand = Math.max(0, subtotal + districtFee + expressFee + slotFee - couponDiscountUsd);
     return { subtotal, districtFee, expressFee, slotFee, grand };
-  }, [total, deliveryMode, district, freeDeliveryThreshold, isFreeDeliveryEnabled, expressSurcharge, noAddress, couponDiscountUsd, slot]);
+  }, [total, deliveryMode, district, freeDeliveryThreshold, isFreeDeliveryEnabled, expressSurcharge, couponDiscountUsd, slot]);
 
   // Server-authoritative USD fee override: set when the pre-payment fee check
   // detects a mismatch and hydrates the display summary from server breakdown.

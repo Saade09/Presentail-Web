@@ -127,10 +127,7 @@ export function calcCheckoutFees(input: CheckoutFeeInput): CheckoutFeeOutput {
 
   const baseFee = cityFee;
   const districtFee = (freeDeliveryEnabled && subtotal >= threshold) ? 0 : baseFee;
-  // Express surcharge is waived when the recipient will provide their own
-  // address later — we cannot commit to an express window without a confirmed
-  // address, so no surcharge is charged. Standard district fee is unaffected.
-  const expressFee = (deliveryMode === "express" && !input.noAddress) ? surcharge : 0;
+  const expressFee = deliveryMode === "express" ? surcharge : 0;
   const { slotFee, isMidnightSlotActive } = (() => {
     if (deliveryMode === "express") return { slotFee: 0, isMidnightSlotActive: false };
     // Resolve the slot against the same date-filtered/deduplicated view the UI
