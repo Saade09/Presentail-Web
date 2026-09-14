@@ -148,7 +148,7 @@ const USD_BUCKET_THRESHOLDS = [50, 100, 200] as const;
 export default function Shop() {
   const searchString = useSearch();
   const searchParams = useMemo(() => new URLSearchParams(searchString), [searchString]);
-  const { t, language, cityName, countryName } = useLocale();
+  const { t, language, dir, cityName, countryName } = useLocale();
   const { currencyCode } = useDisplayCurrency();
   const { data: fxData } = useFxRates();
 
@@ -449,6 +449,34 @@ export default function Shop() {
   const [selectedPriceBucket, setSelectedPriceBucket] = useState<PriceBucket | null>(null);
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const mobileFilterTriggerRef = useRef<HTMLDivElement>(null);
+  const mobileFilterHasBeenVisibleRef = useRef(false);
+  const [showStickyMobileFilters, setShowStickyMobileFilters] = useState(false);
+
+  // The original trigger is the source of truth for when the compact control
+  // becomes available. Requiring one visible intersection first prevents a
+  // short collection (or a trigger initially below the viewport) from showing
+  // a sticky control before a shopper has reached the collection controls.
+  // The top root margin matches MainNavbar's compact mobile height.
+  useEffect(() => {
+    const trigger = mobileFilterTriggerRef.current;
+    if (!trigger || typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          mobileFilterHasBeenVisibleRef.current = true;
+          setShowStickyMobileFilters(false);
+        } else if (mobileFilterHasBeenVisibleRef.current) {
+          setShowStickyMobileFilters(true);
+        }
+      },
+      { rootMargin: "-68px 0px 0px 0px", threshold: 0 },
+    );
+
+    observer.observe(trigger);
+    return () => observer.disconnect();
+  }, []);
 
   const recipientFilteredProducts: Product[] = useMemo(() => {
     if (occasion !== "birthday") return sourceProducts;
@@ -910,7 +938,7 @@ export default function Shop() {
           />
         )}
 
-        <div className="block md:hidden w-full mb-4">
+        <div ref={mobileFilterTriggerRef} className="block md:hidden w-full mb-4" data-testid="mobile-filter-trigger">
           <Button
             variant="outline"
             className="relative w-full h-11 border-primary text-primary hover:text-primary hover:bg-primary/5"
@@ -925,6 +953,31 @@ export default function Shop() {
               </span>
             )}
           </Button>
+        </div>
+
+        <div
+          className={`fixed inset-x-0 top-[68px] z-[55] h-12 border-b border-border/80 bg-white shadow-sm md:hidden ${
+            showStickyMobileFilters ? "flex" : "hidden"
+          }`}
+          data-testid="sticky-mobile-filters"
+          aria-hidden={!showStickyMobileFilters}
+        >
+          <button
+            type="button"
+            className="container mx-auto flex min-h-12 w-full max-w-content items-center justify-between px-page text-sm font-medium text-primary"
+            onClick={() => setMobileFiltersOpen(true)}
+            data-testid="button-sticky-mobile-filters"
+            aria-label={t("shop.filterAndSort")}
+            dir={dir}
+          >
+            <span className="flex items-center gap-2">
+              <Filter className="h-4 w-4 shrink-0" />
+              <span>{t("shop.filterAndSort")}</span>
+            </span>
+            <span className="text-muted-foreground">
+              {t("shop.productCount", { count: String(products.length) })}
+            </span>
+          </button>
         </div>
 
         <div className="flex flex-col md:flex-row gap-8">

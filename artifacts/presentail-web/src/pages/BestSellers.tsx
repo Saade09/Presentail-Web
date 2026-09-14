@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useGetHomepageBestSellers } from "@workspace/api-client-react";
 import { useFxRates, useCatalogMetadata } from "@/lib/queries";
 import { ProductCard } from "@/components/ProductCard";
@@ -71,7 +71,7 @@ const USD_BUCKET_THRESHOLDS = [50, 100, 200] as const;
 
 export default function BestSellers() {
   const { countryCode, cityId } = useLocationSelection();
-  const { t, language } = useLocale();
+  const { t, language, dir } = useLocale();
   const { currencyCode } = useDisplayCurrency();
 
   const { data: fxData } = useFxRates();
@@ -161,6 +161,26 @@ export default function BestSellers() {
   const [selectedPriceBucket, setSelectedPriceBucket] = useState<PriceBucket | null>(null);
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+  // Sticky compact filter row — visible after original mobile trigger scrolls away
+  const mobileFilterTriggerRef = useRef<HTMLDivElement>(null);
+  const [triggerSeen, setTriggerSeen] = useState(false);
+  const [triggerInView, setTriggerInView] = useState(true);
+  const showStickyRow = triggerSeen && !triggerInView;
+
+  useEffect(() => {
+    const el = mobileFilterTriggerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) setTriggerSeen(true);
+        setTriggerInView(entry.isIntersecting);
+      },
+      { rootMargin: "-68px 0px 0px 0px", threshold: 0 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const priceBuckets: PriceBucketDef[] = useMemo(
     () =>
@@ -293,7 +313,7 @@ export default function BestSellers() {
           </div>
         </div>
 
-        <div className="block md:hidden w-full mb-6">
+        <div ref={mobileFilterTriggerRef} data-testid="bs-mobile-filter-trigger" className="block md:hidden w-full mb-6">
           <Button
             variant="outline"
             className="relative w-full h-12 border-primary text-primary hover:text-primary hover:bg-primary/5"
@@ -307,6 +327,30 @@ export default function BestSellers() {
               </span>
             )}
           </Button>
+        </div>
+
+        {/* Compact sticky mobile filter row — shown only after original trigger scrolls away */}
+        <div
+          data-testid="bs-sticky-filter-row"
+          dir={dir}
+          className={`md:hidden fixed top-[68px] left-0 right-0 z-[55] bg-white border-b border-border shadow-sm transition-transform duration-200 ${
+            showStickyRow ? "translate-y-0" : "-translate-y-full pointer-events-none"
+          }`}
+          aria-hidden={!showStickyRow}
+        >
+          <button
+            type="button"
+            className="flex items-center justify-between w-full px-4 h-11"
+            onClick={() => setMobileFiltersOpen(true)}
+          >
+            <span className="flex items-center gap-2 text-sm font-medium text-primary">
+              <Filter className="w-4 h-4 shrink-0" />
+              {t("shop.filterAndSort")}
+            </span>
+            <span className="text-sm text-muted-foreground">
+              {t("shop.productCount", { count: String(products.length) })}
+            </span>
+          </button>
         </div>
 
         <div className="flex flex-col md:flex-row gap-8">

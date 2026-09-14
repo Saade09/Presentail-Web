@@ -2,6 +2,7 @@
 
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent } from "@testing-library/react";
 import { renderWithProviders } from "@/test-utils";
 
 const {
@@ -86,6 +87,33 @@ const SUMMER_PRODUCT = {
 
 const READY_EMPTY = { data: { ok: true, products: [], count: 0 }, isLoading: false };
 
+class TestIntersectionObserver {
+  static instances: TestIntersectionObserver[] = [];
+  private readonly callback: IntersectionObserverCallback;
+  private target: Element | null = null;
+
+  constructor(callback: IntersectionObserverCallback) {
+    this.callback = callback;
+    TestIntersectionObserver.instances.push(this);
+  }
+
+  observe(target: Element) {
+    this.target = target;
+  }
+
+  disconnect() {}
+
+  emit(isIntersecting: boolean) {
+    this.callback(
+      [{
+        isIntersecting,
+        target: this.target,
+      } as IntersectionObserverEntry],
+      this as unknown as IntersectionObserver,
+    );
+  }
+}
+
 function locationFixture() {
   const city = { id: "lb-beirut", name: "Beirut", fee: 5, isExpress: false };
   return {
@@ -112,6 +140,8 @@ describe("Shop catalog readiness", () => {
     mockUseProducts.mockReturnValue({ data: { ok: true, products: [SUMMER_PRODUCT] }, isLoading: false });
     mockUseCategoryProducts.mockReturnValue(READY_EMPTY);
     mockUseBrandProducts.mockReturnValue({ ...READY_EMPTY, data: { ...READY_EMPTY.data, brandName: "" } });
+    TestIntersectionObserver.instances = [];
+    vi.stubGlobal("IntersectionObserver", TestIntersectionObserver);
   });
 
   it("keeps the loading state visible while the catalog query is retrying", () => {
@@ -147,6 +177,84 @@ describe("Shop catalog readiness", () => {
     const { getByTestId } = renderWithProviders(<Shop />);
 
     expect(getByTestId("empty-state-sold-out")).not.toBeNull();
+  });
+
+  it("keeps the compact filter row hidden until the original control has been seen and passed", () => {
+    mockUseOccasionProducts.mockReturnValue({
+      data: {
+        ok: true,
+        groups: [{ slug: "flowers", label: "Flowers", count: 1, products: [SUMMER_PRODUCT] }],
+        total: 1,
+      },
+      isLoading: false,
+    });
+
+    const { getByTestId } = renderWithProviders(<Shop />, {
+      locale: {
+        t: (key: string, params?: Record<string, string | number>) => key === "shop.productCount"
+          ? `${params?.count} Products`
+          : key === "shop.filterAndSort"
+            ? "Filter & Sort"
+            : key,
+      },
+    });
+
+    const stickyRow = getByTestId("sticky-mobile-filters");
+    const observer = TestIntersectionObserver.instances[0];
+    expect(stickyRow.className).toContain("hidden");
+
+    // A trigger that has not entered the viewport must not activate the row.
+    act(() => observer.emit(false));
+    expect(stickyRow.className).toContain("hidden");
+
+    act(() => observer.emit(true));
+    expect(stickyRow.className).toContain("hidden");
+
+    act(() => observer.emit(false));
+    expect(stickyRow.className).toContain("flex");
+    expect(getByTestId("button-sticky-mobile-filters").textContent).toContain("1 Products");
+
+    act(() => observer.emit(true));
+    expect(stickyRow.className).toContain("hidden");
+  });
+
+  it("uses the same filter sheet for the compact trigger and keeps the localized count", () => {
+    mockUseOccasionProducts.mockReturnValue({
+      data: {
+        ok: true,
+        groups: [{ slug: "flowers", label: "Flowers", count: 1, products: [SUMMER_PRODUCT] }],
+        total: 1,
+      },
+      isLoading: false,
+    });
+
+    const { getByTestId, getByText } = renderWithProviders(<Shop />, {
+      locale: {
+        language: "ar",
+        dir: "rtl",
+        t: (key: string, params?: Record<string, string | number>) => key === "shop.productCount"
+          ? `${params?.count} منتج`
+          : key === "shop.filterAndSort"
+            ? "تصفية وترتيب"
+            : key,
+      },
+    });
+    const observer = TestIntersectionObserver.instances[0];
+
+    act(() => {
+      observer.emit(true);
+      observer.emit(false);
+    });
+
+    expect(getByTestId("button-sticky-mobile-filters").textContent).toContain("1 منتج");
+    expect(getByTestId("sticky-mobile-filters").getAttribute("aria-hidden")).toBe("false");
+    expect(getByTestId("button-sticky-mobile-filters").getAttribute("dir")).toBe("rtl");
+
+    fireEvent.click(getByTestId("button-sticky-mobile-filters"));
+    expect(getByText("تصفية وترتيب", { selector: "h2" })).toBeTruthy();
+
+    fireEvent.click(getByTestId("button-mobile-filters"));
+    expect(getByText("تصفية وترتيب", { selector: "h2" })).toBeTruthy();
   });
 
   it("shows the Lebanon same-day banner after the collection description and before Filter & Sort", () => {
