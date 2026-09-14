@@ -1247,7 +1247,7 @@ export function CampaignRealDeliveries() {
         ))}
       </div>
 
-      {data.viewMoreUrl && (
+      {data?.viewMoreUrl && (
         <a
           href={data.viewMoreUrl}
           onClick={() =>
