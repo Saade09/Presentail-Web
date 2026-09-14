@@ -334,7 +334,9 @@ type AnalyticsEventName =
   /** Mobile nav Balloons subcategory tile tapped. */
   | "nav_menu_tile_clicked"
   /** Mobile nav "Shop all Balloons" CTA tapped. */
-  | "nav_menu_view_all_clicked";
+  | "nav_menu_view_all_clicked"
+  | "homepage_story_cta_click"
+  | "homepage_city_content_disclosure_open";
 
 type AnalyticsSurface =
   | "cart"

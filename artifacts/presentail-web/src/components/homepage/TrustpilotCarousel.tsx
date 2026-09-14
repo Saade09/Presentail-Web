@@ -78,19 +78,31 @@ export function TrustpilotCarousel({
 
   return (
     <div
-      style={{ overflow: "hidden", minHeight: "240px", height: "240px" }}
+      style={{ overflow: "hidden", minHeight: "340px", height: "340px" }}
       data-trustpilot-state={status}
       aria-busy={status === "pending"}
     >
+      {status === "pending" && (
+        <div
+          role="status"
+          aria-label={fallbackLabel}
+          className="h-[340px] rounded-xl border border-border/50 bg-muted/20 p-5"
+        >
+          <div className="h-4 w-32 rounded bg-muted animate-pulse mb-5" />
+          <div className="h-3 w-full rounded bg-muted animate-pulse mb-3" />
+          <div className="h-3 w-5/6 rounded bg-muted animate-pulse mb-3" />
+          <div className="h-3 w-2/3 rounded bg-muted animate-pulse" />
+        </div>
+      )}
       <div
         ref={ref}
         className="trustpilot-widget"
         data-locale={locale}
         data-template-id="54ad5defc6454f065c28af8b"
         data-businessunit-id="5d1782b3588afe00012431d9"
-        data-style-height="240px"
+        data-style-height="340px"
         data-style-width="100%"
-        data-token="4e76b3f7-36c6-4f7e-917d-d70346cd3a40"
+        data-token="f91cc3cb-5d46-44cb-ba46-babf5044db3d"
         data-stars="1,2,3,4,5"
         data-review-languages="en"
       >
@@ -100,8 +112,8 @@ export function TrustpilotCarousel({
           rel="noopener noreferrer"
           className={
             status === "failed"
-              ? "flex min-h-[240px] items-center justify-center px-5 text-center text-sm font-medium text-primary underline-offset-4 hover:underline"
-              : "flex min-h-[240px] items-center justify-center px-5 text-center text-sm text-primary underline-offset-4 hover:underline"
+              ? "flex min-h-[340px] items-center justify-center px-5 text-center text-sm font-medium text-primary underline-offset-4 hover:underline"
+              : "sr-only"
           }
           data-testid={status === "failed" ? "link-trustpilot-fallback" : undefined}
         >

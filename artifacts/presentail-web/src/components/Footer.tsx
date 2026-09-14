@@ -9,6 +9,7 @@ import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { useCatalogMetadata } from "@/lib/queries";
 import { PaymentMethods } from "@/components/product/PaymentMethods";
 import { CurrencySwitcher } from "@/components/CurrencySwitcher";
+import { trackEvent } from "@/lib/analytics";
 import {
   buildLocalePath,
   cityIdToSlug,
@@ -118,14 +119,17 @@ function InLink({
   href,
   children,
   testId,
+  onClick,
 }: {
   href: string;
   children: React.ReactNode;
   testId?: string;
+  onClick?: () => void;
 }) {
   return (
     <Link
       href={href}
+      onClick={onClick}
       className="text-sm text-white/75 hover:text-white transition-colors"
       data-testid={testId}
     >
@@ -315,7 +319,27 @@ export function Footer() {
                         {item.label}
                       </ExtLink>
                     ) : (
-                      <InLink href={toCityHref(item.href)} testId={item.testId}>
+                      <InLink
+                        href={toCityHref(item.href)}
+                        testId={item.testId}
+                        onClick={
+                          item.href.startsWith("/category/")
+                            ? () => trackEvent({
+                                name: "browse_category_selected_city_clicked",
+                                linkSlug: item.href.slice("/category/".length),
+                                selected_country: countryCode ?? "",
+                                selected_city: cityId ?? "",
+                              })
+                            : item.href === "/occasions"
+                              ? () => trackEvent({
+                                  name: "occasion_shortcut_click",
+                                  linkSlug: "footer-occasions",
+                                  selected_country: countryCode ?? "",
+                                  selected_city: cityId ?? "",
+                                })
+                              : undefined
+                        }
+                      >
                         {item.label}
                       </InLink>
                     )}

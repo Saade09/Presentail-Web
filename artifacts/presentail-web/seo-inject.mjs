@@ -25,6 +25,7 @@ import { roundToNearestFive } from "@workspace/display-currency";
 import { resolveExactAedPrice } from "./native-aed-price.mjs";
 import { WindowedKeyRateLimiter } from "./server-analytics-policy.mjs";
 import { getCommercialServiceCopy } from "./src/data/commercialServiceCopy.mjs";
+import { buildHomepageFaqs, HOMEPAGE_FAQ_COUNT } from "./src/lib/homepageFaqs.mjs";
 
 // Hub city per country — only these pages emit the LocalBusiness organisation
 // block.  Declaring a near-identical Florist on all 37 city homepages sharing
@@ -866,6 +867,7 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
     parsed.city &&
     parsed.country &&
     ORGANIZATION_HUB_CITIES[parsed.country] === parsed.city;
+  const isMarketCountry = parsed.country === "ae" || parsed.country === "lb";
   if (emitJsonLd && routeKey === "home" && hasValidCity) {
     // LocalBusiness organisation node only on the hub-city homepage.
     if (isHubCityHome) {
@@ -1045,15 +1047,17 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
     occasions: OCCASIONS_FAQ_COPY,
     contact:   CONTACT_FAQ_COPY,
   };
-  if (emitJsonLd && routeKey === "home" && hasValidCity) {
+  if (emitJsonLd && routeKey === "home" && (hasValidCity || isMarketCountry)) {
     // City home pages get city-specific delivery FAQs that vary by city name
     // and country, giving each of the 37 city pages distinct Q&A schema.
-    const cityFaqs = buildCityFaqSchema(
-      cityLabel || "",
-      (parsed.country || "").toUpperCase(),
-      lang,
-      cityKey,
-    );
+    const cityFaqs = hasValidCity
+      ? buildCityFaqSchema(
+          cityLabel || "",
+          (parsed.country || "").toUpperCase(),
+          lang,
+          cityKey,
+        )
+      : buildHomepageFaqs(cityLabel || "your city", lang);
     const mainEntity = cityFaqs.map(({ question, answer }) => ({
       "@type": "Question",
       name: question,
@@ -1163,17 +1167,16 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
   if (inLocale) {
     const pickFaqBodyLang = (l) => ((l === "ar" || l === "fr") ? l : "en");
     const faqBodyL = pickFaqBodyLang(lang);
-    if (routeKey === "home" && hasValidCity) {
+    if (routeKey === "home" && (hasValidCity || isMarketCountry)) {
       // City home pages: use city-specific FAQ to match JSON-LD above.
-      const cityFaqsBody = buildCityFaqSchema(
-        cityLabel || "",
-        (parsed.country || "").toUpperCase(),
-        lang,
-        cityKey,
-      );
-      // Emit the FULL city FAQ set (not a slice) so the visible FAQ block in
-      // the initial HTML matches the FAQPage JSON-LD above exactly — Google
-      // treats hidden/mismatched FAQ schema as a cloaking signal.
+      const cityFaqsBody = hasValidCity
+        ? buildCityFaqSchema(
+            cityLabel || "",
+            (parsed.country || "").toUpperCase(),
+            lang,
+            cityKey,
+          )
+        : buildHomepageFaqs(cityLabel || "your city", lang);
       bodyFaqItems = cityFaqsBody.map(({ question, answer }) => ({
         q: question,
         a: answer,
@@ -1904,6 +1907,17 @@ function buildGenericBodyHtml(routeKey, { h1, description, localeBase, faqItems 
   // City-specific paragraph for city home pages — provides unique vocabulary
   // tokens per city so the Jaccard similarity gate in check-city-similarity passes.
   const safeCityContent = cityContent ? escapeHtml(cityContent) : "";
+  const isMarketHomepage =
+    routeKey === "home" && (cityKey?.startsWith("ae-") || cityKey?.startsWith("lb-"));
+  const cityContextLabel =
+    lang === "ar" ? "المزيد عن التوصيل في مدينتك" :
+    lang === "fr" ? "En savoir plus sur la livraison dans votre ville" :
+    "More about delivery in your city";
+  const cityContentHtml = safeCityContent
+    ? isMarketHomepage
+      ? `<details><summary>${escapeHtml(cityContextLabel)}</summary><p>${safeCityContent}</p></details>`
+      : `<p>${safeCityContent}</p>`
+    : "";
   // Add FAQ questions as h2+h3 headings so pages with multiple sections have
   // the required subheading structure for AI crawlers and the Agent Ready scan.
   let faqHtml = "";
@@ -1914,7 +1928,13 @@ function buildGenericBodyHtml(routeKey, { h1, description, localeBase, faqItems 
       "Frequently Asked Questions";
     faqHtml =
       `<h2>${escapeHtml(faqH2)}</h2>` +
-      faqItems.map(({ q, a }) => `<h3>${escapeHtml(q)}</h3><p>${escapeHtml(a)}</p>`).join("");
+      (isMarketHomepage
+        ? faqItems
+            .map(({ q, a }) =>
+              `<details><summary>${escapeHtml(q)}</summary><h3>${escapeHtml(q)}</h3><p>${escapeHtml(a)}</p></details>`,
+            )
+            .join("")
+        : faqItems.map(({ q, a }) => `<h3>${escapeHtml(q)}</h3><p>${escapeHtml(a)}</p>`).join(""));
   }
   // Nearby-city links go in a <noscript> block so they are visible to
   // non-JS crawlers and AI bots but never rendered to end-users (React
@@ -1928,6 +1948,10 @@ function buildGenericBodyHtml(routeKey, { h1, description, localeBase, faqItems 
   const whyHtml = Array.isArray(whyPoints) && whyPoints.length > 0
     ? `<h2>Why Presentail</h2><ul>${whyPoints.map((p) => `<li>${escapeHtml(p)}</li>`).join("")}</ul>` // i18n-ignore — crawler-facing static heading
     : "";
+  const marketWhyHtml =
+    isMarketHomepage && whyHtml
+      ? `<details><summary>Why choose Presentail?</summary>${whyHtml}</details>`
+      : whyHtml;
 
   // The React campaign renders one primary flowers CTA, a support link, then
   // Flowers and Luxury Arrangements in that order. Mirror that information
@@ -2134,8 +2158,8 @@ function buildGenericBodyHtml(routeKey, { h1, description, localeBase, faqItems 
     // replaces it for SSR-product-enabled city homes and it is invisible
     // (a comment node) everywhere else.
     SSR_PRODUCTS_SLOT +
-    (safeCityContent ? `<p>${safeCityContent}</p>` : "") +
-    whyHtml +
+    cityContentHtml +
+    marketWhyHtml +
     campaignExtras +
     homeExtras +
     shopExtras +
@@ -3769,66 +3793,15 @@ export function buildCityFaqSchema(cityName, countryCode, locale, cityKey = null
   const cc = (countryCode || "").toUpperCase();
   const lang = locale === "ar" || locale === "fr" ? locale : "en";
 
-  const loc = LOCATION_DATA[cc.toLowerCase()] ?? LOCATION_DATA.lb;
-  const paymentAccepted = loc.paymentAccepted; // i18n-ignore — payment methods
-
-  // Cities with hand-written landing-page overrides (e.g. Tripoli) carry an
-  // expanded FAQ set defined once in CITY_HOME_SEO_OVERRIDES — the same array
-  // feeds this JSON-LD, the server-injected visible FAQ block, and the
-  // hydrated React page (SEOContentSection overrides), keeping all three
-  // exactly in sync. Other cities and locales keep the generic set below.
+  // City overrides keep their carefully written local questions, but the
+  // homepage surface is intentionally capped at six rows so the compact
+  // lower half stays predictable. The remaining legacy details are still
+  // available through the city-context disclosure in the hydrated page.
   const overrideFaqs = getCityHomeSeoOverride(
     cityKey ?? `${cc.toLowerCase()}-${String(cityName).toLowerCase()}`,
     lang,
   )?.faqs;
-  if (overrideFaqs) return overrideFaqs;
-
-  const questions = {
-    en: [
-      {
-        question: `Does Presentail deliver flowers to ${cityName}?`, // i18n-ignore — city name only
-        answer: `Yes, Presentail delivers fresh flowers, plants, and luxury gifts to ${cityName} with same-day and next-day delivery options.`, // i18n-ignore — city name only
-      },
-      {
-        question: `What payment methods are accepted for orders in ${cityName}?`, // i18n-ignore — city name only
-        answer: `We accept ${paymentAccepted} for all orders.`, // i18n-ignore — payment list
-      },
-      {
-        question: `Can I send a gift to someone in ${cityName}?`, // i18n-ignore — city name only
-        answer: `Yes, simply enter the recipient's address in ${cityName} at checkout. Your order will be delivered with a personalised card message.`, // i18n-ignore — city name only
-      },
-    ],
-    ar: [
-      {
-        question: `هل تقوم Presentail بتوصيل الزهور إلى ${cityName}؟`,
-        answer: `نعم، تقوم Presentail بتوصيل الزهور الطازجة والنباتات والهدايا الفاخرة إلى ${cityName} مع خيارات التوصيل في نفس اليوم والتوصيل في اليوم التالي.`,
-      },
-      {
-        question: `ما هي طرق الدفع المقبولة للطلبات في ${cityName}؟`,
-        answer: `نقبل ${paymentAccepted} لجميع الطلبات.`,
-      },
-      {
-        question: `هل يمكنني إرسال هدية لشخص في ${cityName}؟`,
-        answer: `نعم، أدخل عنوان المستلم في ${cityName} عند إتمام الطلب وسيتم التوصيل مع رسالة بطاقة شخصية.`,
-      },
-    ],
-    fr: [
-      {
-        question: `Presentail livre-t-il des fleurs à ${cityName} ?`,
-        answer: `Oui, Presentail livre des fleurs fraîches, des plantes et des cadeaux de luxe à ${cityName} avec des options de livraison le jour même ou le lendemain.`,
-      },
-      {
-        question: `Quels modes de paiement sont acceptés pour les commandes à ${cityName} ?`,
-        answer: `Nous acceptons ${paymentAccepted} pour toutes les commandes.`,
-      },
-      {
-        question: `Puis-je envoyer un cadeau à quelqu'un à ${cityName} ?`,
-        answer: `Oui, saisissez l'adresse du destinataire à ${cityName} lors du paiement. La commande sera livrée avec un message personnalisé.`,
-      },
-    ],
-  };
-
-  return questions[lang] ?? questions.en;
+  return overrideFaqs?.slice(0, HOMEPAGE_FAQ_COUNT) ?? buildHomepageFaqs(cityName, lang);
 }
 
 /** Locale-keyed prefix for the nearby-city anchor text. */

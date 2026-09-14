@@ -1987,11 +1987,11 @@ describe("buildSeoHead — route-dependent og:/twitter: share copy", () => {
     );
   });
 
-  it("FR Beirut uses the same seven override FAQs in JSON-LD and visible fallback HTML", async () => {
+  it("FR Beirut uses the six primary override FAQs in JSON-LD and visible fallback HTML", async () => {
     const out = await injectSeoTagsAsync(HTML, "/fr-lb/beirut", ORIGIN_OPTS);
     const nodes = extractJsonLd(out);
     const faq = byType(nodes, "FAQPage");
-    expect(faq.mainEntity).toHaveLength(7);
+    expect(faq.mainEntity).toHaveLength(6);
     const { bodyHtml } = buildSeoHead("/fr-lb/beirut", ORIGIN_OPTS);
     for (const item of faq.mainEntity) {
       expect(bodyHtml).toContain(`<h3>${item.name}</h3>`);
@@ -8631,10 +8631,10 @@ describe("Local SEO — city-specific FAQPage JSON-LD on city home pages", () =>
     expect(faq?.mainEntity?.[0]?.name).toMatch(/[\u0600-\u06FF]/);
   });
 
-  it("Tripoli FAQPage has the expanded 8-question set (hand-written landing-page copy)", () => {
+  it("Tripoli FAQPage has the compact six-question homepage set", () => {
     const { headSnippet } = buildSeoHead("/en-lb/tripoli", LOCAL_SEO_OPTS);
     const faq = byType(extractJsonLd(`<head>${headSnippet}</head>`), "FAQPage");
-    expect(faq?.mainEntity).toHaveLength(8);
+    expect(faq?.mainEntity).toHaveLength(6);
   });
 
   it("non-city shop page (/en-lb/beirut/shop) does not include city-delivery FAQ question", () => {
@@ -9523,11 +9523,11 @@ describe("Tripoli city landing SEO overrides (/en-lb/tripoli)", () => {
     expect(bodyHtml).toContain("Send fresh flowers to Tripoli, Lebanon");
   });
 
-  it("FAQPage JSON-LD has the 8 spec questions and mirrors the visible FAQ block exactly", async () => {
+  it("FAQPage JSON-LD has the six primary questions and mirrors the collapsed FAQ block exactly", async () => {
     const out = await injectSeoTagsAsync(HTML, "/en-lb/tripoli", T_OPTS);
     const faq = byType(extractJsonLd(out), "FAQPage");
     expect(faq).toBeTruthy();
-    expect(faq.mainEntity).toHaveLength(8);
+    expect(faq.mainEntity).toHaveLength(6);
     const questions = faq.mainEntity.map((q: any) => q.name);
     expect(questions).toEqual([
       "Is same-day flower delivery available in Tripoli?",
@@ -9536,8 +9536,6 @@ describe("Tripoli city landing SEO overrides (/en-lb/tripoli)", () => {
       "Can I schedule a flower delivery in Tripoli for a future date?",
       "Can I include a personalised card message with my Tripoli order?",
       "What payment methods are accepted for Tripoli orders?",
-      "Can I order flowers for Tripoli from outside Lebanon?",
-      "What happens if the recipient is unavailable at delivery time?",
     ]);
     // Visible FAQ block mirrors JSON-LD 1:1 (questions AND answers).
     // The bare test HTML has no #root, so assert against the body fragment
@@ -9567,7 +9565,7 @@ describe("Tripoli city landing SEO overrides (/en-lb/tripoli)", () => {
     expect(crumb["@id"]).toBe(`${canonical}#breadcrumb`);
   });
 
-  it("Beirut now has its own matching title, expanded FAQs and CollectionPage", async () => {
+  it("Beirut now has its own matching title, compact FAQs and CollectionPage", async () => {
     const { title: beirutTitle } = buildSeoHead("/en-lb/beirut", T_OPTS);
     expect(beirutTitle).not.toBe(TRIPOLI_TITLE);
     expect(beirutTitle).toContain("Beirut");
@@ -9575,7 +9573,7 @@ describe("Tripoli city landing SEO overrides (/en-lb/tripoli)", () => {
     const nodes = extractJsonLd(out);
     expect(byType(nodes, "CollectionPage")).toBeTruthy();
     const faq = byType(nodes, "FAQPage");
-    expect(faq.mainEntity).toHaveLength(7);
+    expect(faq.mainEntity).toHaveLength(6);
   });
 
   it("Tripoli sub-routes keep template titles (override is home-only)", () => {
@@ -9641,11 +9639,11 @@ describe("Batroun city landing SEO overrides (/en-lb/batroun)", () => {
     expect(headSnippet).not.toContain("Sfeireh");
   });
 
-  it("FAQPage JSON-LD has the 9 spec questions and mirrors the visible FAQ block exactly", async () => {
+  it("FAQPage JSON-LD has the six primary questions and mirrors the collapsed FAQ block exactly", async () => {
     const out = await injectSeoTagsAsync(HTML, "/en-lb/batroun", B_OPTS);
     const faq = byType(extractJsonLd(out), "FAQPage");
     expect(faq).toBeTruthy();
-    expect(faq.mainEntity).toHaveLength(9);
+    expect(faq.mainEntity).toHaveLength(6);
     const questions = faq.mainEntity.map((q: any) => q.name);
     expect(questions).toEqual([
       "Does Presentail deliver flowers in Batroun?",
@@ -9654,9 +9652,6 @@ describe("Batroun city landing SEO overrides (/en-lb/batroun)", () => {
       "Which Batroun areas do you deliver to?",
       "Can I schedule a future delivery date?",
       "Can I send flowers to Batroun from outside Lebanon?",
-      "Can I add a personalised card message?",
-      "Which payment methods are accepted?",
-      "What happens if the recipient is unavailable?",
     ]);
     // Visible FAQ block mirrors JSON-LD 1:1 (questions AND answers).
     const { bodyHtml } = buildSeoHead("/en-lb/batroun", B_OPTS);

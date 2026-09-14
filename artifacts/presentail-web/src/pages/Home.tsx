@@ -12,6 +12,7 @@ import { HomepageCollections } from "@/components/homepage/HomepageCollections";
 import { BestSellersPreview } from "@/components/homepage/BestSellersPreview";
 import { TrustpilotCarousel } from "@/components/homepage/TrustpilotCarousel";
 import { TrustpilotBrandsRow } from "@/components/homepage/TrustpilotBrandsRow";
+import { HomepageLowerHalf } from "@/components/homepage/HomepageLowerHalf";
 import { ProductCard } from "@/components/ProductCard";
 import { Link } from "wouter";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -119,6 +120,7 @@ export default function Home() {
   const isMobile = useIsMobile();
   const countryCode = country?.code ?? undefined;
   const isCyprus = countryCode === "CY";
+  const isCompactLowerHome = countryCode === "AE" || countryCode === "LB";
   const device = isMobile ? "mobile" as const : "desktop" as const;
   const { data: banners, isLoading } = useHomepageBanners(countryCode, cityId ?? undefined, device, language);
 
@@ -355,14 +357,39 @@ export default function Home() {
         </>
       )}
 
-      {/* Trustpilot review carousel — sits above the footer */}
-      <div className="px-page py-10">
-        <h2 className="text-center font-serif text-2xl text-gray-800 mb-6">
-          {trustpilotTitle}
-        </h2>
-        <TrustpilotCarousel />
-        {!isCyprus && <TrustpilotBrandsRow />}
-      </div>
+      {isCompactLowerHome ? (
+        <HomepageLowerHalf
+          cityLabel={cityLabel}
+          cityCoverageText={cityCoverageText}
+          taxonomy={
+            homepageTaxonomy
+              ? {
+                  categories: homepageTaxonomy.categories,
+                  occasions: homepageTaxonomy.occasions,
+                }
+              : undefined
+          }
+          legacyCityDetails={
+            cityOverride
+              ? {
+                  heading: cityOverride.whyHeading,
+                  points: cityOverride.whyPoints,
+                  faqs: cityOverride.faqs,
+                }
+              : undefined
+          }
+          faqItems={cityOverride?.faqs?.slice(0, 6)}
+        />
+      ) : (
+        /* Cyprus keeps the existing lower-page content and footer handoff. */
+        <div className="px-page py-10">
+          <h2 className="text-center font-serif text-2xl text-gray-800 mb-6">
+            {trustpilotTitle}
+          </h2>
+          <TrustpilotCarousel />
+          {!isCyprus && <TrustpilotBrandsRow />}
+        </div>
+      )}
 
     </div>
 
@@ -385,6 +412,8 @@ export default function Home() {
       </div>
     )}
 
+    {!isCompactLowerHome && (
+    <>
     {/* Delivery-coverage paragraph: same CITY_SEO copy the server injects
         into the initial HTML — rendered here too so it stays visible after
         hydration (server/client content parity). Placed below the product
@@ -454,6 +483,8 @@ export default function Home() {
         faqsAlwaysVisible={Boolean(cityOverride?.faqs)}
       />
     </div>
+    </>
+    )}
     </>
   );
 }
