@@ -513,6 +513,17 @@ type RawOSProduct = Omit<OSProduct, "id" | "hasInputField"> & {
   hasLetterField?: boolean;
   /** OS deployments have used both spellings on the wire. */
   price_aed?: string | null;
+  /**
+   * Country availability — snake_case wire form.
+   * When present, the product is only deliverable to these ISO country codes.
+   * Both snake_case and camelCase variants are accepted (see normaliseProduct).
+   */
+  deliverable_countries?: string[];
+  /**
+   * City availability — snake_case wire form.
+   * When present, the product is only deliverable to these city ids.
+   */
+  deliverable_cities?: string[];
 };
 
 type RawOSProductsResponse = Omit<OSProductsResponse, "products"> & {
@@ -541,6 +552,22 @@ function normaliseProduct(raw: RawOSProduct): NormalisedProduct {
   // The OS API returns brand data under `catalog_brands`, not `brands`.
   // Prefer `catalog_brands` when present so filtering by brand slug works correctly.
   const brands = raw.catalog_brands ?? raw.brands ?? [];
+  // Country/city availability: OS may send snake_case (deliverable_countries)
+  // or camelCase (deliverableCountries). Prefer snake_case (the documented wire
+  // format) and fall back to camelCase for forward-compat. Normalise to
+  // uppercase so comparisons with ISO country codes are case-insensitive.
+  const rawDeliverableCountries =
+    raw.deliverable_countries ?? raw.deliverableCountries;
+  const deliverableCountries =
+    Array.isArray(rawDeliverableCountries) && rawDeliverableCountries.length > 0
+      ? rawDeliverableCountries.map((c) => String(c).toUpperCase())
+      : undefined;
+  const rawDeliverableCities =
+    raw.deliverable_cities ?? raw.deliverableCities;
+  const deliverableCities =
+    Array.isArray(rawDeliverableCities) && rawDeliverableCities.length > 0
+      ? rawDeliverableCities
+      : undefined;
   return {
     ...raw,
     categories,
@@ -550,6 +577,8 @@ function normaliseProduct(raw: RawOSProduct): NormalisedProduct {
     hasInputField: raw.has_input_field ?? raw.hasInputField ?? false,
     hasLetterField: raw.has_letter_field ?? raw.hasLetterField ?? false,
     priceAed: parsePositivePlainDecimal(raw.price_aed ?? raw.priceAed),
+    deliverableCountries,
+    deliverableCities,
   };
 }
 

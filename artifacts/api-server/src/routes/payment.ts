@@ -129,6 +129,7 @@ router.post("/payment/mamo", async (req, res) => {
     deliverySlotId: rawDeliverySlotId,
     cityId: rawCityId,
     deliveryDate: rawDeliveryDate,
+    shippingCountry: rawMamoShippingCountry,
   } = req.body as {
     items: { wcId: number; osSlug?: string; quantity: number }[];
     orderId: string;
@@ -147,6 +148,7 @@ router.post("/payment/mamo", async (req, res) => {
     deliverySlotId?: string;
     cityId?: string;
     deliveryDate?: string;
+    shippingCountry?: string;
   };
 
   if (!orderId) {
@@ -197,9 +199,16 @@ router.post("/payment/mamo", async (req, res) => {
     }
   }
 
-  // Resolve catalog prices server-side.
+  // Resolve catalog prices server-side. Pass the shipping country so products
+  // restricted to specific countries are rejected before the payment link is created.
   const store = resolveStoreFromRequest(req);
-  const catalogResult = await resolveCartItems(items, store);
+  const mamoDestinationCountry =
+    typeof rawMamoShippingCountry === "string" && rawMamoShippingCountry.trim()
+      ? rawMamoShippingCountry.trim().toUpperCase()
+      : district
+        ? undefined // countryForDistrict is authoritative at order time; skip here to avoid double derivation
+        : undefined;
+  const catalogResult = await resolveCartItems(items, store, { destinationCountry: mamoDestinationCountry });
   if (!catalogResult.ok) {
     return res.status(422).json({ ok: false, code: "catalog_error", message: catalogResult.message });
   }
@@ -455,6 +464,7 @@ router.post("/payment/paypal", async (req, res) => {
     deliverySlotId: ppRawDeliverySlotId,
     cityId: ppRawCityId,
     deliveryDate: ppRawDeliveryDate,
+    shippingCountry: ppRawShippingCountry,
   } = req.body as {
     items: { wcId: number; osSlug?: string; quantity: number }[];
     orderId: string;
@@ -468,6 +478,7 @@ router.post("/payment/paypal", async (req, res) => {
     deliverySlotId?: string;
     cityId?: string;
     deliveryDate?: string;
+    shippingCountry?: string;
   };
 
   if (!orderId) {
@@ -518,9 +529,14 @@ router.post("/payment/paypal", async (req, res) => {
     }
   }
 
-  // Resolve catalog prices server-side.
+  // Resolve catalog prices server-side. Pass the shipping country so products
+  // restricted to specific countries are rejected before the PayPal order is created.
   const ppStore = resolveStoreFromRequest(req);
-  const catalogResult = await resolveCartItems(items, ppStore);
+  const ppDestinationCountry =
+    typeof ppRawShippingCountry === "string" && ppRawShippingCountry.trim()
+      ? ppRawShippingCountry.trim().toUpperCase()
+      : undefined;
+  const catalogResult = await resolveCartItems(items, ppStore, { destinationCountry: ppDestinationCountry });
   if (!catalogResult.ok) {
     return res.status(422).json({ ok: false, code: "catalog_error", message: catalogResult.message });
   }
@@ -694,6 +710,7 @@ router.post("/payment/tabby", async (req, res) => {
     deliverySlotId: tabbyRawDeliverySlotId,
     cityId: tabbyRawCityId,
     deliveryDate: tabbyRawDeliveryDate,
+    shippingCountry: tabbyRawShippingCountry,
   } = req.body as {
     items: { wcId: number; osSlug?: string; quantity: number }[];
     orderId: string;
@@ -710,6 +727,7 @@ router.post("/payment/tabby", async (req, res) => {
     deliverySlotId?: string;
     cityId?: string;
     deliveryDate?: string;
+    shippingCountry?: string;
   };
 
   if (!orderId) {
@@ -760,9 +778,14 @@ router.post("/payment/tabby", async (req, res) => {
     }
   }
 
-  // Resolve catalog prices server-side.
+  // Resolve catalog prices server-side. Pass the shipping country so products
+  // restricted to specific countries are rejected before the Tabby session is created.
   const tabbyStore = resolveStoreFromRequest(req);
-  const catalogResult = await resolveCartItems(items, tabbyStore);
+  const tabbyDestinationCountry =
+    typeof tabbyRawShippingCountry === "string" && tabbyRawShippingCountry.trim()
+      ? tabbyRawShippingCountry.trim().toUpperCase()
+      : undefined;
+  const catalogResult = await resolveCartItems(items, tabbyStore, { destinationCountry: tabbyDestinationCountry });
   if (!catalogResult.ok) {
     return res.status(422).json({ ok: false, code: "catalog_error", message: catalogResult.message });
   }

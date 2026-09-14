@@ -1242,6 +1242,45 @@ export async function attemptCreateOsOrder(
     0,
   );
 
+  // Country availability guard: reject items that OS has restricted to specific
+  // countries when we know the destination. This runs for all payment paths
+  // (including preVerifiedItems / Stripe-paid) because availability is an
+  // operational constraint separate from price verification — a product could
+  // have been available at payment-intent creation time and then disabled before
+  // the order finalises, or the restriction may have simply been missed at
+  // intent creation (legacy snapshot without availability enforcement).
+  if (body.shippingCountry) {
+    const destCountry = body.shippingCountry.toUpperCase();
+    for (const item of catalogItemInputs) {
+      let osProduct =
+        (item.wcId != null && item.wcId > 0
+          ? getOsProductByWcId(item.wcId, opts.store?.storeKey)
+          : undefined) ??
+        (item.osSlug
+          ? (getOsProductBySlug(item.osSlug, opts.store?.storeKey) ??
+             getOsProductBySlug(item.osSlug))
+          : undefined);
+      if (
+        osProduct &&
+        Array.isArray(osProduct.deliverableCountries) &&
+        osProduct.deliverableCountries.length > 0
+      ) {
+        const allowed = osProduct.deliverableCountries.map((c) =>
+          String(c).toUpperCase(),
+        );
+        if (!allowed.includes(destCountry)) {
+          const slug = osProduct.id ?? item.osSlug ?? String(item.wcId);
+          return {
+            ok: false,
+            status: 422,
+            message: `Product ${slug} is not available for delivery to ${destCountry}`, // i18n-ignore
+            recipientName: recipientFullName,
+          };
+        }
+      }
+    }
+  }
+
   // Build a lookup map from the pre-verified snapshot when provided.
   const preVerifiedMap = new Map<string, { priceUsd: number; name?: string }>();
   if (opts.preVerifiedItems) {

@@ -3,6 +3,7 @@
 
 import { resolveStore, wooAuthHeader, type WooStoreConfig } from "./wooStore";
 import { getOsProductBySlug, getOsProductByWcId, getOsProductPricingMap, hasOsProducts } from "./osProductsCache";
+import type { OSProduct } from "@workspace/presentail-os";
 import {
   getOsCountryFreeDeliveryThresholdUsd,
   getOsCountryFreeDeliveryEnabled,
@@ -611,9 +612,15 @@ export type ResolvedCartItem = {
 // Enforces positive integer quantities — fractional or zero quantities would
 // silently distort the computed total.
 // Returns an error if any item cannot be found in the catalog.
+//
+// When `destinationCountry` is provided (uppercase ISO-2, e.g. "LB"), each
+// resolved OS product's `deliverableCountries` list is checked. A product with
+// a non-empty `deliverableCountries` that does not include `destinationCountry`
+// is rejected before any payment link or order is created.
 export async function resolveCartItems(
   items: { wcId: number; osSlug?: string; quantity: number; name?: string; description?: string; image?: string }[],
   store?: WooStoreConfig,
+  opts: { destinationCountry?: string } = {},
 ): Promise<{ ok: true; items: ResolvedCartItem[]; subtotalUsd: number } | { ok: false; message: string }> {
   const s = store ?? resolveStore();
   // Do not require WC credentials here — fetchWcProductPrice checks the OS
@@ -631,18 +638,23 @@ export async function resolveCartItems(
       };
     }
   }
+  const destinationCountry = opts.destinationCountry
+    ? opts.destinationCountry.toUpperCase()
+    : undefined;
   const resolved: ResolvedCartItem[] = [];
   for (const item of items) {
     let catalog: { price: number; name: string } | null = null;
     let resolvedSlug: string | undefined = item.osSlug;
+    let resolvedOsProduct: OSProduct | undefined;
     if (item.wcId > 0) {
       // Standard: look up by WooCommerce ID (also checks OS cache by wcId index).
       catalog = await fetchWcProductPrice(item.wcId, s);
+      const osProductByWcId = getOsProductByWcId(item.wcId, s.storeKey);
       if (!resolvedSlug) {
         // Derive slug from the OS product entry when not provided by the client.
-        const osProduct = getOsProductByWcId(item.wcId, s.storeKey);
-        resolvedSlug = osProduct?.id;
+        resolvedSlug = osProductByWcId?.id;
       }
+      resolvedOsProduct = osProductByWcId ?? undefined;
       // Fallback: if WC lookup failed (WC not configured or product not in the wcId
       // index) AND the client provided an osSlug, try the OS slug cache directly.
       // This handles the common production case where WC credentials are retired
@@ -656,6 +668,7 @@ export async function resolveCartItems(
           if (effectivePrice > 0) {
             catalog = { price: effectivePrice, name: osProduct.name };
             resolvedSlug = osProduct.id;
+            resolvedOsProduct = osProduct;
           }
         }
       }
@@ -663,19 +676,41 @@ export async function resolveCartItems(
       // OS-native product (wcId === 0): look up directly by slug in the OS cache.
       // Fall back to any-store lookup when the store-specific cache is cold so
       // Whish/offline orders succeed even during transient cache population.
-      const osProduct =
+      const osProductBySlug =
         getOsProductBySlug(item.osSlug, s.storeKey) ??
         getOsProductBySlug(item.osSlug);
-      if (osProduct) {
-        const effectivePrice = resolveOsEffectivePrice(osProduct);
+      if (osProductBySlug) {
+        const effectivePrice = resolveOsEffectivePrice(osProductBySlug);
         if (effectivePrice > 0) {
-          catalog = { price: effectivePrice, name: osProduct.name };
-          resolvedSlug = osProduct.id;
+          catalog = { price: effectivePrice, name: osProductBySlug.name };
+          resolvedSlug = osProductBySlug.id;
+          resolvedOsProduct = osProductBySlug;
         }
       }
     }
     if (!catalog) {
       return { ok: false, message: `Product ${item.osSlug ?? item.wcId} not found in catalog` }; // i18n-ignore
+    }
+    // Country availability gate: when a destination country is known and the
+    // OS product has an explicit deliverableCountries list, reject the item if
+    // the destination is not in that list. An absent or empty list means the
+    // product is unrestricted (deliverable everywhere).
+    if (
+      destinationCountry &&
+      resolvedOsProduct &&
+      Array.isArray(resolvedOsProduct.deliverableCountries) &&
+      resolvedOsProduct.deliverableCountries.length > 0
+    ) {
+      const allowed = resolvedOsProduct.deliverableCountries.map((c: string) =>
+        String(c).toUpperCase(),
+      );
+      if (!allowed.includes(destinationCountry)) {
+        const slug = resolvedSlug ?? item.osSlug ?? String(item.wcId);
+        return {
+          ok: false,
+          message: `Product ${slug} is not available for delivery to ${destinationCountry}`, // i18n-ignore
+        };
+      }
     }
     resolved.push({
       wcId: item.wcId,
