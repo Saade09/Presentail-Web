@@ -2387,6 +2387,35 @@ export function startOsProductsSync(): void {
       if (workerStopped) return undefined;
       return runScheduledProductsSync();
     })
+    .then(() => {
+      // After the initial fetch completes, check whether any store failed to
+      // populate (e.g. due to a per-request timeout on a slow Cloud Run cold
+      // start). If so, schedule a direct fast retry in 90 seconds rather than
+      // waiting the full 15-minute background interval — avoiding a long window
+      // where the storefront shows no products.
+      const notReady = OS_STORE_SPECS.filter((s) => !isOsProductsReady(s.storeKey));
+      if (notReady.length === 0) return;
+      const storeKeys = notReady.map((s) => s.storeKey);
+      logger.warn(
+        { storeKeys, retryMs: 90_000 },
+        "osProductsCache: some stores not ready after initial fetch — scheduling fast retry",
+      );
+      setTimeout(() => {
+        if (workerStopped || fetching) return;
+        fetching = true;
+        fetchAndStore()
+          .then((ok) => {
+            if (!ok) logger.warn("osProductsCache: fast-retry fetch returned false");
+          })
+          .catch((err: unknown) => {
+            const msg = err instanceof Error ? err.message : String(err);
+            logger.warn({ err: msg }, "osProductsCache: fast-retry fetch failed");
+          })
+          .finally(() => {
+            fetching = false;
+          });
+      }, 90_000);
+    })
     .catch((err: unknown) => {
       const msg = err instanceof Error ? err.message : String(err);
       logger.warn({ err: msg }, "osProductsCache: initial fetch failed");

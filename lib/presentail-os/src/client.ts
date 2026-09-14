@@ -22,7 +22,13 @@ import { parsePositivePlainDecimal } from "./pricing";
 
 const DEFAULT_BASE_URL = "https://os.presentail.com";
 const DEFAULT_WORKSPACE = "presentail";
-const FETCH_TIMEOUT_MS = 25_000;
+/**
+ * Default per-request timeout for all OS API calls.
+ * Raised to 45 s to accommodate the Lebanon/Dubai product-list pages
+ * (~10 pages × 100 products each) that can take >25 s over Cloud Run's
+ * network path to os.presentail.com.
+ */
+const FETCH_TIMEOUT_MS = 45_000;
 
 export type PresentailOsConfig = {
   /** Base URL of the Presentail OS instance. Defaults to https://os.presentail.com. */
