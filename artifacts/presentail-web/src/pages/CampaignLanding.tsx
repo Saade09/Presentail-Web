@@ -305,7 +305,14 @@ function CampaignLandingRedesign() {
   const activeQuickFilter = parseCampaignQuickFilter(search);
   const campaignCurrencyCode =
     market?.countryCode === "AE" ? "AED" : currencyCode;
-  const bandConfig = getPriceBandConfig(campaignCurrencyCode);
+  // Price-band filtering must compare against the currency the products are
+  // actually priced in. AE products carry native AED values; all other markets
+  // (including LB/Beirut) only have USD pricing. Using the visitor's display
+  // currency (e.g. AED while delivering to Beirut) would compare USD-priced
+  // products against AED thresholds and produce an empty state.
+  const campaignFilterCurrencyCode =
+    market?.countryCode === "AE" ? "AED" : "USD";
+  const bandConfig = getPriceBandConfig(campaignFilterCurrencyCode);
   const currentBrowserSearch =
     typeof window !== "undefined"
       ? preserveCampaignAttribution(window.location.search)
@@ -349,13 +356,13 @@ function CampaignLandingRedesign() {
     return filterCampaignProducts(source, activeQuickFilter, {
       countryCode,
       cityId,
-      currencyCode: campaignCurrencyCode,
+      currencyCode: campaignFilterCurrencyCode,
       bandConfig,
     });
   }, [
     activeQuickFilter,
     bandConfig,
-    campaignCurrencyCode,
+    campaignFilterCurrencyCode,
     catalog.flowers,
     catalog.luxury,
     cityId,
@@ -414,7 +421,7 @@ function CampaignLandingRedesign() {
     const nextResultCount = filterCampaignProducts(nextSource, nextFilter, {
       countryCode,
       cityId,
-      currencyCode: campaignCurrencyCode,
+      currencyCode: campaignFilterCurrencyCode,
       bandConfig,
     }).length;
     const lowerThreshold =

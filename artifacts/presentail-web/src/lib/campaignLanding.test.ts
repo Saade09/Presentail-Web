@@ -109,6 +109,30 @@ describe("getCampaignActiveDisplayPrice", () => {
     const p = product("p", ["flowers"], { priceAed: 300, discountPriceAed: 300 });
     expect(getCampaignActiveDisplayPrice(p, "AED")).toBe(300);
   });
+
+  it("uses the native AED sale value for filtering at an exact lower boundary", () => {
+    const p = product("p", ["flowers"], {
+      priceAed: 300,
+      priceAedExact: "300.000",
+      discountPriceAed: 250,
+      discountPriceAedExact: "250.000",
+      priceValue: 82,
+      discountPriceValue: 57,
+    });
+    expect(getCampaignActiveDisplayPrice(p, "AED")).toBe(250);
+    expect(
+      filterCampaignProducts([p], "price_low", {
+        currencyCode: "AED",
+        bandConfig: getPriceBandConfig("AED"),
+      }),
+    ).toHaveLength(0);
+    expect(
+      filterCampaignProducts([p], "price_mid", {
+        currencyCode: "AED",
+        bandConfig: getPriceBandConfig("AED"),
+      }),
+    ).toHaveLength(1);
+  });
 });
 
 describe("CPC flower campaign catalog filtering", () => {

@@ -25,6 +25,7 @@ import {
   registerPricingEnrichmentListener,
   type ProductPricingEntry,
 } from "../lib/osProductsCache";
+import { resolveNativeAedPrices } from "@workspace/presentail-os";
 import { scoreCollections, getCollectionClickScores } from "../lib/collectionRanking";
 import { getOsOccasionStatsMap } from "../lib/osOccasionStats";
 import { categories as staticCategories } from "@workspace/catalog-data";
@@ -691,6 +692,7 @@ function computeOsDiscountPriceValue(osP: {
 type OsPricingInput = {
   osNumericId?: number | string;
   price: number;
+  priceAed?: string | null;
   regular_price?: string | null;
   sale_price?: string | null;
   discount_price_usd?: string | null;
@@ -707,16 +709,27 @@ type OsPricingInput = {
  * falls back to computing from raw product fields (which are always null from the
  * list endpoint, but kept as a safety net for cold-start / enrichment-not-yet-run).
  */
-function resolveProductPricing(
+export function resolveProductPricing(
   osP: OsPricingInput,
   pricingMap: ReadonlyMap<string, ProductPricingEntry>,
-): { displayPrice: number; discountPriceValue: number | null; discountPriceAed: number | null } {
+): {
+  displayPrice: number;
+  discountPriceValue: number | null;
+  discountPriceAed: number | null;
+  priceAed: number | null;
+  priceAedExact: string | null;
+  discountPriceAedExact: string | null;
+} {
   const key = osP.osNumericId != null ? String(osP.osNumericId) : "";
   const entry = key ? pricingMap.get(key) : undefined;
+  const nativeAed = resolveNativeAedPrices(osP.priceAed, osP.discount_price_aed);
   return {
     displayPrice: entry?.regularPriceUsd ?? computeOsDisplayPrice(osP),
     discountPriceValue: entry?.discountPriceUsd ?? computeOsDiscountPriceValue(osP),
     discountPriceAed: entry?.discountPriceAed ?? parseDiscountField(osP.discount_price_aed),
+    priceAed: entry?.priceAed ?? (nativeAed.priceAedExact === null ? null : Number(nativeAed.priceAedExact)),
+    priceAedExact: entry?.priceAedExact ?? nativeAed.priceAedExact,
+    discountPriceAedExact: entry?.discountPriceAedExact ?? nativeAed.discountPriceAedExact,
   };
 }
 
@@ -804,6 +817,9 @@ router.get("/homepage/best-sellers", async (req, res) => {
     priceValue: number;
     discountPriceValue: number | null;
     discountPriceAed: number | null;
+    priceAed: number | null;
+    priceAedExact: string | null;
+    discountPriceAedExact: string | null;
     image: { uri: string } | null;
     images: { uri: string }[];
     categories: string[];
@@ -843,6 +859,9 @@ router.get("/homepage/best-sellers", async (req, res) => {
       priceValue,
       discountPriceValue: pricing ? pricing.discountPriceValue : null,
       discountPriceAed: pricing ? pricing.discountPriceAed : null,
+      priceAed: pricing ? pricing.priceAed : null,
+      priceAedExact: pricing ? pricing.priceAedExact : null,
+      discountPriceAedExact: pricing ? pricing.discountPriceAedExact : null,
       image: imageList[0] ?? null,
       images: imageList,
       categories: (osP?.categories ?? [])
@@ -870,7 +889,14 @@ router.get("/homepage/best-sellers", async (req, res) => {
       seen.add(osP.id);
 
       const imageList = buildHomepageProductImages(osP.images);
-      const { displayPrice, discountPriceValue, discountPriceAed } = resolveProductPricing(osP, pricingMap);
+      const {
+        displayPrice,
+        discountPriceValue,
+        discountPriceAed,
+        priceAed,
+        priceAedExact,
+        discountPriceAedExact,
+      } = resolveProductPricing(osP, pricingMap);
       entries.push({
         id: osP.id,
         osNumericId: osP.osNumericId,
@@ -879,6 +905,9 @@ router.get("/homepage/best-sellers", async (req, res) => {
         priceValue: displayPrice,
         discountPriceValue,
         discountPriceAed,
+        priceAed,
+        priceAedExact,
+        discountPriceAedExact,
         image: imageList[0] ?? null,
         images: imageList,
         categories: (osP.categories ?? [])
@@ -1080,6 +1109,9 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
     priceValue: number;
     discountPriceValue: number | null;
     discountPriceAed: number | null;
+    priceAed: number | null;
+    priceAedExact: string | null;
+    discountPriceAedExact: string | null;
     image: { uri: string } | null;
     images: { uri: string }[];
     categories: string[];
@@ -1100,7 +1132,14 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
     seen.add(osP.id);
 
     const imageList = buildHomepageProductImages(osP.images);
-    const { displayPrice, discountPriceValue, discountPriceAed } = resolveProductPricing(osP, pricingMap);
+    const {
+      displayPrice,
+      discountPriceValue,
+      discountPriceAed,
+      priceAed,
+      priceAedExact,
+      discountPriceAedExact,
+    } = resolveProductPricing(osP, pricingMap);
     entries.push({
       id: osP.id,
       name: decodeName(osP.name),
@@ -1109,6 +1148,9 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
       priceValue: displayPrice,
       discountPriceValue,
       discountPriceAed,
+      priceAed,
+      priceAedExact,
+      discountPriceAedExact,
       image: imageList[0] ?? null,
       images: imageList,
       categories: (osP.categories ?? [])
@@ -1131,7 +1173,14 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
     seen.add(osP.id);
 
     const imageList = buildHomepageProductImages(osP.images);
-    const { displayPrice, discountPriceValue, discountPriceAed } = resolveProductPricing(osP, pricingMap);
+    const {
+      displayPrice,
+      discountPriceValue,
+      discountPriceAed,
+      priceAed,
+      priceAedExact,
+      discountPriceAedExact,
+    } = resolveProductPricing(osP, pricingMap);
     entries.push({
       id: osP.id,
       name: decodeName(osP.name),
@@ -1140,6 +1189,9 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
       priceValue: displayPrice,
       discountPriceValue,
       discountPriceAed,
+      priceAed,
+      priceAedExact,
+      discountPriceAedExact,
       image: imageList[0] ?? null,
       images: imageList,
       categories: (osP.categories ?? [])
@@ -1163,7 +1215,14 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
     seen.add(osP.id);
 
     const imageList = buildHomepageProductImages(osP.images);
-    const { displayPrice, discountPriceValue, discountPriceAed } = resolveProductPricing(osP, pricingMap);
+    const {
+      displayPrice,
+      discountPriceValue,
+      discountPriceAed,
+      priceAed,
+      priceAedExact,
+      discountPriceAedExact,
+    } = resolveProductPricing(osP, pricingMap);
     entries.push({
       id: osP.id,
       name: decodeName(osP.name),
@@ -1172,6 +1231,9 @@ router.get("/homepage/collection-best-sellers", async (req, res) => {
       priceValue: displayPrice,
       discountPriceValue,
       discountPriceAed,
+      priceAed,
+      priceAedExact,
+      discountPriceAedExact,
       image: imageList[0] ?? null,
       images: imageList,
       categories: (osP.categories ?? [])

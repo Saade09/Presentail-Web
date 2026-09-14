@@ -114,8 +114,11 @@ function CampaignProductCard({
           <p className="text-sm font-medium text-neutral-900">
             <SalePrice
               priceValue={product.priceValue}
+              priceAed={product.priceAed}
+              priceAedExact={product.priceAedExact}
               discountPriceValue={product.discountPriceValue}
               discountPriceAed={product.discountPriceAed}
+              discountPriceAedExact={product.discountPriceAedExact}
               currencyCodeOverride={currencyCodeOverride}
             />
           </p>
