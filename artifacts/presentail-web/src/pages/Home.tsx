@@ -302,17 +302,6 @@ export default function Home() {
         </section>
       ) : (
         <>
-          {/* Summer Picks rail — shown above Best Sellers so seasonal products are seen first.
-              Summer is an OS occasion (not a category), so occasionSlug is used. */}
-          <BestSellersPreview
-            occasionSlug="summer"
-            titleKey="collections.summer.title"
-            railKey="rail-summer"
-            viewAllHref="/occasion/summer"
-            viewAllLabel={t("collections.summer.viewAll")}
-            testId="section-collection-summer"
-          />
-
           {/* Best Sellers rail — 10 products ranked by real sales data from the API */}
           <BestSellersPreview
             titleKey="bestSellers.title"
