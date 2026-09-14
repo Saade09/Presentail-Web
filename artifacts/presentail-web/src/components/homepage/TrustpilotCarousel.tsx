@@ -40,7 +40,7 @@ export function TrustpilotCarousel({
       handleFailure,
       () => {
         if (active) {
-          el.parentElement?.setAttribute("data-trustpilot-state", "loaded");
+          setStatus("loaded");
         }
       },
     );
