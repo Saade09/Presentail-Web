@@ -228,8 +228,8 @@ describe("Home — shared city landing-page layout order", () => {
     const heroSection = document.querySelector("[data-testid='hero-section']");
     const coverageEl = document.querySelector("[data-testid='city-coverage-text']");
     const seoWrapper = document.querySelector("[data-testid='seo-content-section-wrapper']");
-    expect(isBefore(heroSection!, coverageEl)).toBe(true);
-    expect(isBefore(coverageEl, seoWrapper!)).toBe(true);
+    expect(isBefore(heroSection!, coverageEl!)).toBe(true);
+    expect(isBefore(coverageEl!, seoWrapper!)).toBe(true);
   });
 
   // [9a] Arabic locale for Tripoli: no AR override exists, but the shared

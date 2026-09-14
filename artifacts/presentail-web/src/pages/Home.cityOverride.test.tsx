@@ -72,8 +72,10 @@ describe("Home — Tripoli city override hydration parity", () => {
 
     // H1 matches the server-injected H1 exactly.
     const h1 = screen.getByRole("heading", { level: 1 });
+    expect(h1.textContent).toContain(override!.h1 ?? "");
 
     const primaryFaqs = override!.faqs!.slice(0, 6);
+    for (const { answer } of primaryFaqs) {
       const answerEl = screen.getByText(answer);
       expect(answerEl.closest("[hidden]")).not.toBeNull();
     }
