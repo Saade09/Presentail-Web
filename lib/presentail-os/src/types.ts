@@ -126,6 +126,13 @@ export type OSExpressConfig = {
 export type OSProductImage = {
   url: string;
   alt?: string;
+  /**
+   * Public CDN URL for the image (e.g. /api/storage/public-objects/…).
+   * Preferred over `url` when present — no auth required.
+   * When absent, `url` may hold a private storage path that the mobile client
+   * cannot access directly; route through the server-side product-image proxy.
+   */
+  imagePublicUrl?: string | null;
 };
 
 export type OSProductCategory = {

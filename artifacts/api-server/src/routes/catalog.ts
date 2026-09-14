@@ -333,6 +333,150 @@ router.get("/catalog/category-image/:id", async (req, res) => {
   }
 });
 
+// ── Product image proxy ────────────────────────────────────────────────────────
+//
+// OS product images may be at a private storage path (/api/storage/products/…)
+// that the mobile client cannot access directly. Proxy them here, preferring
+// the public CDN URL (imagePublicUrl) when available, falling back to an
+// authenticated server-side fetch when only the private URL is present.
+//
+// The route parameter is the OS numeric product id (osNumericId), which is
+// stable across catalog refreshes. Products are searched across all store
+// caches (lebanon, dubai, cyprus) to support every market.
+
+const OS_STORE_KEYS = ["lebanon", "dubai", "abudhabi", "cyprus"] as const;
+
+/**
+ * Perform an authenticated fetch of a private OS product image.
+ * Unlike fetchAndTransformCatalogImage, this sends the OS API key because
+ * private product storage paths require authentication.
+ */
+async function fetchAndTransformPrivateCatalogImage(
+  rawUrl: string,
+  apiKey: string,
+  options: { width: number; format: ImageFormat; quality: number },
+) {
+  return withImageLoadLimit(async () => {
+    let parsed: URL;
+    try {
+      parsed = new URL(rawUrl);
+    } catch {
+      throw new ImageDeliveryError("invalid-url", "Invalid private image URL", 400);
+    }
+    if (parsed.protocol !== "https:" || parsed.hostname !== "os.presentail.com") {
+      throw new ImageDeliveryError("invalid-url", "Private image URL host not allowed", 400);
+    }
+    const upstream = await fetch(parsed.toString(), {
+      headers: { "x-api-key": apiKey },
+      redirect: "manual",
+      signal: AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS),
+    });
+    if (upstream.status >= 300 && upstream.status < 400) {
+      throw new ImageDeliveryError("redirect", "Private catalog image redirected", 502, upstream.status);
+    }
+    if (!upstream.ok) {
+      const status = upstream.status === 404 || upstream.status === 410 ? 404 : 502;
+      throw new ImageDeliveryError("upstream-status", "Private catalog image fetch failed", status, upstream.status);
+    }
+    const source = await readBoundedImageBody(upstream);
+    try {
+      return await transformImage(source, options);
+    } catch (error) {
+      if (error instanceof ImageDeliveryError) throw error;
+      throw new ImageDeliveryError("invalid-url", "Private catalog image is corrupt", 422);
+    }
+  });
+}
+
+async function handleProductImageRequest(
+  req: import("express").Request,
+  res: import("express").Response,
+  osNumericId: string,
+  imageIndexRaw?: string,
+): Promise<void> {
+  if (!/^[a-zA-Z0-9_-]+$/.test(osNumericId)) {
+    res.status(400).json({ error: "Invalid osNumericId" });
+    return;
+  }
+  const imageIndex = imageIndexRaw !== undefined ? parseInt(imageIndexRaw, 10) : 0;
+  if (!Number.isFinite(imageIndex) || imageIndex < 0) {
+    res.status(400).json({ error: "Invalid imageIndex" });
+    return;
+  }
+  const apiKey = process.env.PRESENTAIL_OS_API_KEY;
+  if (!apiKey) {
+    res.status(503).json({ error: "OS API key not configured" });
+    return;
+  }
+
+  const width = resolveWidth(typeof req.query.w === "string" ? req.query.w : undefined);
+  const format = resolveFormat(typeof req.query.f === "string" ? req.query.f : undefined);
+  const quality = resolveQuality(typeof req.query.q === "string" ? req.query.q : undefined);
+  const cacheKey = `product|${osNumericId}|${imageIndex}|${width}|${format}|${quality}`;
+
+  const cached = catalogCacheGet(cacheKey);
+  if (cached) {
+    res.setHeader("Content-Type", cached.contentType);
+    res.setHeader("Cache-Control", CATALOG_IMAGE_CACHE_CONTROL);
+    res.setHeader("X-Cache", "HIT"); // i18n-ignore
+    res.send(cached.data);
+    return;
+  }
+
+  // Search all store caches (all markets) for the product with this osNumericId.
+  let imagePublicUrl: string | null = null;
+  let imagePrivateUrl: string | null = null;
+  for (const storeKey of OS_STORE_KEYS) {
+    const products = getOsProducts(storeKey);
+    if (!products) continue;
+    const product = products.find((p) => String(p.osNumericId) === osNumericId);
+    if (product && product.images.length > 0) {
+      const image = product.images[imageIndex] ?? product.images[0]!;
+      imagePublicUrl = image.imagePublicUrl ?? null;
+      imagePrivateUrl = image.url ?? null;
+      break;
+    }
+  }
+
+  if (!imagePublicUrl && !imagePrivateUrl) {
+    res.status(404).json({ error: "Product image not found" });
+    return;
+  }
+
+  try {
+    // Prefer the public CDN URL — no auth headers required, goes through
+    // the standard parseOsImageUrl → no-auth fetch path.
+    if (imagePublicUrl) {
+      const result = await fetchAndTransformCatalogImage(imagePublicUrl, apiKey, { width, format, quality });
+      catalogCacheSet(cacheKey, { data: result.data, contentType: result.contentType, size: result.data.byteLength });
+      res.setHeader("Content-Type", result.contentType);
+      res.setHeader("Cache-Control", CATALOG_IMAGE_CACHE_CONTROL);
+      res.setHeader("X-Cache", "MISS"); // i18n-ignore
+      res.send(result.data);
+      return;
+    }
+    // Fall back to the private URL with server-side API-key authentication.
+    const result = await fetchAndTransformPrivateCatalogImage(imagePrivateUrl!, apiKey, { width, format, quality });
+    catalogCacheSet(cacheKey, { data: result.data, contentType: result.contentType, size: result.data.byteLength });
+    res.setHeader("Content-Type", result.contentType);
+    res.setHeader("Cache-Control", CATALOG_IMAGE_CACHE_CONTROL);
+    res.setHeader("X-Cache", "MISS"); // i18n-ignore
+    res.send(result.data);
+  } catch (error) {
+    req.log.warn({ err: error }, "catalog/product-image: delivery failed");
+    res.status(error instanceof ImageDeliveryError ? error.status : 502).end();
+  }
+}
+
+// Two explicit routes because path-to-regexp@8 (used by router@2) no longer
+// supports the `?` optional-parameter suffix in route patterns.
+router.get("/catalog/product-image/:osNumericId", (req, res) =>
+  handleProductImageRequest(req, res, req.params.osNumericId, undefined),
+);
+router.get("/catalog/product-image/:osNumericId/:imageIndex", (req, res) =>
+  handleProductImageRequest(req, res, req.params.osNumericId, req.params.imageIndex),
+);
+
 // ── Routes ────────────────────────────────────────────────────────────────────
 
 router.get("/currencies", (_req, res) => {

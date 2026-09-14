@@ -8,7 +8,10 @@ import { recordImageProxyLoadState } from "./imageProxyMetrics";
 
 export const OS_IMAGE_HOSTNAME = "os.presentail.com";
 export const OS_IMAGE_PATH_PREFIX = "/api/storage/public-objects/";
-export const MAX_SOURCE_IMAGE_BYTES = 12 * 1024 * 1024;
+// 25 MB — aligned with the Sharp pixel limit (MAX_INPUT_PIXELS = 25 MP covers
+// the largest OS source images at 4500×4500). The old 12 MB cap caused silent
+// 413 errors for large source files before the pixel guard was reached.
+export const MAX_SOURCE_IMAGE_BYTES = 25 * 1024 * 1024;
 export const IMAGE_FETCH_TIMEOUT_MS = 12_000;
 export const MAX_ACTIVE_IMAGE_LOADS = 8;
 export const MAX_IMAGE_LOAD_WAITERS = 32;

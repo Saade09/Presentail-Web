@@ -499,15 +499,31 @@ const MAX_PAGES = 50;
 const DEFAULT_PAGE_SIZE = 100;
 
 /**
+ * Raw image shape as returned by the OS API wire format.
+ * The OS API may send `image_public_url` (snake_case) alongside `url`.
+ * After normalisation, camelCase `imagePublicUrl` is always used.
+ */
+type RawOSProductImage = {
+  url: string;
+  alt?: string;
+  /** Public CDN URL (snake_case wire form). Normalised to imagePublicUrl. */
+  image_public_url?: string | null;
+  /** Camelcase alternative — some OS deployments already send this. */
+  imagePublicUrl?: string | null;
+};
+
+/**
  * Raw product shape as returned by the OS API wire format.
  * The OS API returns a numeric `id` (database PK). A `slug` field may be
  * present on newer OS deployments; when absent, the slug is derived from the
  * product name so URLs remain human-readable (e.g. "velvet-rose-bouquet").
  * After normalisation, `OSProduct.id` is always a URL-safe string slug.
  */
-type RawOSProduct = Omit<OSProduct, "id" | "hasInputField"> & {
+type RawOSProduct = Omit<OSProduct, "id" | "hasInputField" | "images"> & {
   id: number | string;
   slug?: string;
+  /** Images with optional snake_case public URL field from the OS wire format. */
+  images?: RawOSProductImage[];
   /** OS API returns category data under this key (not `categories`). */
   catalog_categories?: OSProductCategory[];
   /** OS API returns brand data under this key (not `brands`). */
@@ -558,6 +574,15 @@ function normaliseProduct(raw: RawOSProduct): NormalisedProduct {
   // The OS API returns brand data under `catalog_brands`, not `brands`.
   // Prefer `catalog_brands` when present so filtering by brand slug works correctly.
   const brands = raw.catalog_brands ?? raw.brands ?? [];
+  // Normalise each image: map snake_case image_public_url → camelCase imagePublicUrl.
+  // OS products may supply a private `url` alongside a public `image_public_url`.
+  // The mobile client has no credentials to access private storage paths, so the
+  // `imagePublicUrl` field (or the server-side product-image proxy) must be used.
+  const images = (raw.images ?? []).map((img) => ({
+    url: img.url,
+    alt: img.alt,
+    imagePublicUrl: img.image_public_url ?? img.imagePublicUrl ?? null,
+  }));
   // Country/city availability: OS may send snake_case (deliverable_countries)
   // or camelCase (deliverableCountries). Prefer snake_case (the documented wire
   // format) and fall back to camelCase for forward-compat. Normalise to
@@ -576,6 +601,7 @@ function normaliseProduct(raw: RawOSProduct): NormalisedProduct {
       : undefined;
   return {
     ...raw,
+    images,
     categories,
     brands,
     id,

@@ -47,6 +47,10 @@ vi.mock("../lib/imageTransform", () => ({
   },
 }));
 
+const { getOsProductsMock } = vi.hoisted(() => ({
+  getOsProductsMock: vi.fn(),
+}));
+
 vi.mock("../lib/osProductsCache", () => ({
   getOsOccasions: getOsOccasionsMock,
   getOsCategories: vi.fn().mockReturnValue([]),
@@ -59,6 +63,7 @@ vi.mock("../lib/osProductsCache", () => ({
   getOsProductEmbeddedCategories: vi.fn().mockReturnValue(new Map()),
   registerOsProductsRefreshListener: vi.fn(),
   registerPricingEnrichmentListener: vi.fn(),
+  getOsProducts: getOsProductsMock,
 }));
 
 vi.mock("pino-http", () => ({
@@ -286,7 +291,8 @@ describe("GET /api/catalog/brand-image/:filename", () => {
       headers: { get: (header: string) => (header === "content-type" ? "image/jpeg" : null) },
       body: new ReadableStream({
         start(controller) {
-          for (let index = 0; index < 13; index += 1) controller.enqueue(oneMiB);
+          // MAX_SOURCE_IMAGE_BYTES is now 25 MB; stream 26 × 1 MiB chunks to exceed it.
+          for (let index = 0; index < 26; index += 1) controller.enqueue(oneMiB);
           controller.close();
         },
       }),
@@ -414,6 +420,155 @@ describe("GET /api/catalog/occasion-image/:id", () => {
     expect(r82.headers["x-cache"]).toBe("MISS");
     expect(r60.headers["x-cache"]).toBe("MISS");
     expect(transformImageMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// product-image handler
+// ---------------------------------------------------------------------------
+
+describe("GET /api/catalog/product-image/:osNumericId", () => {
+  const PUBLIC_IMAGE_URL =
+    "https://os.presentail.com/api/storage/public-objects/products/elegant-lily.jpg";
+  const PRIVATE_IMAGE_URL =
+    "https://os.presentail.com/api/storage/products/private-elegant-lily.jpg";
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubGlobal("fetch", fetchMock);
+    process.env.PRESENTAIL_OS_API_KEY = "test-api-key";
+    transformImageMock.mockImplementation(fakeTransformWebp);
+    fetchMock.mockImplementation(() => makeFakeImageFetchResponse("image/jpeg"));
+    // Default: product 313 has a public image URL
+    getOsProductsMock.mockReturnValue([
+      {
+        osNumericId: 313,
+        id: "elegant-lily",
+        name: "Elegant Lily",
+        images: [{ url: PUBLIC_IMAGE_URL, imagePublicUrl: PUBLIC_IMAGE_URL }],
+      },
+    ]);
+  });
+
+  afterEach(() => {
+    vi.resetModules();
+    vi.unstubAllGlobals();
+    delete process.env.PRESENTAIL_OS_API_KEY;
+  });
+
+  it("returns 400 for an osNumericId containing a dot (invalid per the regex)", async () => {
+    const app = await buildApp();
+    const res = await request(app).get("/api/catalog/product-image/bad.id");
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 503 when PRESENTAIL_OS_API_KEY is not set", async () => {
+    delete process.env.PRESENTAIL_OS_API_KEY;
+    const app = await buildApp();
+    const res = await request(app).get("/api/catalog/product-image/313");
+    expect(res.status).toBe(503);
+  });
+
+  it("returns 404 when no product with the given osNumericId exists in any store cache", async () => {
+    getOsProductsMock.mockReturnValue([]);
+    const app = await buildApp();
+    const res = await request(app).get("/api/catalog/product-image/999");
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 200 and image/webp for a product with a public imagePublicUrl (cache hit path)", async () => {
+    const app = await buildApp();
+    // First request — MISS
+    const first = await request(app).get("/api/catalog/product-image/313?w=400&f=webp");
+    expect(first.status).toBe(200);
+    expect(first.headers["content-type"]).toContain("image/webp");
+    expect(first.headers["x-cache"]).toBe("MISS");
+
+    // Second request — HIT (served from LRU cache, no additional fetch)
+    const second = await request(app).get("/api/catalog/product-image/313?w=400&f=webp");
+    expect(second.headers["x-cache"]).toBe("HIT");
+    expect(transformImageMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("fetches via authenticated path when only a private URL is available", async () => {
+    // Product has no imagePublicUrl — only a private storage path.
+    getOsProductsMock.mockReturnValue([
+      {
+        osNumericId: 314,
+        id: "red-roses",
+        name: "15 Red Roses",
+        images: [{ url: PRIVATE_IMAGE_URL, imagePublicUrl: null }],
+      },
+    ]);
+    const app = await buildApp();
+    const res = await request(app).get("/api/catalog/product-image/314");
+    expect(res.status).toBe(200);
+    // Verify the API key was sent in the fetch call for the private URL.
+    const fetchCall = fetchMock.mock.calls.find((call: unknown[]) =>
+      typeof call[0] === "string" && call[0].includes("private-elegant-lily"),
+    );
+    expect(fetchCall).toBeDefined();
+    const fetchOptions = fetchCall?.[1] as RequestInit | undefined;
+    expect((fetchOptions?.headers as Record<string, string>)?.["x-api-key"]).toBe("test-api-key");
+  });
+
+  it("resolves a second gallery image via imageIndex=1", async () => {
+    const secondPublicUrl =
+      "https://os.presentail.com/api/storage/public-objects/products/elegant-lily-2.jpg";
+    getOsProductsMock.mockReturnValue([
+      {
+        osNumericId: 313,
+        id: "elegant-lily",
+        name: "Elegant Lily",
+        images: [
+          { url: PUBLIC_IMAGE_URL, imagePublicUrl: PUBLIC_IMAGE_URL },
+          { url: secondPublicUrl, imagePublicUrl: secondPublicUrl },
+        ],
+      },
+    ]);
+    const app = await buildApp();
+    // Request image index 1 — must fetch the second image's URL, not the first.
+    const res = await request(app).get("/api/catalog/product-image/313/1");
+    expect(res.status).toBe(200);
+    const fetchedUrl = fetchMock.mock.calls[0]?.[0] as string;
+    expect(fetchedUrl).toContain("elegant-lily-2.jpg");
+  });
+
+  it("returns 400 for a non-numeric imageIndex", async () => {
+    const app = await buildApp();
+    const res = await request(app).get("/api/catalog/product-image/313/abc");
+    expect(res.status).toBe(400);
+  });
+
+  it("finds a product from the abudhabi store cache when the other caches are empty", async () => {
+    // Simulate the product existing only in the Abu Dhabi store cache.
+    // getOsProductsMock is called per storeKey; return empty for all others.
+    getOsProductsMock.mockImplementation((storeKey: string) => {
+      if (storeKey === "abudhabi") {
+        return [
+          {
+            osNumericId: 500,
+            id: "abudhabi-product",
+            name: "Abu Dhabi Exclusive",
+            images: [{ url: PUBLIC_IMAGE_URL, imagePublicUrl: PUBLIC_IMAGE_URL }],
+          },
+        ];
+      }
+      return [];
+    });
+    const app = await buildApp();
+    const res = await request(app).get("/api/catalog/product-image/500");
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toContain("image/webp");
+  });
+
+  it("passes w/f/q params to transformImage", async () => {
+    const app = await buildApp();
+    await request(app).get("/api/catalog/product-image/313?w=400&f=webp&q=75");
+    expect(transformImageMock).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      expect.objectContaining({ width: 400, format: "webp", quality: 75 }),
+    );
   });
 });
 

@@ -316,9 +316,19 @@ export function mapOsProductToWcShape(p: OSProduct): WcProduct {
     stock_status: p.inStock ? "instock" : "outofstock",
     featured: p.featured ?? false,
     total_sales: p.totalSales ?? 0,
-    images: p.images.map((img: { url: string }) => ({
-      src: img.url,
-    })),
+    // Prefer imagePublicUrl (public CDN path) so buildCatalogProductImageUrl can
+    // route it through /api/img/proxy. When only a private `url` is available
+    // and this product has an osNumericId, emit the server-side product-image
+    // proxy URL (with per-image index) so the mobile client never needs credentials
+    // for OS private storage. Each gallery image gets its own indexed URL so the
+    // full gallery resolves correctly, not just the first image.
+    images: p.images.map((img: { url: string; imagePublicUrl?: string | null }, idx: number) => {
+      const publicSrc = img.imagePublicUrl ?? null;
+      if (publicSrc) return { src: publicSrc };
+      // Private URL: if we have an osNumericId, route through the product-image proxy.
+      if (p.osNumericId != null) return { src: `/api/catalog/product-image/${p.osNumericId}/${idx}` };
+      return { src: img.url };
+    }),
     categories,
     meta_data: meta,
     brandNames: p.brands.map((b) => decodeHtmlEntities(b.name)),
@@ -1039,7 +1049,9 @@ router.get("/woo/product", async (req, res) => {
     await getProductSocialShare(slug).catch(() => null),
   );
   const socialSelection = selectProductSocialImage(
-    { images: osProduct.images.map((image) => ({ url: image.url })) },
+    // Prefer imagePublicUrl for social sharing — the OG image must be publicly
+    // accessible without auth. Fall back to url when imagePublicUrl is absent.
+    { images: osProduct.images.map((image) => ({ url: image.imagePublicUrl ?? image.url })) },
     socialOverrides,
   );
   const socialShareVersion = buildProductSocialVersion(

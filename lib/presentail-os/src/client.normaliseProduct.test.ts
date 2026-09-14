@@ -106,6 +106,85 @@ describe("normaliseProduct — snake_case availability field extraction", () => 
     expect(product!.deliverableCities).toBeUndefined();
   });
 
+  it("maps image_public_url (snake_case) to imagePublicUrl on each image object", async () => {
+    const rawProduct = {
+      id: 313,
+      name: "Elegant Lily",
+      price: 45,
+      inStock: true,
+      catalog_categories: [],
+      catalog_brands: [],
+      occasions: [],
+      images: [
+        {
+          url: "https://os.presentail.com/api/storage/products/private-elegant-lily.jpg",
+          image_public_url: "https://os.presentail.com/api/storage/public-objects/products/elegant-lily.jpg",
+        },
+        {
+          url: "https://os.presentail.com/api/storage/products/private-elegant-lily-2.jpg",
+          // No image_public_url — imagePublicUrl should be null
+        },
+      ],
+    };
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(
+          jsonResponse({ products: [rawProduct], totalPages: 1 }),
+        ),
+      ),
+    );
+
+    const result = await fetchOsProducts(config);
+    const product = result.products[0];
+    expect(product).toBeDefined();
+    expect(product!.images).toHaveLength(2);
+    // First image: image_public_url mapped to imagePublicUrl
+    expect(product!.images[0]!.imagePublicUrl).toBe(
+      "https://os.presentail.com/api/storage/public-objects/products/elegant-lily.jpg",
+    );
+    expect(product!.images[0]!.url).toBe(
+      "https://os.presentail.com/api/storage/products/private-elegant-lily.jpg",
+    );
+    // Second image: no image_public_url → imagePublicUrl is null
+    expect(product!.images[1]!.imagePublicUrl).toBeNull();
+  });
+
+  it("preserves camelCase imagePublicUrl when already normalised by the OS", async () => {
+    const rawProduct = {
+      id: 314,
+      name: "Gold Heart Balloon",
+      price: 18,
+      inStock: true,
+      catalog_categories: [],
+      catalog_brands: [],
+      occasions: [],
+      images: [
+        {
+          url: "https://os.presentail.com/api/storage/products/private-balloon.jpg",
+          imagePublicUrl:
+            "https://os.presentail.com/api/storage/public-objects/products/balloon.jpg",
+        },
+      ],
+    };
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(
+          jsonResponse({ products: [rawProduct], totalPages: 1 }),
+        ),
+      ),
+    );
+
+    const result = await fetchOsProducts(config);
+    const product = result.products[0];
+    expect(product!.images[0]!.imagePublicUrl).toBe(
+      "https://os.presentail.com/api/storage/public-objects/products/balloon.jpg",
+    );
+  });
+
   it("leaves deliverableCountries undefined when the wire sends an empty array", async () => {
     const rawProduct = {
       id: 316,
