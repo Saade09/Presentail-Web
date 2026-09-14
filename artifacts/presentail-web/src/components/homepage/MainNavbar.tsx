@@ -1,11 +1,25 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ComponentType } from "react";
 import { Link, useRoute } from "wouter";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetClose, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { ChevronDown, ChevronRight, Menu, Search, ShoppingCart, User, X } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Flower2,
+  Gift,
+  Menu,
+  MessageCircle,
+  PartyPopper,
+  Search,
+  ShoppingBag,
+  ShoppingCart,
+  Tags,
+  User,
+  X,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Logo } from "@/components/Logo";
 import { useLocationSelection } from "@/contexts/LocationContext";
@@ -35,6 +49,69 @@ import { CATEGORY_GROUPS, CATEGORY_STATIC_IMAGES, OCCASION_STATIC_IMAGES } from 
 import { catalogAssetUrl } from "@/lib/catalogAssets";
 
 const LABEL_EXPLORE_PRESENTAIL = "Explore Presentail"; // i18n-ignore
+const PRESENTAIL_WHATSAPP_URL = "https://wa.me/9613136532";
+
+type MobileShoppingRow = {
+  key: "occasions" | "flowers" | "balloons" | "gifts" | "brands" | "shop-all";
+  labelKey: string;
+  descriptionKey: string;
+  panelKey?: string;
+  href?: string;
+  img?: string;
+  icon?: ComponentType<{ className?: string }>;
+  emoji: string;
+};
+
+const MOBILE_SHOPPING_ROWS: MobileShoppingRow[] = [
+  {
+    key: "occasions",
+    labelKey: "nav.occasions",
+    descriptionKey: "nav.occasionsDescription",
+    panelKey: "occasions",
+    img: "/catalog/occasions/birthday.webp",
+    emoji: "🎉",
+  },
+  {
+    key: "flowers",
+    labelKey: "nav.flowersPlants",
+    descriptionKey: "nav.flowersPlantsDescription",
+    panelKey: "flowers",
+    img: "/catalog/categories/flower-boxes.avif",
+    emoji: "🌸",
+  },
+  {
+    key: "balloons",
+    labelKey: "nav.balloons",
+    descriptionKey: "nav.balloonsDescription",
+    panelKey: "balloons",
+    img: "/catalog/categories/balloons.webp",
+    emoji: "🎈",
+  },
+  {
+    key: "gifts",
+    labelKey: "nav.gifts",
+    descriptionKey: "nav.giftsDescription",
+    panelKey: "gifts",
+    img: "/catalog/categories/bundles.webp",
+    emoji: "🎁",
+  },
+  {
+    key: "brands",
+    labelKey: "nav.brands",
+    descriptionKey: "nav.brandsDescription",
+    panelKey: "brands",
+    icon: Tags,
+    emoji: "🏷️",
+  },
+  {
+    key: "shop-all",
+    labelKey: "nav.shopAll",
+    descriptionKey: "nav.shopAllDescription",
+    href: "/shop",
+    icon: ShoppingBag,
+    emoji: "🛍️",
+  },
+];
 
 function MegaItemThumbnail({ img, emoji, className }: { img?: string; emoji?: string; className?: string }) {
   const [failed, setFailed] = useState(false);
@@ -616,58 +693,141 @@ export function MainNavbar() {
 
                 {/* Scrollable body */}
                 <div className="flex-1 overflow-y-auto">
-                  {/* Category rows */}
+                  {/* Approved shopping hierarchy */}
                   <div className="px-5 pt-3">
-                    {[
-                      {
-                        key: "occasions",
-                        label: t("nav.occasions"),
-                        img: "/catalog/categories/preserved-flowers.avif",
-                        emoji: "🎉",
-                      },
-                      {
-                        key: "flowers",
-                        label: t("nav.flowersPlants"),
-                        img: "/catalog/categories/flower-boxes.avif",
-                        emoji: "🌸",
-                      },
-                      {
-                        key: "balloons",
-                        label: t("nav.balloons"),
-                        img: "/catalog/categories/balloons.webp",
-                        emoji: "🎈",
-                      },
-                      {
-                        key: "gifts",
-                        label: t("nav.gifts"),
-                        img: "/catalog/categories/bundles.webp",
-                        emoji: "🎁",
-                      },
-                      {
-                        key: "brands",
-                        label: t("nav.brands"),
-                        img: catalogMetadata?.brands[0]?.image ?? undefined,
-                        emoji: "🏷️",
-                      },
-                    ].map((cat) => (
-                      <button
-                        key={cat.key}
-                        type="button"
-                        onClick={() => {
-                          setMobileSubPanel(cat.key);
-                          trackEvent({ name: "nav_menu_row_clicked", linkSlug: cat.key, locale: language, country: countryCode ?? undefined });
-                        }}
-                        className="w-full flex items-center gap-4 py-3.5 border-b border-gray-100 last:border-0"
-                      >
-                        <div className="w-11 h-11 rounded-xl overflow-hidden bg-gray-50 flex items-center justify-center shrink-0 shadow-sm">
-                          <MegaItemThumbnail img={cat.img} emoji={cat.emoji} className="w-full h-full object-cover" />
-                        </div>
-                        <span className="flex-1 text-[15px] font-medium text-gray-800 text-left">{cat.label}</span>
-                        <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
-                      </button>
-                    ))}
+                    {MOBILE_SHOPPING_ROWS.map((row) => {
+                      const RowIcon = row.icon;
+                      const rowContent = (
+                        <>
+                          <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-50 flex items-center justify-center shrink-0 shadow-sm">
+                            {RowIcon ? (
+                              <RowIcon className="w-5 h-5 text-primary" aria-hidden="true" />
+                            ) : (
+                              <MegaItemThumbnail
+                                img={row.img}
+                                emoji={row.emoji}
+                                className="w-full h-full object-cover"
+                              />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1 text-start">
+                            <div className="truncate text-[15px] font-semibold text-gray-800">
+                              {t(row.labelKey)}
+                            </div>
+                            <div className="truncate text-xs text-gray-500">
+                              {t(row.descriptionKey)}
+                            </div>
+                          </div>
+                          <ChevronRight
+                            className="w-4 h-4 text-gray-400 shrink-0"
+                            aria-hidden="true"
+                          />
+                        </>
+                      );
+                      const rowClassName =
+                        "group w-full flex items-center gap-4 rounded-2xl px-3 py-3 text-start transition-colors active:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40";
+
+                      if (row.href) {
+                        return (
+                          <SheetClose asChild key={row.key}>
+                            <Link
+                              href={toCityHref(row.href)}
+                              onClick={() => {
+                                setMobileMenuOpen(false);
+                                setMobileSubPanel(null);
+                                trackEvent({
+                                  name: "nav_menu_row_clicked",
+                                  linkSlug: row.key,
+                                  locale: language,
+                                  country: countryCode ?? undefined,
+                                });
+                              }}
+                              {...prefetchProps(loadShop)}
+                              className={rowClassName}
+                              data-testid={`mobile-shopping-row-${row.key}`}
+                            >
+                              {rowContent}
+                            </Link>
+                          </SheetClose>
+                        );
+                      }
+
+                      return (
+                        <button
+                          key={row.key}
+                          type="button"
+                          onClick={() => {
+                            setMobileSubPanel(row.panelKey ?? null);
+                            trackEvent({
+                              name: "nav_menu_row_clicked",
+                              linkSlug: row.key,
+                              locale: language,
+                              country: countryCode ?? undefined,
+                            });
+                          }}
+                          className={rowClassName}
+                          data-testid={`mobile-shopping-row-${row.key}`}
+                        >
+                          {rowContent}
+                        </button>
+                      );
+                    })}
                   </div>
 
+                  {/* Secondary utilities */}
+                  <div className="mx-5 mt-2 border-t border-gray-200 pt-2 pb-5">
+                    <SheetClose asChild>
+                      <Link
+                        href={toCityHref(user ? "/account" : "/sign-in")}
+                        {...(user
+                          ? prefetchProps(loadAccount, loadFavorites)
+                          : prefetchProps(loadSignIn, loadSignUp))}
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          setMobileSubPanel(null);
+                        }}
+                        className="w-full flex items-center gap-4 rounded-2xl px-3 py-3 text-start transition-colors active:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                        data-testid="mobile-utility-account"
+                      >
+                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                          <User className="w-5 h-5 text-primary" aria-hidden="true" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-[15px] font-semibold text-gray-800">
+                            {t("nav.myAccount")}
+                          </div>
+                          <div className="truncate text-xs text-gray-500">
+                            {t(user ? "nav.myAccountDescription" : "nav.signInDescription")}
+                          </div>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" aria-hidden="true" />
+                      </Link>
+                    </SheetClose>
+                    <a
+                      href={PRESENTAIL_WHATSAPP_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        setMobileSubPanel(null);
+                      }}
+                      className="w-full flex items-center gap-4 rounded-2xl px-3 py-3 text-start transition-colors active:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                      data-testid="mobile-utility-contact"
+                    >
+                      <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center shrink-0">
+                        <MessageCircle className="w-5 h-5 text-green-600" aria-hidden="true" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[15px] font-semibold text-gray-800">
+                          {t("nav.contactUs")}
+                        </div>
+                        <div className="truncate text-xs text-gray-500">
+                          {t("nav.contactUsDescription")}
+                        </div>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" aria-hidden="true" />
+                    </a>
+                  </div>
                 </div>
               </div>
 
