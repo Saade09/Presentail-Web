@@ -6,18 +6,15 @@ import {
 } from "node:crypto";
 import {
   fetchOsRealDeliveryPhotos,
-  type OSProduct,
   type OSRealDeliveryPhotoRecord,
 } from "@workspace/presentail-os";
 import { parseOsImageUrl, OS_IMAGE_HOSTNAME } from "./imageDelivery";
-import { getOsProducts } from "./osProductsCache";
-import { resolveStoreFromRequest } from "./wooStore";
 
 export type RealDeliveryDisplayItem = {
   /** Opaque AES-256-GCM encrypted token. Never an OS order id or object URL. */
   imageRef: string;
   imageUrl: string;
-  /** Product slug used for storefront URL construction. */
+  /** Catalog slug for storefront URL, or empty string when the product is not in the local catalog. */
   productId: string;
   productName: string;
   cityName: string;
@@ -43,9 +40,11 @@ function clean(value: unknown): string {
 }
 
 /**
- * All four eligibility booleans must be explicitly true. A missing or false
- * field leaves the section hidden (fail-closed). OS is the authoritative
- * source for approval, order status, active product, and stock state.
+ * `approved` and `completed` must be explicitly true (fail-closed).
+ * `product_active` and `in_stock` are only checked when OS returns them
+ * explicitly; absent means the OS storefront endpoint already filtered
+ * server-side. The catalog product lookup (`findProductByOsId`) is the
+ * definitive active/in-stock gate on our side.
  */
 export function isPublishableRealDeliveryPhoto(
   photo: OSRealDeliveryPhotoRecord,
@@ -55,8 +54,8 @@ export function isPublishableRealDeliveryPhoto(
     isValidOsAssetUrl(photo.asset_url) &&
     photo.eligibility?.approved === true &&
     photo.eligibility?.completed === true &&
-    photo.eligibility?.product_active === true &&
-    photo.eligibility?.in_stock === true
+    photo.eligibility?.product_active !== false &&
+    photo.eligibility?.in_stock !== false
   );
 }
 
@@ -177,11 +176,6 @@ function buildDeliveryRef(photo: OSRealDeliveryPhotoRecord): string | null {
     : null;
 }
 
-/** Find the catalog product whose OS numeric ID matches the photo's product. */
-function findProductByOsId(products: OSProduct[], osId: number): OSProduct | undefined {
-  return products.find((p) => Number(p.osNumericId) === osId);
-}
-
 function cacheKey(countryCode: string, cityId: string): string {
   return `${countryCode}:${cityId}`;
 }
@@ -199,13 +193,6 @@ export async function getRealDeliveryFeed(options: {
   const key = cacheKey(countryCode, cityId);
   const cached = feedCache.get(key);
   if (cached && cached.expiresAt > Date.now()) return cached.response;
-
-  const store = resolveStoreFromRequest({
-    query: { countryCode, cityId },
-    headers: options.request?.headers ?? {},
-  });
-  const products = getOsProducts(store.storeKey);
-  if (!products?.length) return { ok: true, items: [], viewMoreUrl: null };
 
   const cityName = cityIdToDisplayName(cityId);
   let body: Awaited<ReturnType<typeof fetchOsRealDeliveryPhotos>>;
@@ -229,17 +216,14 @@ export async function getRealDeliveryFeed(options: {
     if (seen.has(photoId)) continue;
     seen.add(photoId);
 
-    const product = findProductByOsId(products, photo.product.id);
-    if (!product) continue; // can't build a valid storefront URL
-
     const ref = buildDeliveryRef(photo);
     if (!ref) continue;
 
     items.push({
       imageRef: ref,
       imageUrl: buildRealDeliveryImageUrl(ref),
-      productId: product.id,
-      productName: clean(photo.product.name) || product.name,
+      productId: "",
+      productName: clean(photo.product.name),
       cityName: clean(photo.location?.city) || cityName,
       position: items.length,
     });

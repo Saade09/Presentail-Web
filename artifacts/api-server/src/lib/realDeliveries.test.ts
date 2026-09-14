@@ -77,6 +77,13 @@ describe("isPublishableRealDeliveryPhoto — guard", () => {
     expect(isPublishableRealDeliveryPhoto(approvedPhoto)).toBe(true);
   });
 
+  it("accepts a photo where product_active and in_stock are absent (OS wire format with only approved+completed)", () => {
+    const photo = makePhoto({
+      eligibility: { approved: true, completed: true } as OSRealDeliveryPhotoRecord["eligibility"],
+    });
+    expect(isPublishableRealDeliveryPhoto(photo)).toBe(true);
+  });
+
   it.each([
     ["not approved", { eligibility: { approved: false, completed: true, product_active: true, in_stock: true } }],
     ["not completed", { eligibility: { approved: true, completed: false, product_active: true, in_stock: true } }],
@@ -183,13 +190,27 @@ describe("getRealDeliveryFeed — feed logic", () => {
     expect(result.viewMoreUrl).toBe("/flowers/real-deliveries");
   });
 
-  it("returns empty when the catalog is cold (no products)", async () => {
-    mocks.getOsProducts.mockReturnValue([]);
+  it("returns items when OS returns only approved+completed (no product_active/in_stock) — real wire format", async () => {
+    // This mirrors the actual OS storefront endpoint response shape:
+    // product_active and in_stock are absent because the OS filters server-side.
+    const osWirePhotos = [1, 2, 3].map((n) =>
+      makePhoto({
+        photo_id: `wire-${n}`,
+        asset_url: `https://os.presentail.com/api/storage/public-objects/real-deliveries/wire${n}.webp`,
+        captured_at: `2026-09-1${n}T10:00:00.000Z`,
+        eligibility: { approved: true, completed: true } as OSRealDeliveryPhotoRecord["eligibility"],
+      }),
+    );
+    mocks.fetchOsRealDeliveryPhotos.mockResolvedValue({ photos: osWirePhotos });
 
     const result = await getRealDeliveryFeed({ countryCode: "LB", cityId: "lb-beirut" });
 
-    expect(result.items).toHaveLength(0);
-    expect(mocks.fetchOsRealDeliveryPhotos).not.toHaveBeenCalled();
+    expect(result.ok).toBe(true);
+    expect(result.items).toHaveLength(3);
+    for (const item of result.items) {
+      expect(item.productId).toBe(""); // no catalog lookup — productId is empty
+      expect(item.imageUrl).toMatch(/^\/api\/img\/proxy\?deliveryRef=/);
+    }
   });
 
   it("returns empty when the OS endpoint throws", async () => {
@@ -201,17 +222,19 @@ describe("getRealDeliveryFeed — feed logic", () => {
     expect(result.viewMoreUrl).toBeNull();
   });
 
-  it("skips photos whose product is not found in the local catalog", async () => {
-    // All three photos reference product.id=99 which doesn't exist in cache
+  it("includes photos regardless of whether the product is in the local catalog", async () => {
+    // Photos reference product.id=99 which has no local catalog entry — still shown
     const photos = threePhotos().map((p) => ({
       ...p,
-      product: { id: 99, name: "Unknown", image_url: "" },
+      product: { id: 99, name: "Unknown Flower", image_url: "" },
     }));
     mocks.fetchOsRealDeliveryPhotos.mockResolvedValue({ photos });
 
     const result = await getRealDeliveryFeed({ countryCode: "LB", cityId: "lb-beirut" });
 
-    expect(result.items).toHaveLength(0);
+    expect(result.items).toHaveLength(3);
+    expect(result.items[0].productId).toBe("");
+    expect(result.items[0].productName).toBe("Unknown Flower");
   });
 
   it("deduplicates photos with the same photo_id", async () => {
@@ -330,13 +353,14 @@ describe("getRealDeliveryFeed — feed logic", () => {
     }
   });
 
-  it("uses product slug from local catalog as productId", async () => {
+  it("productId is empty string — product name comes from OS photo data", async () => {
     mocks.fetchOsRealDeliveryPhotos.mockResolvedValue({ photos: threePhotos() });
 
     const result = await getRealDeliveryFeed({ countryCode: "LB", cityId: "lb-beirut" });
 
     for (const item of result.items) {
-      expect(item.productId).toBe("plum-florals");
+      expect(item.productId).toBe("");
+      expect(item.productName).toBe("Plum Florals"); // from makePhoto default
     }
   });
 });

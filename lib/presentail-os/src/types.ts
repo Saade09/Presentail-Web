@@ -367,12 +367,19 @@ export type OSRealDeliveryPhotoRecord = {
     /** Human-readable city name, e.g. "Beirut", "Dubai". */
     city: string;
   };
-  /** All four must be true for the photo to be eligible for display. */
+  /**
+   * Eligibility flags set by OS. `approved` and `completed` are always
+   * returned. `product_active` and `in_stock` may be absent when the OS
+   * storefront endpoint already filters on the server side; treat absent as
+   * pass-through (the local catalog lookup is the active/in-stock gate).
+   */
   eligibility: {
     approved: boolean;
     completed: boolean;
-    product_active: boolean;
-    in_stock: boolean;
+    /** Present when OS includes per-record active state; absent means OS filtered server-side. */
+    product_active?: boolean;
+    /** Present when OS includes per-record stock state; absent means OS filtered server-side. */
+    in_stock?: boolean;
   };
 };
 

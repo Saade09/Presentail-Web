@@ -971,6 +971,7 @@ export function CampaignReviews({
 }
 
 function realDeliveryProductHref(productId: string, cityId: string | null, language: string): string {
+  if (!productId) return "";
   if (typeof window === "undefined") return `/product/${productId}`;
   const parsed = parseLocalePath(window.location.pathname);
   if (!parsed.country || !parsed.hasLocalePrefix) return `/product/${productId}`;
@@ -1098,7 +1099,7 @@ export function CampaignRealDeliveries() {
 
   const desktopPage = Math.floor(activeIndex / 3);
   const desktopPageCount = Math.ceil(items.length / 3);
-  if (items.length === 0 || !data?.viewMoreUrl) return null;
+  if (items.length === 0) return null;
 
   const recordShopClick = (item: RealDeliveryItem, index: number) => {
     trackEvent({
@@ -1152,49 +1153,60 @@ export function CampaignRealDeliveries() {
         >
           {items.map((item, index) => {
             const productHref = realDeliveryProductHref(item.productId, cityId, language);
-            return (
-              <article
-                key={`${item.imageRef}-${item.productId}`}
-                className={`${Math.floor(index / 3) === desktopPage ? "block" : "md:hidden"} w-[80vw] max-w-[330px] shrink-0 snap-start overflow-hidden rounded-2xl border border-[#d9dfd8] bg-white shadow-[0_8px_24px_rgba(0,65,78,0.08)] md:w-auto md:max-w-none`}
-              >
-                <Link
-                  href={productHref}
-                  onClick={() => recordShopClick(item, index)}
-                  className="group block"
-                >
-                  <div className="relative aspect-[4/5] overflow-hidden bg-stone-100">
-                    <picture>
-                      <source
-                        type="image/avif"
-                        srcSet={item.imageUrl.replace("f=webp", "f=avif")}
-                      />
-                      <img
-                        src={item.imageUrl}
-                        alt={`Real delivered ${item.productName} arrangement photographed before delivery.`}
-                        width={800}
-                        height={1000}
-                        loading={index === 0 ? "eager" : "lazy"}
-                        decoding="async"
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02] motion-reduce:transition-none"
-                      />
-                    </picture>
-                    <span className="absolute start-3 top-3 inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-[#00414e] shadow-sm">
-                      <Check aria-hidden="true" className="h-3.5 w-3.5" />
-                      {t("campaign.redesign.realDeliveries.verified")}
-                    </span>
-                  </div>
-                  <div className="space-y-2 p-4">
-                    <h3 className="font-serif text-base leading-snug text-neutral-900">
-                      {item.productName}
-                    </h3>
-                    <p className="text-xs text-neutral-500">
-                      {t("campaign.redesign.realDeliveries.location", { city: item.cityName })}
-                    </p>
+            const cardContent = (
+              <>
+                <div className="relative aspect-[4/5] overflow-hidden bg-stone-100">
+                  <picture>
+                    <source
+                      type="image/avif"
+                      srcSet={item.imageUrl.replace("f=webp", "f=avif")}
+                    />
+                    <img
+                      src={item.imageUrl}
+                      alt={`Real delivered ${item.productName} arrangement photographed before delivery.`}
+                      width={800}
+                      height={1000}
+                      loading={index === 0 ? "eager" : "lazy"}
+                      decoding="async"
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02] motion-reduce:transition-none"
+                    />
+                  </picture>
+                  <span className="absolute start-3 top-3 inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-[#00414e] shadow-sm">
+                    <Check aria-hidden="true" className="h-3.5 w-3.5" />
+                    {t("campaign.redesign.realDeliveries.verified")}
+                  </span>
+                </div>
+                <div className="space-y-2 p-4">
+                  <h3 className="font-serif text-base leading-snug text-neutral-900">
+                    {item.productName}
+                  </h3>
+                  <p className="text-xs text-neutral-500">
+                    {t("campaign.redesign.realDeliveries.location", { city: item.cityName })}
+                  </p>
+                  {productHref && (
                     <span className="inline-block pt-1 text-sm font-medium text-[#006273] group-hover:underline">
                       {t("campaign.redesign.realDeliveries.shop")}
                     </span>
-                  </div>
-                </Link>
+                  )}
+                </div>
+              </>
+            );
+            return (
+              <article
+                key={item.imageRef}
+                className={`${Math.floor(index / 3) === desktopPage ? "block" : "md:hidden"} w-[80vw] max-w-[330px] shrink-0 snap-start overflow-hidden rounded-2xl border border-[#d9dfd8] bg-white shadow-[0_8px_24px_rgba(0,65,78,0.08)] md:w-auto md:max-w-none`}
+              >
+                {productHref ? (
+                  <Link
+                    href={productHref}
+                    onClick={() => recordShopClick(item, index)}
+                    className="group block"
+                  >
+                    {cardContent}
+                  </Link>
+                ) : (
+                  <div className="group block">{cardContent}</div>
+                )}
               </article>
             );
           })}
@@ -1235,20 +1247,22 @@ export function CampaignRealDeliveries() {
         ))}
       </div>
 
-      <a
-        href={data.viewMoreUrl}
-        onClick={() =>
-          trackEvent({
-            name: "real_delivery_view_more_click",
-            selectedCity: cityId ?? undefined,
-            landingPath: typeof window === "undefined" ? undefined : window.location.pathname,
-            sectionKey: `${CAMPAIGN_SECTION_KEY}:real-deliveries`,
-          })
-        }
-        className="mx-auto mt-4 block w-fit py-2 text-sm font-medium text-[#006273] underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#006273]"
-      >
-        {t("campaign.redesign.realDeliveries.viewMore")}
-      </a>
+      {data.viewMoreUrl && (
+        <a
+          href={data.viewMoreUrl}
+          onClick={() =>
+            trackEvent({
+              name: "real_delivery_view_more_click",
+              selectedCity: cityId ?? undefined,
+              landingPath: typeof window === "undefined" ? undefined : window.location.pathname,
+              sectionKey: `${CAMPAIGN_SECTION_KEY}:real-deliveries`,
+            })
+          }
+          className="mx-auto mt-4 block w-fit py-2 text-sm font-medium text-[#006273] underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#006273]"
+        >
+          {t("campaign.redesign.realDeliveries.viewMore")}
+        </a>
+      )}
     </section>
   );
 }
