@@ -10,9 +10,10 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { createOsOrderMock } = vi.hoisted(() => {
+const { createOsOrderMock, resolveOsDeliveryConfigMock } = vi.hoisted(() => {
   const createOsOrderMock = vi.fn();
-  return { createOsOrderMock };
+  const resolveOsDeliveryConfigMock = vi.fn();
+  return { createOsOrderMock, resolveOsDeliveryConfigMock };
 });
 
 vi.mock("@workspace/db", () => ({
@@ -55,7 +56,7 @@ vi.mock("./wooStore", () => ({
 
 vi.mock("./osLocationsCache", () => ({
   getDeliverySlots: vi.fn().mockReturnValue([]),
-  resolveOsDeliveryConfig: vi.fn().mockReturnValue({
+  resolveOsDeliveryConfig: resolveOsDeliveryConfigMock.mockReturnValue({
     cityFeeUsd: undefined,
     freeDeliveryEnabled: false,
     freeDeliveryThresholdUsd: undefined,
@@ -134,6 +135,12 @@ describe("attemptCreateOsOrder — Express slot label", () => {
     process.env.PRESENTAIL_OS_API_KEY = "test-api-key";
     process.env.PRESENTAIL_OS_API_URL = "https://os.example.com";
     createOsOrderMock.mockResolvedValue({ order_id: "os-order-express" });
+    resolveOsDeliveryConfigMock.mockReturnValue({
+      cityFeeUsd: undefined,
+      freeDeliveryEnabled: false,
+      freeDeliveryThresholdUsd: undefined,
+      expressSurchargeUsd: 0,
+    });
   });
 
   afterEach(() => {
@@ -186,6 +193,32 @@ describe("attemptCreateOsOrder — Express slot label", () => {
     const payload = await submit(makeBody({ expressFee: 0, expressDelivery: false }));
     const delivery = payload.delivery as Record<string, unknown>;
     expect(delivery.isExpress).toBe(false);
+  });
+
+  it("charges the full OS Express total ($15) below the threshold — Express replaces standard delivery", async () => {
+    resolveOsDeliveryConfigMock.mockReturnValue({
+      cityFeeUsd: 11,
+      freeDeliveryEnabled: true,
+      freeDeliveryThresholdUsd: 140,
+      expressFeeTotalUsd: 15,
+      expressSurchargeUsd: 0,
+      expressSurchargeIsExplicit: false,
+    });
+    const payload = await submit(
+      makeBody({
+        district: "Baabda",
+        cityId: "lb-baabda",
+        expressFee: 0,
+        expressDelivery: true,
+      }),
+    );
+    const delivery = payload.delivery as Record<string, unknown>;
+    // District fee is $0 — Express replaces standard delivery entirely.
+    expect(delivery.feeUsd).toBe(0);
+    // Express surcharge in the OS payload carries the full configured Express total.
+    expect(delivery.expressSurchargeUsd).toBe(15);
+    expect(payload.deliveryFeeUsd).toBe(15);
+    expect(payload.totalUsd).toBe(40);
   });
 });
 

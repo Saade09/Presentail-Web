@@ -164,7 +164,7 @@ describe("parseDeliveryConfigPayload", () => {
     expect(city?.expressAvailable).toBe(true);
   });
 
-  it("derives expressSurcharge from expressFeeTotal - deliveryFee when express_surcharge is absent", () => {
+  it("preserves expressFeeTotal without inventing a surcharge when express_surcharge is absent", () => {
     const result = parseDeliveryConfigPayload({
       countries: [
         {
@@ -184,7 +184,9 @@ describe("parseDeliveryConfigPayload", () => {
       ],
     });
     const city = result.countries[0]?.cities[0];
-    expect(city?.expressSurcharge).toBe(15);
+    expect(city?.expressFeeTotal).toBe(20);
+    expect(city?.expressSurcharge).toBeUndefined();
+    expect(city?.expressSurchargeIsExplicit).toBe(false);
   });
 
   it("prefers explicit express_surcharge over derived value", () => {
@@ -209,6 +211,7 @@ describe("parseDeliveryConfigPayload", () => {
     });
     const city = result.countries[0]?.cities[0];
     expect(city?.expressSurcharge).toBe(18);
+    expect(city?.expressSurchargeIsExplicit).toBe(true);
   });
 
   it("parses slot time strings to startHour/endHour integers", () => {

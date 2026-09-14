@@ -134,11 +134,19 @@ type CachedCity = {
    */
   freeDeliveryEnabled?: boolean;
   /**
-   * Express surcharge in USD for this city. Derived from OSCity.expressSurcharge
-   * converted via getUsdAmount(amount, country.currency). When absent (legacy
-   * OS response without the ext endpoint), resolveOsDeliveryConfig returns 0.
+   * Explicit Express surcharge in USD for this city. An absent value means OS
+   * supplied no explicit surcharge; it does not mean the Express total is
+   * absent.
    */
   expressSurchargeUsd?: number;
+  /**
+   * Total Express delivery fee in USD for this city. When present without an
+   * explicit surcharge, the shared resolver derives the incremental component
+   * against the effective standard fee.
+   */
+  expressFeeTotalUsd?: number;
+  /** Whether OS explicitly supplied express_surcharge, including zero. */
+  expressSurchargeIsExplicit?: boolean;
 };
 
 type CachedCountry = {
@@ -556,6 +564,15 @@ function transformOsResponse(
                     arr.findIndex((s) => s.cutoffHour === slot.cutoffHour) === idx,
                 );
 
+        // Webhook parsing marks the source explicitly, while the live OS
+        // locations response may arrive with the legacy OSCity shape. A
+        // present surcharge value is therefore explicit unless the parser
+        // specifically marked the field as absent.
+        const hasExplicitExpressSurcharge =
+          c.expressSurcharge != null &&
+          c.expressSurchargeIsExplicit !== false;
+        const explicitExpressSurcharge = c.expressSurcharge;
+
         // Determine the city's active/inactive status using a layered strategy
         // that is defensive against OS API contract drift:
         //
@@ -640,12 +657,26 @@ function transformOsResponse(
           freeDeliveryEnabled:
             c.freeDeliveryEnabled ??
             resolveDeliveryConfig(code, canonicalId).freeDeliveryEnabled,
-          // Express surcharge in USD from the ext endpoint (expressSurcharge
-          // is in country display currency; pipe through getUsdAmount).
+          // Preserve the OS Express fee contract. An OS-only Express total is
+          // not a surcharge; it is resolved against the effective standard fee
+          // at charge time. If a partial webhook omits both fields, retain the
+          // prior values rather than silently reverting to hardcoded pricing.
+          expressFeeTotalUsd:
+            c.expressFeeTotal != null
+              ? getUsdAmount(c.expressFeeTotal, currency)
+              : priorCity?.expressFeeTotalUsd,
           expressSurchargeUsd:
-            c.expressSurcharge != null
-              ? getUsdAmount(c.expressSurcharge, currency)
-              : undefined,
+            hasExplicitExpressSurcharge
+              ? getUsdAmount(explicitExpressSurcharge!, currency)
+              : c.expressFeeTotal != null
+                ? undefined
+                : priorCity?.expressSurchargeUsd,
+          expressSurchargeIsExplicit:
+            hasExplicitExpressSurcharge
+              ? true
+              : c.expressFeeTotal != null
+                ? false
+                : priorCity?.expressSurchargeIsExplicit,
         };
       });
 
@@ -1095,7 +1126,13 @@ export function resolveOsDeliveryConfig(
   const base = resolveDeliveryConfig(countryCode, cityId);
   const express = getExpressConfig(cityId);
 
-  let result = express.expressDeliveryLabel
+  type ResolvedOsDeliveryConfig = ReturnType<typeof resolveDeliveryConfig> & {
+    cityFeeUsd?: number | null;
+    expressFeeTotalUsd?: number;
+    expressSurchargeIsExplicit?: boolean;
+  };
+
+  let result: ResolvedOsDeliveryConfig = express.expressDeliveryLabel
     ? { ...base, expressDeliveryTimeLabel: express.expressDeliveryLabel }
     : { ...base };
 
@@ -1119,14 +1156,22 @@ export function resolveOsDeliveryConfig(
   const cityFeeUsd = osCity !== undefined ? (osCity.fee ?? null) : null;
   result = { ...result, cityFeeUsd };
 
-  // Express surcharge from the OS cache. When the city isn't in the cache
-  // (e.g. hardcoded fallback country) or the ext endpoint hasn't sent
-  // expressSurcharge yet, default to 0 — the checkout route re-verifies
-  // against the OS delivery_config.updated webhook data when available.
-  result = { ...result, expressSurchargeUsd: osCity?.expressSurchargeUsd ?? 0 };
+  // Preserve the distinction between an explicit surcharge and an OS-only
+  // Express total. Callers use the shared resolver below so standard delivery
+  // can be free without losing the configured Express total.
+  result = {
+    ...result,
+    // Keep the legacy numeric shape for callers and snapshots. The explicit
+    // flag plus expressFeeTotalUsd carries the source distinction; zero here
+    // means "no legacy surcharge", not an OS-configured zero surcharge.
+    expressSurchargeUsd: osCity?.expressSurchargeUsd ?? 0,
+    expressFeeTotalUsd: osCity?.expressFeeTotalUsd,
+    expressSurchargeIsExplicit: osCity?.expressSurchargeIsExplicit,
+  };
 
   return result;
 }
+
 
 /**
  * Store a delivery locations payload pushed by Presentail OS via webhook.

@@ -27,6 +27,7 @@ import {
   captureAndVerifyPayPalOrder,
 } from "../lib/catalog";
 import { getDeliverySlots, resolveOsDeliveryConfig } from "../lib/osLocationsCache";
+import { resolveEffectiveExpressFeeUsd } from "../lib/deliveryFees";
 import {
   convertFromUsd,
   normalizeCurrency,
@@ -1713,7 +1714,7 @@ router.post("/woo/order", async (req, res) => {
             const recoveredOsConfig = body.cityId
               ? resolveOsDeliveryConfig(recoveredCountry, body.cityId)
               : null;
-            const recoveredDistrictFeeUsd = (() => {
+            const recoveredWouldBeStdFeeUsd = (() => {
               if (recoveredOsConfig && typeof recoveredOsConfig.cityFeeUsd === "number") {
                 const isFreeByOs =
                   recoveredOsConfig.freeDeliveryEnabled === true &&
@@ -1723,10 +1724,13 @@ router.post("/woo/order", async (req, res) => {
               }
               return computeDistrictFeeUsd(recoveredDistrict, cartResolution.subtotalUsd);
             })();
+            const recoveredDistrictFeeUsd = isExpressRecovery ? 0 : recoveredWouldBeStdFeeUsd;
             const recoveredExpressFeeUsd = isExpressRecovery
-              ? (recoveredOsConfig && recoveredOsConfig.expressSurchargeUsd > 0
-                  ? recoveredOsConfig.expressSurchargeUsd
-                  : expressSurchargeUsd(recoveredCountry))
+              ? resolveEffectiveExpressFeeUsd(
+                  recoveredOsConfig,
+                  recoveredWouldBeStdFeeUsd,
+                  expressSurchargeUsd(recoveredCountry),
+                )
               : 0;
             // Use the shared authoritative resolver (date-aware, slotId-first,
             // same-day-night $5 fallback) so the recovery path can never accept

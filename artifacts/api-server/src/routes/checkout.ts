@@ -25,6 +25,7 @@ import {
   checkSubmittedSlotBookable,
 } from "../lib/catalog";
 import { resolveOsDeliveryConfig } from "../lib/osLocationsCache";
+import { resolveEffectiveExpressFeeUsd } from "../lib/deliveryFees";
 import { storePaymentIntent, getPaymentIntentForOrder } from "../lib/checkoutIntents";
 import { validateRedirectUrl } from "../lib/validateRedirectUrl";
 import { resolveStoreFromRequest, type StoreKey } from "../lib/wooStore";
@@ -256,7 +257,7 @@ router.post("/checkout/session", async (req, res) => {
   // cityId is absent, fall back to the city-name lookup for backwards compat.
   const sessionCountry = countryForDistrict(sessionDistrict);
   const sessionOsConfig = rawCityId ? resolveOsDeliveryConfig(sessionCountry, rawCityId) : null;
-  const sessionDistrictFeeUsd = (() => {
+  const sessionWouldBeStdFeeUsd = (() => {
     if (!sessionDistrict) return 0;
     if (sessionOsConfig && typeof sessionOsConfig.cityFeeUsd === "number") {
       const isFreeByOs =
@@ -267,11 +268,16 @@ router.post("/checkout/session", async (req, res) => {
     }
     return computeDistrictFeeUsd(sessionDistrict, sessionSubtotalUsd);
   })();
+  // Express delivery replaces standard delivery — the district fee is $0 for
+  // Express orders. The Express fee is the full configured total.
+  const sessionDistrictFeeUsd = sessionExpressDelivery ? 0 : sessionWouldBeStdFeeUsd;
   const sessionExpressFeeUsd =
     sessionDistrict && sessionExpressDelivery
-      ? (sessionOsConfig && sessionOsConfig.expressSurchargeUsd > 0
-          ? sessionOsConfig.expressSurchargeUsd
-          : expressSurchargeUsd(sessionCountry))
+      ? resolveEffectiveExpressFeeUsd(
+          sessionOsConfig,
+          sessionWouldBeStdFeeUsd,
+          expressSurchargeUsd(sessionCountry),
+        )
       : 0;
   // Slot fee is computed server-side from the OS locations cache. Only charged
   // when the customer chose a premium slot and is NOT on express delivery
@@ -760,7 +766,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
   const subtotalUsd = catalogResult.subtotalUsd;
   const piCountry = countryForDistrict(district ?? "Beirut");
   const piOsConfig = cityId ? resolveOsDeliveryConfig(piCountry, cityId) : null;
-  const serverDistrictFeeUsd = (() => {
+  const piWouldBeStdFeeUsd = (() => {
     if (piOsConfig && typeof piOsConfig.cityFeeUsd === "number") {
       const isFreeByOs =
         piOsConfig.freeDeliveryEnabled === true &&
@@ -770,11 +776,15 @@ router.post("/checkout/payment-intent", async (req, res) => {
     }
     return computeDistrictFeeUsd(district ?? "Beirut", subtotalUsd);
   })();
+  // Express delivery replaces standard delivery — district fee is $0 for Express.
+  const serverDistrictFeeUsd = expressDelivery === true ? 0 : piWouldBeStdFeeUsd;
   const serverExpressFeeUsd =
     expressDelivery === true
-      ? (piOsConfig && piOsConfig.expressSurchargeUsd > 0
-          ? piOsConfig.expressSurchargeUsd
-          : expressSurchargeUsd(piCountry))
+      ? resolveEffectiveExpressFeeUsd(
+          piOsConfig,
+          piWouldBeStdFeeUsd,
+          expressSurchargeUsd(piCountry),
+        )
       : 0;
   // Slot fee is computed server-side from the OS locations cache. Only charged
   // when the customer chose a premium slot and is NOT on express delivery.
@@ -1409,7 +1419,7 @@ router.post("/checkout/fees", async (req, res) => {
   // When cityId is absent, fall back to the city-name lookup for backwards compat.
   const feesCountry = countryForDistrict(district ?? "Beirut");
   const feesOsConfig = cityId ? resolveOsDeliveryConfig(feesCountry, cityId) : null;
-  const districtFeeUsd = (() => {
+  const feesWouldBeStdFeeUsd = (() => {
     if (feesOsConfig && typeof feesOsConfig.cityFeeUsd === "number") {
       const isFreeByOs =
         feesOsConfig.freeDeliveryEnabled === true &&
@@ -1421,11 +1431,15 @@ router.post("/checkout/fees", async (req, res) => {
     // and all charge routes, so the quoted fee always matches the charged fee.
     return computeDistrictFeeUsd(district ?? "Beirut", subtotalUsd);
   })();
+  // Express delivery replaces standard delivery — district fee is $0 for Express.
+  const districtFeeUsd = expressDelivery === true ? 0 : feesWouldBeStdFeeUsd;
   const expressFeeUsd =
     expressDelivery === true
-      ? (feesOsConfig && feesOsConfig.expressSurchargeUsd > 0
-          ? feesOsConfig.expressSurchargeUsd
-          : expressSurchargeUsd(feesCountry))
+      ? resolveEffectiveExpressFeeUsd(
+          feesOsConfig,
+          feesWouldBeStdFeeUsd,
+          expressSurchargeUsd(feesCountry),
+        )
       : 0;
   const slotFeeUsd = computeSlotFeeUsd({
     expressDelivery: expressDelivery === true,

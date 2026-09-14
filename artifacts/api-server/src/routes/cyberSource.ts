@@ -37,6 +37,7 @@ import {
   checkSubmittedSlotBookable,
 } from "../lib/catalog";
 import { resolveOsDeliveryConfig } from "../lib/osLocationsCache";
+import { resolveEffectiveExpressFeeUsd } from "../lib/deliveryFees";
 import { resolveStoreFromRequest } from "../lib/wooStore";
 import {
   acquireFirst10Lock,
@@ -535,7 +536,7 @@ router.post("/payment/cybersource/authorize", async (req, res) => {
       ? resolveOsDeliveryConfig(districtCountry, rawCityId)
       : null;
 
-    districtFeeUsd = (() => {
+    const csWouldBeStdFeeUsd = (() => {
       if (osConfig && typeof osConfig.cityFeeUsd === "number") {
         const isFreeByOs =
           osConfig.freeDeliveryEnabled === true &&
@@ -545,11 +546,14 @@ router.post("/payment/cybersource/authorize", async (req, res) => {
       }
       return computeDistrictFeeUsd(resolvedDistrict, subtotalUsd);
     })();
+    districtFeeUsd = isExpress ? 0 : csWouldBeStdFeeUsd;
 
     expressFeeUsd = isExpress
-      ? (osConfig && osConfig.expressSurchargeUsd > 0
-          ? osConfig.expressSurchargeUsd
-          : expressSurchargeUsd(districtCountry))
+      ? resolveEffectiveExpressFeeUsd(
+          osConfig,
+          csWouldBeStdFeeUsd,
+          expressSurchargeUsd(districtCountry),
+        )
       : 0;
 
     slotFeeUsd = computeSlotFeeUsd({

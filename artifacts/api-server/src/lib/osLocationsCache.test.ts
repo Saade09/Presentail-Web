@@ -18,7 +18,9 @@ import {
   resetCacheForTesting,
   fetchAndStoreForTesting,
   getOsCityDeliveryFeeUsd,
+  resolveOsDeliveryConfig,
 } from "./osLocationsCache";
+import { resolveEffectiveExpressFeeUsd } from "./deliveryFees";
 import type { OSLocationsResponse, OSCountry, OSCity } from "@workspace/presentail-os";
 
 // Mock the alerts module so Slack sends are captured without real HTTP.
@@ -966,5 +968,68 @@ describe("getOsCityDeliveryFeeUsd", () => {
     storeLocationsFromWebhook(payload);
 
     expect(getOsCityDeliveryFeeUsd("LB", "NonExistentCity")).toBeUndefined();
+  });
+});
+
+describe("OS Express fee contract", () => {
+  beforeEach(() => {
+    resetCacheForTesting();
+  });
+
+  it("uses the OS Express total of $15 regardless of whether standard delivery is free", () => {
+    storeLocationsFromWebhook({
+      countries: [
+        makeLbCountry([
+          makeCity({
+            id: 42,
+            slug: "baabda",
+            name: "Baabda",
+            deliveryFee: 11,
+            expressFeeTotal: 15,
+            expressAvailable: true,
+            freeDeliveryThreshold: 140,
+            freeDeliveryEnabled: true,
+          }),
+        ]),
+      ],
+    });
+
+    const config = resolveOsDeliveryConfig("LB", "lb-baabda");
+    expect(config.cityFeeUsd).toBe(11);
+    expect(config.expressFeeTotalUsd).toBe(15);
+    expect(config.expressSurchargeIsExplicit).toBe(false);
+    // Below threshold: standard fee is $11, but Express total is always $15.
+    expect(
+      resolveEffectiveExpressFeeUsd(config, 11, 15),
+    ).toBe(15);
+    // Above threshold: standard is free, Express total is still $15.
+    expect(
+      resolveEffectiveExpressFeeUsd(config, 0, 15),
+    ).toBe(15);
+  });
+
+  it("keeps an explicit OS surcharge as an increment even when standard delivery is free", () => {
+    storeLocationsFromWebhook({
+      countries: [
+        makeLbCountry([
+          makeCity({
+            id: 42,
+            slug: "baabda",
+            name: "Baabda",
+            deliveryFee: 11,
+            expressFeeTotal: 15,
+            expressSurcharge: 4,
+            expressSurchargeIsExplicit: true,
+            expressAvailable: true,
+            freeDeliveryEnabled: true,
+          }),
+        ]),
+      ],
+    });
+
+    const config = resolveOsDeliveryConfig("LB", "lb-baabda");
+    expect(
+      resolveEffectiveExpressFeeUsd(config, 0, 15),
+    ).toBe(4);
   });
 });

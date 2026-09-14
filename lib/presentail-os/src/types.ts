@@ -59,10 +59,15 @@ export type OSCity = {
    */
   expressFeeTotal?: number;
   /**
-   * Express surcharge portion of expressFeeTotal (expressFeeTotal - deliveryFee).
-   * In the country's display currency.
+   * Explicit Express surcharge in the country's display currency.
+   *
+   * When this field is absent, expressFeeTotal is the configured total Express
+   * fee and the server derives the incremental amount from the effective
+   * standard fee. This distinction matters when standard delivery is free.
    */
   expressSurcharge?: number;
+  /** True when the OS explicitly supplied express_surcharge. */
+  expressSurchargeIsExplicit?: boolean;
   /**
    * Free delivery threshold in the country's display currency for this city.
    * Use getUsdAmount to convert to USD before comparison with cart total.

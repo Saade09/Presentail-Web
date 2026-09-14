@@ -23,6 +23,7 @@ const {
   expressSurchargeUsdMock,
   countryForDistrictMock,
   sendAlertMock,
+  resolveOsDeliveryConfigMock,
 } = vi.hoisted(() => {
   const createMock = vi.fn();
   const retrieveMock = vi.fn();
@@ -32,7 +33,8 @@ const {
   const expressSurchargeUsdMock = vi.fn().mockReturnValue(0);
   const countryForDistrictMock = vi.fn().mockReturnValue("LB");
   const sendAlertMock = vi.fn().mockResolvedValue(undefined);
-  return { createMock, retrieveMock, updateMock, searchMock, computeDistrictFeeUsdMock, expressSurchargeUsdMock, countryForDistrictMock, sendAlertMock };
+  const resolveOsDeliveryConfigMock = vi.fn().mockReturnValue(null);
+  return { createMock, retrieveMock, updateMock, searchMock, computeDistrictFeeUsdMock, expressSurchargeUsdMock, countryForDistrictMock, sendAlertMock, resolveOsDeliveryConfigMock };
 });
 
 vi.mock("../lib/alerts", () => ({
@@ -73,6 +75,10 @@ vi.mock("../lib/catalog", () => ({
   computeSlotFeeUsd: vi.fn().mockReturnValue(0),
   expressSurchargeUsd: expressSurchargeUsdMock,
   countryForDistrict: countryForDistrictMock,
+}));
+
+vi.mock("../lib/osLocationsCache", () => ({
+  resolveOsDeliveryConfig: resolveOsDeliveryConfigMock,
 }));
 
 // ---------------------------------------------------------------------------
@@ -155,6 +161,7 @@ beforeEach(() => {
   retrieveMock.mockReset();
   updateMock.mockReset();
   searchMock.mockReset();
+  resolveOsDeliveryConfigMock.mockReturnValue(null);
   // Default: search returns empty results (no prior PI found).
   searchMock.mockResolvedValue({ data: [], has_more: false });
 });
@@ -170,6 +177,7 @@ afterEach(() => {
 import express from "express";
 import request from "supertest";
 import { getPaymentIntentForOrder, peekPaymentIntent } from "../lib/checkoutIntents";
+import { resolveCartItems } from "../lib/catalog";
 
 async function buildApp() {
   const { default: checkoutRouter } = await import("./checkout");
@@ -415,6 +423,57 @@ describe("POST /checkout/payment-intent — idempotency", () => {
     expect(updateMock).toHaveBeenCalledWith(
       "pi_old",
       expect.objectContaining({ amount: 1500, currency: "usd" }),
+    );
+  });
+});
+
+describe("POST /checkout/payment-intent — OS Express total parity", () => {
+  it("stores the full OS Express total when standard delivery is free", async () => {
+    const orderId = "LB-BAABDA-EXPRESS-TOTAL";
+    resolveOsDeliveryConfigMock.mockReturnValue({
+      cityFeeUsd: 11,
+      freeDeliveryEnabled: true,
+      freeDeliveryThresholdUsd: 140,
+      expressFeeTotalUsd: 15,
+      expressSurchargeUsd: 0,
+      expressSurchargeIsExplicit: false,
+    });
+    vi.mocked(resolveCartItems).mockResolvedValueOnce({
+      ok: true,
+      subtotalUsd: 220,
+      items: [{ wcId: 42, osSlug: undefined, quantity: 1, priceUsd: 220, name: "Rose", description: "", image: "" }],
+    });
+    createMock.mockResolvedValueOnce({
+      id: "pi_baabda_express",
+      client_secret: "pi_baabda_express_secret",
+      status: "requires_payment_method",
+      amount: 23500,
+      currency: "usd",
+    });
+
+    const res = await request(await buildApp())
+      .post("/checkout/payment-intent")
+      .send({
+        ...BASE_BODY,
+        orderId,
+        district: "Baabda",
+        cityId: "lb-baabda",
+        expressDelivery: true,
+        deliverySlot: "",
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.amount).toBe(23500);
+    const paymentRef = getPaymentIntentForOrder(orderId);
+    expect(paymentRef).toBe("pi_baabda_express");
+    const stored = peekPaymentIntent(paymentRef!);
+    expect(stored?.snapshot).toEqual(
+      expect.objectContaining({
+        districtFeeUsd: 0,
+        expressFeeUsd: 15,
+        slotFeeUsd: 0,
+        expressDelivery: true,
+      }),
     );
   });
 });
@@ -711,6 +770,11 @@ describe("POST /checkout/payment-intent — Gulf store (UAE)", () => {
     sendAlertMock.mockClear();
     // Default: search returns empty results.
     searchMock.mockResolvedValue({ data: [], has_more: false });
+  vi.mocked(resolveCartItems).mockResolvedValue({
+    ok: true,
+    subtotalUsd: 10,
+    items: [{ wcId: 42, osSlug: undefined, quantity: 1, priceUsd: 10, name: "Rose", description: "", image: "" }],
+  });
   });
 
   afterEach(() => {

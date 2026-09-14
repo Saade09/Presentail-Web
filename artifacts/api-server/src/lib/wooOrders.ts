@@ -89,6 +89,7 @@ import {
   resolveOsDeliveryConfig,
   type OsDeliverySlot,
 } from "./osLocationsCache";
+import { resolveEffectiveExpressFeeUsd } from "./deliveryFees";
 import { createOsOrder, type PresentailOsConfig } from "@workspace/presentail-os";
 import { getOsProductBySlug, getOsProductByWcId, hasOsProducts } from "./osProductsCache";
 import { appendOrderToSheet } from "./ordersSheet.js";
@@ -573,10 +574,11 @@ export async function attemptCreateWcOrder(
   let expressSurchargeAppliedUsd = 0;
   if (clientSignalledExpress) {
     const districtCountry = countryForDistrict(body.district);
-    expressSurchargeAppliedUsd =
-      osDeliveryConfig.expressSurchargeUsd > 0
-        ? osDeliveryConfig.expressSurchargeUsd
-        : expressSurchargeUsd(districtCountry);
+    expressSurchargeAppliedUsd = resolveEffectiveExpressFeeUsd(
+      osDeliveryConfig,
+      serverDistrictFeeUsd,
+      expressSurchargeUsd(districtCountry),
+    );
     shippingLines.push({
       method_id: "flat_rate",
       method_title: "Express Delivery Surcharge",
@@ -1393,37 +1395,51 @@ export async function attemptCreateOsOrder(
   // /checkout/payment-intent after Bugs A+B fix), use them directly so the
   // order record matches the Stripe/Mamo/PayPal charge exactly. Fall back to
   // OS-cache re-computation for COD/Whish flows and pre-fix snapshots.
-  let serverDistrictFeeUsd: number;
-  if (opts.preVerifiedFees?.districtFeeUsd !== undefined) {
-    serverDistrictFeeUsd = opts.preVerifiedFees.districtFeeUsd;
-  } else if (typeof osDeliveryConfig.cityFeeUsd === "number") {
+  // Belt-and-suspenders: accept mobile `expressDelivery` boolean so a
+  // zero-fee edge case never silently downgrades an express order.
+  const clientSignalledExpress = body.expressFee > 0 || body.expressDelivery === true;
+
+  // Compute the would-be standard district fee (threshold logic only — does
+  // not yet account for Express replacing standard delivery).
+  let wouldBeStdDistrictFeeUsd: number;
+  if (typeof osDeliveryConfig.cityFeeUsd === "number") {
     const isFreeByOs =
       osDeliveryConfig.freeDeliveryEnabled === true &&
       typeof osDeliveryConfig.freeDeliveryThresholdUsd === "number" &&
       catalogSubtotalUsd >= osDeliveryConfig.freeDeliveryThresholdUsd;
-    serverDistrictFeeUsd = isFreeByOs ? 0 : osDeliveryConfig.cityFeeUsd;
+    wouldBeStdDistrictFeeUsd = isFreeByOs ? 0 : osDeliveryConfig.cityFeeUsd;
   } else {
-    serverDistrictFeeUsd = computeDistrictFeeUsd(
+    wouldBeStdDistrictFeeUsd = computeDistrictFeeUsd(
       body.district,
       catalogSubtotalUsd,
     );
   }
 
-  // Belt-and-suspenders: accept mobile `expressDelivery` boolean so a
-  // zero-fee edge case never silently downgrades an express order.
-  const clientSignalledExpress = body.expressFee > 0 || body.expressDelivery === true;
+  // When the payment intent snapshot contains pre-computed fees (set by
+  // /checkout/payment-intent after Bugs A+B fix), use them directly so the
+  // order record matches the Stripe/Mamo/PayPal charge exactly. Fall back to
+  // OS-cache re-computation for COD/Whish flows and pre-fix snapshots.
+  // Express delivery replaces standard delivery — district fee is $0 for Express.
+  let serverDistrictFeeUsd: number;
+  if (opts.preVerifiedFees?.districtFeeUsd !== undefined) {
+    serverDistrictFeeUsd = opts.preVerifiedFees.districtFeeUsd;
+  } else {
+    serverDistrictFeeUsd = clientSignalledExpress ? 0 : wouldBeStdDistrictFeeUsd;
+  }
+
   let expressSurchargeAppliedUsd = 0;
   if (clientSignalledExpress) {
     if (opts.preVerifiedFees?.expressFeeUsd !== undefined) {
       expressSurchargeAppliedUsd = opts.preVerifiedFees.expressFeeUsd;
     } else {
       const districtCountry = countryForDistrict(body.district);
-      // Prefer OS-delivered city surcharge; fall back to hardcoded constant
-      // when the OS cache has no data for this city yet.
-      expressSurchargeAppliedUsd =
-        osDeliveryConfig.expressSurchargeUsd > 0
-          ? osDeliveryConfig.expressSurchargeUsd
-          : expressSurchargeUsd(districtCountry);
+      // Prefer the OS Express total/explicit surcharge semantics; fall back
+      // to the hardcoded country value when the OS cache has no fee data.
+      expressSurchargeAppliedUsd = resolveEffectiveExpressFeeUsd(
+        osDeliveryConfig,
+        wouldBeStdDistrictFeeUsd,
+        expressSurchargeUsd(districtCountry),
+      );
     }
   }
 

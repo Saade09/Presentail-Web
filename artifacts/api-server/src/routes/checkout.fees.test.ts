@@ -27,13 +27,15 @@ const {
   countryForDistrictMock,
   getDeliverySlotsMock,
   getLocalIsoMock,
+  resolveOsDeliveryConfigMock,
 } = vi.hoisted(() => {
   const computeDistrictFeeUsdMock = vi.fn().mockReturnValue(8);
   const expressSurchargeUsdMock = vi.fn().mockReturnValue(5);
   const countryForDistrictMock = vi.fn().mockReturnValue("LB");
   const getDeliverySlotsMock = vi.fn().mockReturnValue([]);
   const getLocalIsoMock = vi.fn().mockReturnValue("2026-07-20");
-  return { computeDistrictFeeUsdMock, expressSurchargeUsdMock, countryForDistrictMock, getDeliverySlotsMock, getLocalIsoMock };
+  const resolveOsDeliveryConfigMock = vi.fn().mockReturnValue(null);
+  return { computeDistrictFeeUsdMock, expressSurchargeUsdMock, countryForDistrictMock, getDeliverySlotsMock, getLocalIsoMock, resolveOsDeliveryConfigMock };
 });
 
 vi.mock("@workspace/delivery", async (importActual) => {
@@ -62,7 +64,7 @@ vi.mock("../lib/catalog", async (importActual) => {
 vi.mock("../lib/osLocationsCache", () => ({
   getDeliverySlots: getDeliverySlotsMock,
   getExpressConfig: vi.fn().mockReturnValue({}),
-  resolveOsDeliveryConfig: vi.fn().mockReturnValue(null),
+  resolveOsDeliveryConfig: resolveOsDeliveryConfigMock,
 }));
 
 vi.mock("../lib/fx", () => ({
@@ -138,6 +140,7 @@ beforeEach(() => {
   expressSurchargeUsdMock.mockReturnValue(5);
   countryForDistrictMock.mockReturnValue("LB");
   getDeliverySlotsMock.mockReturnValue([]);
+  resolveOsDeliveryConfigMock.mockReturnValue(null);
   getLocalIsoMock.mockReturnValue("2026-07-20");
   vi.mocked(resolveCartItems).mockResolvedValue({
     ok: true,
@@ -259,9 +262,65 @@ describe("POST /checkout/fees", () => {
       });
 
     expect(res.status).toBe(200);
-    expect(res.body.expressFeeUsd).toBe(5);
+    // Express replaces standard delivery: districtFeeUsd=0, expressFeeUsd=standard+surcharge=8+5=13.
+    expect(res.body.districtFeeUsd).toBe(0);
+    expect(res.body.expressFeeUsd).toBe(13);
     expect(res.body.slotFeeUsd).toBe(0);
     expect(res.body.totalUsd).toBe(113);
+  });
+
+  it("charges the OS Express total once below and above the free-delivery threshold", async () => {
+    resolveOsDeliveryConfigMock.mockReturnValue({
+      cityFeeUsd: 11,
+      freeDeliveryEnabled: true,
+      freeDeliveryThresholdUsd: 140,
+      expressFeeTotalUsd: 15,
+      expressSurchargeUsd: 0,
+      expressSurchargeIsExplicit: false,
+    });
+
+    const app = await buildApp();
+
+    vi.mocked(resolveCartItems).mockResolvedValueOnce({
+      ok: true,
+      subtotalUsd: 100,
+      items: [{ wcId: 42, osSlug: undefined, quantity: 1, priceUsd: 100, name: "Rose", description: "", image: "" }],
+    });
+    const below = await request(app)
+      .post("/checkout/fees")
+      .send({
+        items: BASE_ITEMS,
+        currency: "USD",
+        district: "Baabda",
+        cityId: "lb-baabda",
+        expressDelivery: true,
+      });
+    // Below threshold: Express replaces standard delivery — district fee is $0,
+    // Express total is always the configured $15 regardless of the threshold.
+    expect(below.status).toBe(200);
+    expect(below.body.districtFeeUsd).toBe(0);
+    expect(below.body.expressFeeUsd).toBe(15);
+    expect(below.body.totalUsd).toBe(115);
+
+    vi.mocked(resolveCartItems).mockResolvedValueOnce({
+      ok: true,
+      subtotalUsd: 220,
+      items: [{ wcId: 42, osSlug: undefined, quantity: 1, priceUsd: 220, name: "Rose", description: "", image: "" }],
+    });
+    const above = await request(app)
+      .post("/checkout/fees")
+      .send({
+        items: BASE_ITEMS,
+        currency: "USD",
+        district: "Baabda",
+        cityId: "lb-baabda",
+        expressDelivery: true,
+      });
+    // Above threshold: standard is free but Express total is still $15.
+    expect(above.status).toBe(200);
+    expect(above.body.districtFeeUsd).toBe(0);
+    expect(above.body.expressFeeUsd).toBe(15);
+    expect(above.body.totalUsd).toBe(235);
   });
 
   it("(g) missing items — returns 400", async () => {

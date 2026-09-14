@@ -357,13 +357,10 @@ export function parseDeliveryConfigPayload(data: {
     const cities = (wc.cities ?? []).map((city) => {
       const deliveryFee = city.delivery_fee;
       const expressFeeTotal = city.express_delivery_fee;
-      // expressSurcharge = total express fee minus the base delivery fee.
-      // When express_surcharge is supplied directly, prefer it; otherwise derive it.
-      const expressSurcharge =
-        city.express_surcharge ??
-        (expressFeeTotal != null && deliveryFee != null
-          ? expressFeeTotal - deliveryFee
-          : undefined);
+      // Keep an explicitly configured surcharge separate from the configured
+      // Express total. Deriving a surcharge here loses the total and causes a
+      // free standard-delivery order to be charged only the increment.
+      const expressSurcharge = city.express_surcharge;
       return {
         id: city.id ?? 0,
         slug: city.slug ?? "",
@@ -393,6 +390,7 @@ export function parseDeliveryConfigPayload(data: {
         timeSlots: mapWebhookSlots(city.delivery_slots),
         expressFeeTotal,
         expressSurcharge,
+        expressSurchargeIsExplicit: city.express_surcharge !== undefined,
         freeDeliveryThreshold: city.free_delivery_threshold,
         freeDeliveryEnabled: city.free_delivery_enabled,
       };

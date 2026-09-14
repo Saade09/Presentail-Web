@@ -17,6 +17,7 @@ import {
 } from "../lib/catalog";
 import { storePaymentIntent } from "../lib/checkoutIntents";
 import { resolveOsDeliveryConfig } from "../lib/osLocationsCache";
+import { resolveEffectiveExpressFeeUsd } from "../lib/deliveryFees";
 import { resolveStoreFromRequest, resolveStore } from "../lib/wooStore";
 import { validateRedirectUrl } from "../lib/validateRedirectUrl";
 import { db } from "@workspace/db";
@@ -221,7 +222,7 @@ router.post("/payment/mamo", async (req, res) => {
   // Bugs A+B fix: prefer OS city-level delivery config (keyed by cityId) so the
   // Mamo charge matches the fee wooOrders.ts will record at order creation.
   const mamoOsConfig = rawCityId ? resolveOsDeliveryConfig(districtCountry, rawCityId) : null;
-  const districtFeeUsd = (() => {
+  const mamoWouldBeStdFeeUsd = (() => {
     if (mamoOsConfig && typeof mamoOsConfig.cityFeeUsd === "number") {
       const isFreeByOs =
         mamoOsConfig.freeDeliveryEnabled === true &&
@@ -231,10 +232,13 @@ router.post("/payment/mamo", async (req, res) => {
     }
     return computeDistrictFeeUsd(resolvedDistrict, subtotalUsd);
   })();
+  const districtFeeUsd = isExpress ? 0 : mamoWouldBeStdFeeUsd;
   const expressFeeUsd = isExpress
-    ? (mamoOsConfig && mamoOsConfig.expressSurchargeUsd > 0
-        ? mamoOsConfig.expressSurchargeUsd
-        : expressSurchargeUsd(districtCountry))
+    ? resolveEffectiveExpressFeeUsd(
+        mamoOsConfig,
+        mamoWouldBeStdFeeUsd,
+        expressSurchargeUsd(districtCountry),
+      )
     : 0;
   // Slot fee is computed server-side from the OS locations cache and included
   // in the Mamo charge so a shopper cannot pay the standard rate and then
@@ -549,7 +553,7 @@ router.post("/payment/paypal", async (req, res) => {
   // Bugs A+B fix: prefer OS city-level delivery config (keyed by cityId) so the
   // PayPal charge matches the fee wooOrders.ts will record at order creation.
   const ppOsConfig = ppRawCityId ? resolveOsDeliveryConfig(districtCountryPP, ppRawCityId) : null;
-  const districtFeeUsd = (() => {
+  const ppWouldBeStdFeeUsd = (() => {
     if (ppOsConfig && typeof ppOsConfig.cityFeeUsd === "number") {
       const isFreeByOs =
         ppOsConfig.freeDeliveryEnabled === true &&
@@ -559,10 +563,13 @@ router.post("/payment/paypal", async (req, res) => {
     }
     return computeDistrictFeeUsd(resolvedDistrict, subtotalUsd);
   })();
+  const districtFeeUsd = isExpress ? 0 : ppWouldBeStdFeeUsd;
   const expressFeeUsd = isExpress
-    ? (ppOsConfig && ppOsConfig.expressSurchargeUsd > 0
-        ? ppOsConfig.expressSurchargeUsd
-        : expressSurchargeUsd(districtCountryPP))
+    ? resolveEffectiveExpressFeeUsd(
+        ppOsConfig,
+        ppWouldBeStdFeeUsd,
+        expressSurchargeUsd(districtCountryPP),
+      )
     : 0;
   // Slot fee is computed server-side and included in the PayPal charge so a
   // shopper cannot pay the standard rate and then submit a premium-slot order.
@@ -798,7 +805,7 @@ router.post("/payment/tabby", async (req, res) => {
   // Bugs A+B fix: prefer OS city-level delivery config (keyed by cityId) so the
   // Tabby charge matches the fee wooOrders.ts will record at order creation.
   const tabbyOsConfig = tabbyRawCityId ? resolveOsDeliveryConfig(districtCountry, tabbyRawCityId) : null;
-  const districtFeeUsd = (() => {
+  const tabbyWouldBeStdFeeUsd = (() => {
     if (tabbyOsConfig && typeof tabbyOsConfig.cityFeeUsd === "number") {
       const isFreeByOs =
         tabbyOsConfig.freeDeliveryEnabled === true &&
@@ -808,10 +815,13 @@ router.post("/payment/tabby", async (req, res) => {
     }
     return computeDistrictFeeUsd(resolvedDistrict, subtotalUsd);
   })();
+  const districtFeeUsd = isExpress ? 0 : tabbyWouldBeStdFeeUsd;
   const expressFeeUsd = isExpress
-    ? (tabbyOsConfig && tabbyOsConfig.expressSurchargeUsd > 0
-        ? tabbyOsConfig.expressSurchargeUsd
-        : expressSurchargeUsd(districtCountry))
+    ? resolveEffectiveExpressFeeUsd(
+        tabbyOsConfig,
+        tabbyWouldBeStdFeeUsd,
+        expressSurchargeUsd(districtCountry),
+      )
     : 0;
   const tabbySlotFeeUsd = computeSlotFeeUsd({
     expressDelivery: isExpress,

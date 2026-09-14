@@ -100,5 +100,6 @@
 - [Catalog display image bounds](catalog-display-image-bounds.md) — cards use 400px defaults, galleries 1200px; clients must never unwrap failed display proxies to raw OS storage.
 - [Replit affinity cache rewrite](replit-affinity-cache-rewrite.md) — published responses with GAESA are rewritten from public to private even when the origin sends public.
 - [Express order signaling](express-order-signaling.md) — carry Express as an explicit boolean; its fee may be zero and its scheduled-slot fields are intentionally empty.
+- [OS Express fee contract](express-fee-contract.md) — `express_delivery_fee` is a total unless OS explicitly supplies `express_surcharge`; split it against effective standard delivery.
 - [Real-delivery social proof](real-delivery-social-proof.md) — fail-closed OS photo contract; opaque hashed asset refs in registry; avif supported by imgProxy/catalog routes now; section hidden when no approved photos.
 - [Mobile header scope](mobile-header-scope.md) — the compact header reference applies to the responsive web storefront MainNavbar; do not change native Expo header behavior unless explicitly requested.
