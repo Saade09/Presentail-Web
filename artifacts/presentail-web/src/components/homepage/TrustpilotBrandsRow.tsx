@@ -20,7 +20,7 @@ export function TrustpilotBrandsRow() {
   if (!isLoading && brands.length === 0) return null;
 
   return (
-    <div className="hidden md:block mt-10">
+    <div className="mt-10">
       <div className="flex items-center gap-4 mb-6">
         <div className="flex-1 h-px bg-border/40" />
         <span className="text-xs font-medium tracking-[0.18em] uppercase text-muted-foreground">

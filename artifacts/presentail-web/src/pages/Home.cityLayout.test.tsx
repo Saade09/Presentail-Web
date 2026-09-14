@@ -248,7 +248,9 @@ describe("Home — shared city landing-page layout order", () => {
     expect(h1s).toHaveLength(1);
 
     const coverageEl = document.querySelector("[data-testid='city-coverage-text']");
-    expect(coverageEl?.textContent).toBe(CITY_SEO["lb-aley"].en);
+    // lb-tripoli has both EN and AR CITY_SEO entries; AR locale renders the AR copy.
+    const expectedCoverage = CITY_SEO["lb-tripoli"]?.ar ?? CITY_SEO["lb-tripoli"]?.en;
+    expect(coverageEl?.textContent).toBe(expectedCoverage);
 
     // Hero section wrapper is always present.
     const heroSection = document.querySelector("[data-testid='hero-section']");

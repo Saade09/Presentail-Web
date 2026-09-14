@@ -1057,7 +1057,7 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
           lang,
           cityKey,
         )
-      : buildHomepageFaqs(cityLabel || "your city", lang);
+      : buildHomepageFaqs(cityLabel || "your city", lang); // i18n-ignore — SSR fallback value, not visible UI copy
     const mainEntity = cityFaqs.map(({ question, answer }) => ({
       "@type": "Question",
       name: question,
@@ -1176,7 +1176,7 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
             lang,
             cityKey,
           )
-        : buildHomepageFaqs(cityLabel || "your city", lang);
+        : buildHomepageFaqs(cityLabel || "your city", lang); // i18n-ignore — SSR fallback value, not visible UI copy
       bodyFaqItems = cityFaqsBody.map(({ question, answer }) => ({
         q: question,
         a: answer,
@@ -1950,7 +1950,7 @@ function buildGenericBodyHtml(routeKey, { h1, description, localeBase, faqItems 
     : "";
   const marketWhyHtml =
     isMarketHomepage && whyHtml
-      ? `<details><summary>Why choose Presentail?</summary>${whyHtml}</details>`
+      ? `<details><summary>Why choose Presentail?</summary>${whyHtml}</details>` // i18n-ignore — crawler-only static HTML, not rendered in React
       : whyHtml;
 
   // The React campaign renders one primary flowers CTA, a support link, then

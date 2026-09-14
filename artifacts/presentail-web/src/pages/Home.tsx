@@ -1,17 +1,13 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useLocale } from "@/contexts/LocaleContext";
 import { countryCodeToSlug, cityIdToSlug } from "@/lib/locale-route";
 import { getCityHomeSeoOverride } from "@/lib/seo";
 import { CITY_SEO } from "@/data/city-seo.mjs";
 import { useHomepageBanners } from "@/lib/banners";
-import { apiFetch } from "@/lib/api";
 import { HeroBannerCarousel } from "@/components/homepage/HeroBannerCarousel";
 import { HomepageCollections } from "@/components/homepage/HomepageCollections";
 import { BestSellersPreview } from "@/components/homepage/BestSellersPreview";
-import { TrustpilotCarousel } from "@/components/homepage/TrustpilotCarousel";
-import { TrustpilotBrandsRow } from "@/components/homepage/TrustpilotBrandsRow";
 import { HomepageLowerHalf } from "@/components/homepage/HomepageLowerHalf";
 import { ProductCard } from "@/components/ProductCard";
 import { Link } from "wouter";
@@ -120,16 +116,13 @@ export default function Home() {
   const isMobile = useIsMobile();
   const countryCode = country?.code ?? undefined;
   const isCyprus = countryCode === "CY";
+  // AE and LB use the HomepageLowerHalf FAQ section (no separate SEOContentSection).
+  // Other countries (CY) keep the external SEOContentSection for taxonomy/FAQ SEO,
+  // and suppress the duplicate FAQ inside HomepageLowerHalf.
   const isCompactLowerHome = countryCode === "AE" || countryCode === "LB";
   const device = isMobile ? "mobile" as const : "desktop" as const;
   const { data: banners, isLoading } = useHomepageBanners(countryCode, cityId ?? undefined, device, language);
 
-  const { data: geoData } = useQuery({
-    queryKey: ["geo-currency"],
-    queryFn: () => apiFetch<{ countryCode: string | null }>("/geo/currency"),
-    staleTime: 10 * 60 * 1000,
-  });
-  const ipCountry = geoData?.countryCode ?? null;
   // Read this before createRoot removes the injected fallback. Until the
   // metadata query resolves, it is the authoritative server inventory snapshot
   // and keeps the initially served taxonomy visible after hydration.
@@ -238,11 +231,6 @@ export default function Home() {
       ? cityOverride.intro
       : "";
 
-  const trustpilotTitle =
-    ipCountry === "LB"
-      ? t("home.trustpilot.titleLB")
-      : t("home.trustpilot.titleExpat");
-
   return (
     <>
     <div className="min-h-screen max-w-content mx-auto" data-testid="page-country-homepage">
@@ -346,39 +334,30 @@ export default function Home() {
         </>
       )}
 
-      {isCompactLowerHome ? (
-        <HomepageLowerHalf
-          cityLabel={cityLabel}
-          cityCoverageText={cityCoverageText}
-          taxonomy={
-            homepageTaxonomy
-              ? {
-                  categories: homepageTaxonomy.categories,
-                  occasions: homepageTaxonomy.occasions,
-                }
-              : undefined
-          }
-          legacyCityDetails={
-            cityOverride
-              ? {
-                  heading: cityOverride.whyHeading,
-                  points: cityOverride.whyPoints,
-                  faqs: cityOverride.faqs,
-                }
-              : undefined
-          }
-          faqItems={cityOverride?.faqs?.slice(0, 6)}
-        />
-      ) : (
-        /* Cyprus keeps the existing lower-page content and footer handoff. */
-        <div className="px-page py-10">
-          <h2 className="text-center font-serif text-2xl text-gray-800 mb-6">
-            {trustpilotTitle}
-          </h2>
-          <TrustpilotCarousel />
-          {!isCyprus && <TrustpilotBrandsRow />}
-        </div>
-      )}
+      <HomepageLowerHalf
+        cityLabel={cityLabel}
+        cityCoverageText={cityCoverageText}
+        showBrandsRow={!isCyprus}
+        suppressFaqSection={!isCompactLowerHome}
+        taxonomy={
+          homepageTaxonomy
+            ? {
+                categories: homepageTaxonomy.categories,
+                occasions: homepageTaxonomy.occasions,
+              }
+            : undefined
+        }
+        legacyCityDetails={
+          cityOverride
+            ? {
+                heading: cityOverride.whyHeading,
+                points: cityOverride.whyPoints,
+                faqs: cityOverride.faqs,
+              }
+            : undefined
+        }
+        faqItems={cityOverride?.faqs?.slice(0, 6)}
+      />
 
     </div>
 
@@ -401,34 +380,7 @@ export default function Home() {
       </div>
     )}
 
-    {!isCompactLowerHome && (
-    <>
-    {/* Delivery-coverage paragraph: same CITY_SEO copy the server injects
-        into the initial HTML — rendered here too so it stays visible after
-        hydration (server/client content parity). Placed below the product
-        grid so the hero and shopping content appear immediately above the fold. */}
-    {cityCoverageText && (
-      <p
-        data-testid="city-coverage-text"
-        className="container mx-auto px-4 pb-4 max-w-content text-sm md:text-base text-muted-foreground"
-      >
-        {cityCoverageText}
-      </p>
-    )}
-
-    {/* "Why Presentail" points for overridden city landings — mirrors the
-        server-injected list so the visible content survives hydration. */}
-    {cityOverride?.whyPoints && cityOverride.whyPoints.length > 0 && (
-      <section className="container mx-auto px-4 pb-6 max-w-content">
-        <h2 className="font-serif text-xl md:text-2xl text-primary mb-3">{cityOverride.whyHeading}</h2>
-        <ul className="list-disc pl-5 space-y-1 text-sm md:text-base text-muted-foreground">
-          {cityOverride.whyPoints.map((point) => (
-            <li key={point}>{point}</li>
-          ))}
-        </ul>
-      </section>
-    )}
-
+    {!isCompactLowerHome && <>
     {/* Sibling-city internal links: lets search engines discover the full
         network of city landing pages within the same country, and gives
         shoppers an easy way to switch to a nearby city. Plain <a> tags bypass
@@ -472,8 +424,7 @@ export default function Home() {
         faqsAlwaysVisible={Boolean(cityOverride?.faqs)}
       />
     </div>
-    </>
-    )}
+    </>}
     </>
   );
 }

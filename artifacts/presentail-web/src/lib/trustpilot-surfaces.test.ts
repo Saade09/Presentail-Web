@@ -29,7 +29,6 @@ describe("Trustpilot script-backed surface inventory", () => {
   );
 
   const routeConsumers = [
-    ["pages/Home.tsx", "TrustpilotCarousel"],
     ["pages/ProductDetail.tsx", "TrustpilotMicroWidget"],
     ["pages/CampaignLanding.tsx", "CampaignTrustpilotStrip"],
     ["pages/CampaignLanding.tsx", "CampaignReviews"],

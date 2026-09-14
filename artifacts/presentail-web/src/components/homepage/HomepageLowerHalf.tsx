@@ -5,6 +5,7 @@ import { useLocationSelection } from "@/contexts/LocationContext";
 import { cityIdToSlug, countryCodeToSlug, buildLocalePath, type CountrySlug } from "@/lib/locale-route";
 import { trackEvent } from "@/lib/analytics";
 import { TrustpilotCarousel } from "@/components/homepage/TrustpilotCarousel";
+import { TrustpilotBrandsRow } from "@/components/homepage/TrustpilotBrandsRow";
 import { TRUSTPILOT_PROFILE_URL } from "@/lib/trustpilot";
 import { buildHomepageFaqs } from "@/lib/homepageFaqs.mjs";
 import hero from "@/assets/hero.png";
@@ -29,12 +30,18 @@ function trustpilotLocale(language: string): string {
 export function HomepageLowerHalf({
   cityLabel,
   cityCoverageText,
+  showBrandsRow,
+  suppressFaqSection,
   taxonomy,
   legacyCityDetails,
   faqItems,
 }: {
   cityLabel: string;
   cityCoverageText: string;
+  showBrandsRow?: boolean;
+  /** When true, omits the built-in FAQ accordion. Use when the parent renders
+   *  SEOContentSection separately and FAQs are already covered there. */
+  suppressFaqSection?: boolean;
   taxonomy?: TaxonomyLinks;
   legacyCityDetails?: LegacyCityDetails;
   faqItems?: Array<{ question: string; answer: string }>;
@@ -105,9 +112,9 @@ export function HomepageLowerHalf({
           </a>
         </div>
         <p className="text-xs text-muted-foreground mb-2">{t("home.lower.reviews.attribution")}</p>
-        <div dir="ltr" className="rounded-xl overflow-hidden min-h-[240px]">
+        <div dir="ltr" className="rounded-xl overflow-hidden min-h-[340px]">
           {trustpilotFailed ? (
-            <div className="min-h-[240px] flex items-center justify-center border border-border/60 rounded-xl bg-muted/20 px-5 text-center">
+            <div className="min-h-[340px] flex items-center justify-center border border-border/60 rounded-xl bg-muted/20 px-5 text-center">
               <a
                 href={TRUSTPILOT_PROFILE_URL}
                 target="_blank"
@@ -127,6 +134,7 @@ export function HomepageLowerHalf({
             />
           )}
         </div>
+      {showBrandsRow && <TrustpilotBrandsRow />}
       </section>
 
       <section
@@ -182,6 +190,7 @@ export function HomepageLowerHalf({
         </div>
       </section>
 
+      {!suppressFaqSection && (
       <section
         className="container mx-auto max-w-content px-4 md:px-8 py-8 md:py-10"
         aria-labelledby="homepage-faq-heading"
@@ -216,6 +225,7 @@ export function HomepageLowerHalf({
           })}
         </div>
       </section>
+      )}
 
       {(cityCoverageText || legacyCityDetails || taxonomy) && (
         <section className="container mx-auto max-w-content px-4 md:px-8 pb-10" aria-labelledby="homepage-city-context-heading" data-testid="homepage-seo-preservation">
@@ -275,7 +285,13 @@ export function HomepageLowerHalf({
           </details>
         </section>
       )}
-      {(cityCoverageText || legacyCityDetails || taxonomy) && <div data-testid="seo-content-section-wrapper" aria-hidden="true" />}
+      {/* Marker element used by layout tests and SSR fragment checks to verify
+          that the SEO/city-content block follows the carousel section.
+          Only rendered when this component owns the FAQ section (AE/LB);
+          for other markets the outer SEOContentSection provides its own wrapper. */}
+      {!suppressFaqSection && (cityCoverageText || legacyCityDetails || taxonomy) && (
+        <div data-testid="seo-content-section-wrapper" aria-hidden="true" />
+      )}
     </div>
   );
 }

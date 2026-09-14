@@ -247,6 +247,59 @@ describe("pollAndLoadTrustpilotWidget", () => {
     expect(onGiveUp).toHaveBeenCalledOnce();
   });
 
+  it("allows one SPA-session retry after terminal failure when no script is in the DOM", async () => {
+    const { injectTrustpilotScript, TRUSTPILOT_SCRIPT_SRC } = await loadModule();
+    const onError = vi.fn();
+
+    // First attempt: load + retry both fail → terminal failure
+    injectTrustpilotScript(vi.fn(), onError);
+    trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0].dispatchEvent(new Event("error"));
+    await vi.advanceTimersByTimeAsync(2000);
+    trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0].dispatchEvent(new Event("error"));
+
+    expect(onError).toHaveBeenCalledOnce();
+    // Script element was removed after the final failure
+    expect(trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)).toHaveLength(0);
+
+    // SPA re-navigation: a new caller comes in after terminal failure with no script in DOM
+    const retryLoad = vi.fn();
+    const retryError = vi.fn();
+    injectTrustpilotScript(retryLoad, retryError);
+
+    // A fresh script must have been injected (the session retry fired)
+    const retryScripts = trustpilotScripts(TRUSTPILOT_SCRIPT_SRC);
+    expect(retryScripts).toHaveLength(1);
+
+    // Succeed on the retry
+    retryScripts[0].dispatchEvent(new Event("load"));
+    expect(retryLoad).toHaveBeenCalledOnce();
+    expect(retryError).not.toHaveBeenCalled();
+  });
+
+  it("does not retry a second time if the session retry also fails", async () => {
+    const { injectTrustpilotScript, TRUSTPILOT_SCRIPT_SRC } = await loadModule();
+
+    // First terminal failure
+    injectTrustpilotScript(vi.fn(), vi.fn());
+    trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0].dispatchEvent(new Event("error"));
+    await vi.advanceTimersByTimeAsync(2000);
+    trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0].dispatchEvent(new Event("error"));
+
+    // Session retry: inject → fail again (use up _retryUsed inside the fresh inject cycle)
+    const firstRetryError = vi.fn();
+    injectTrustpilotScript(vi.fn(), firstRetryError);
+    trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0].dispatchEvent(new Event("error"));
+    await vi.advanceTimersByTimeAsync(2000);
+    trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0].dispatchEvent(new Event("error"));
+    expect(firstRetryError).toHaveBeenCalledOnce();
+
+    // Third caller: no script in DOM, but session retry already used → immediate error
+    const thirdError = vi.fn();
+    injectTrustpilotScript(vi.fn(), thirdError);
+    expect(thirdError).toHaveBeenCalledOnce();
+    expect(trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)).toHaveLength(0);
+  });
+
   it("cleanup cancels a pending poll timer", async () => {
     const { pollAndLoadTrustpilotWidget, TRUSTPILOT_SCRIPT_SRC } =
       await loadModule();

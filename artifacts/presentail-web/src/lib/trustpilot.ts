@@ -33,6 +33,10 @@ let _loadState: LoadState = "idle";
 const _waiters: LoadWaiter[] = [];
 let _emptyScriptRecoveryUsed = false;
 let _retryUsed = false;
+// Allows one SPA-session retry after a failed load so a transient network error
+// or ad-blocker block doesn't permanently disable the widget for the rest of
+// the session. Bounded to a single reset per page load to prevent infinite loops.
+let _sessionRetryUsed = false;
 let _retryTimer: ReturnType<typeof setTimeout> | null = null;
 let _watchTimer: ReturnType<typeof setTimeout> | null = null;
 let _activeScript: HTMLScriptElement | null = null;
@@ -179,8 +183,22 @@ export function injectTrustpilotScript(
     return;
   }
   if (_loadState === "failed") {
-    onError?.();
-    return;
+    // Allow one SPA-session retry if the previous failure left no script tag in
+    // the DOM (it was removed during cleanup). This lets a transient network
+    // error or a briefly-active ad-blocker be recovered from on re-navigation,
+    // without risking an infinite loop against a persistently blocked URL.
+    const scriptPresent = !!document.querySelector(
+      `script[src="${TRUSTPILOT_SCRIPT_SRC}"]`,
+    );
+    if (!_sessionRetryUsed && !scriptPresent) {
+      _sessionRetryUsed = true;
+      _loadState = "idle";
+      _retryUsed = false;
+      _emptyScriptRecoveryUsed = false;
+    } else {
+      onError?.();
+      return;
+    }
   }
 
   _waiters.push({ onLoad, onError });
