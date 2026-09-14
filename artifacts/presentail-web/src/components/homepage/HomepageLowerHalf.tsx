@@ -114,13 +114,32 @@ export function HomepageLowerHalf({
         <p className="text-xs text-muted-foreground mb-2">{t("home.lower.reviews.attribution")}</p>
         <div dir="ltr" className="rounded-xl overflow-hidden min-h-[340px]">
           {trustpilotFailed ? (
-            <div className="min-h-[340px] flex items-center justify-center border border-border/60 rounded-xl bg-muted/20 px-5 text-center">
+            <div className="min-h-[340px] flex flex-col items-center justify-center gap-5 border border-border/60 rounded-xl bg-muted/20 px-8 py-10 text-center">
+              {/* Five Trustpilot-green stars — shown statically when the third-party
+                  widget script is blocked (ad-blocker, Safari Private mode, ISP filter) */}
+              <div className="flex gap-0.5" role="img" aria-label={t("home.lower.reviews.starsLabel")}>
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <svg
+                    key={i}
+                    viewBox="0 0 24 24"
+                    width="32"
+                    height="32"
+                    fill="#00b67a"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 2l2.9 8.9H23l-7.5 5.4 2.9 8.9L12 20.7l-6.4 4.5 2.9-8.9L1 10.9h8.1z" />
+                  </svg>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground max-w-[260px] leading-relaxed">
+                {t("home.lower.reviews.attribution")}
+              </p>
               <a
                 href={TRUSTPILOT_PROFILE_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={onReadReviews}
-                className="min-h-11 inline-flex items-center text-sm font-medium text-primary hover:underline underline-offset-4"
+                className="min-h-11 inline-flex items-center rounded-full border border-primary/30 bg-white px-5 text-sm font-medium text-primary shadow-sm hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 data-testid="homepage-trustpilot-fallback"
               >
                 {t("home.lower.reviews.fallback")}

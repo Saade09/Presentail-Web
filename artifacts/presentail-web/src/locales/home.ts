@@ -37,6 +37,7 @@ export const homeStrings: Dict = {
   "home.lower.reviews.heading": { en: "Loved by our customers", ar: "محبوب من عملائنا", fr: "Adoré par nos clients" },
   "home.lower.reviews.readAll": { en: "Read all reviews →", ar: "اقرأ كل التقييمات ←", fr: "Lire tous les avis →" },
   "home.lower.reviews.fallback": { en: "Read our reviews on Trustpilot →", ar: "اقرأ تقييماتنا على Trustpilot ←", fr: "Lire nos avis sur Trustpilot →" },
+  "home.lower.reviews.starsLabel": { en: "5 stars out of 5", ar: "٥ نجوم من ٥", fr: "5 étoiles sur 5" },
   "home.lower.reviews.attribution": { en: "Independent customer reviews provided by Trustpilot.", ar: "تقييمات مستقلة من العملاء مقدّمة عبر Trustpilot.", fr: "Avis clients indépendants fournis par Trustpilot." },
   "home.lower.benefits.heading": { en: "Why choose Presentail?", ar: "لماذا تختار Presentail؟", fr: "Pourquoi choisir Presentail ?" },
   "home.lower.benefit.sameDay.title": { en: "Same-day delivery", ar: "توصيل في اليوم نفسه", fr: "Livraison le jour même" },
