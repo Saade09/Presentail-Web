@@ -45,6 +45,12 @@ export function TrustpilotCarousel({
       },
     );
 
+    // Observe the container (height: 340px, always visible) rather than the
+    // widget div itself. The widget div starts with 0 height because the
+    // Trustpilot SDK hasn't run yet, making IntersectionObserver unreliable
+    // across iOS/Safari versions when it is the observed target.
+    const target = el.parentElement ?? el;
+
     if (typeof IntersectionObserver === "undefined") {
       injectTrustpilotScript(onScriptLoad, handleFailure);
     } else {
@@ -61,7 +67,7 @@ export function TrustpilotCarousel({
         { rootMargin: "200px", threshold: 0 },
       );
 
-      observer.observe(el);
+      observer.observe(target);
 
       return () => {
         active = false;
@@ -78,22 +84,18 @@ export function TrustpilotCarousel({
 
   return (
     <div
-      style={{ overflow: "hidden", minHeight: "340px", height: "340px" }}
+      style={{ position: "relative", minHeight: "340px", height: "340px", overflow: "hidden" }}
       data-trustpilot-state={status}
       aria-busy={status === "pending"}
     >
-      {status === "pending" && (
-        <div
-          role="status"
-          aria-label={fallbackLabel}
-          className="h-[340px] rounded-xl border border-border/50 bg-muted/20 p-5"
-        >
-          <div className="h-4 w-32 rounded bg-muted animate-pulse mb-5" />
-          <div className="h-3 w-full rounded bg-muted animate-pulse mb-3" />
-          <div className="h-3 w-5/6 rounded bg-muted animate-pulse mb-3" />
-          <div className="h-3 w-2/3 rounded bg-muted animate-pulse" />
-        </div>
-      )}
+      {/*
+       * Widget div is always at y=0 — never pushed out of view by a sibling.
+       * This is critical: window.Trustpilot.loadFromElement() throws on some
+       * iOS/Safari versions when called on an element that has 0 visible pixels
+       * (which happened previously because the shimmer sibling pushed this div
+       * below the overflow:hidden boundary of the parent). Keeping it at y=0
+       * ensures the SDK can always initialise it, regardless of shimmer state.
+       */}
       <div
         ref={ref}
         className="trustpilot-widget"
@@ -120,6 +122,25 @@ export function TrustpilotCarousel({
           {fallbackLabel}
         </a>
       </div>
+
+      {/*
+       * Shimmer is now an absolute overlay so it covers the widget visually
+       * while the SDK initialises, without affecting the widget div's layout
+       * position or its intersection with the viewport.
+       */}
+      {status === "pending" && (
+        <div
+          role="status"
+          aria-label={fallbackLabel}
+          style={{ position: "absolute", inset: 0, zIndex: 1 }}
+          className="rounded-xl border border-border/50 bg-muted/20 p-5"
+        >
+          <div className="h-4 w-32 rounded bg-muted animate-pulse mb-5" />
+          <div className="h-3 w-full rounded bg-muted animate-pulse mb-3" />
+          <div className="h-3 w-5/6 rounded bg-muted animate-pulse mb-3" />
+          <div className="h-3 w-2/3 rounded bg-muted animate-pulse" />
+        </div>
+      )}
     </div>
   );
 }
