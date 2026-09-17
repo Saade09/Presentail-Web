@@ -2019,6 +2019,9 @@ const server = http.createServer(async (req, res) => {
       // entries here so each path lands on the correct city home instead.
       // Audit note (Aug 2026): only /flower-shops-in-larnaca confirmed wrong;
       // add similar entries for other cities if further bad redirects surface.
+      // Keep the legacy Cyprus policy URL pointed at the existing shared policy
+      // page rather than letting the generic country handler send it home.
+      "/cyprus/shipping-policy": `${BASE_PATH}/en-cy/nicosia/shipping-policy`,
       "/cyprus/flower-shops-in-larnaca": `${BASE_PATH}/en-cy/larnaca`,
       "/cyprus/flower-shops-in-limassol": `${BASE_PATH}/en-cy/limassol`,
       "/cyprus/flower-shops-in-paphos":   `${BASE_PATH}/en-cy/paphos`,

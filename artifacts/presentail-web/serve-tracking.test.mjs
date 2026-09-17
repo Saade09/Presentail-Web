@@ -374,6 +374,12 @@ describe("serve.mjs Section 8 — /cyprus bare path redirects", () => {
     expect(status).toBe(301);
     expect(location).toBe("/en-cy/nicosia");
   });
+
+  it("preserves /cyprus/shipping-policy/ as the legacy entry point to the shared policy page", async () => {
+    const { status, location } = await get(serverPort, "/cyprus/shipping-policy/");
+    expect(status).toBe(301);
+    expect(location).toBe("/en-cy/nicosia/shipping-policy");
+  });
 });
 
 describe("serve.mjs Section 8 — /uae and /dubai bare path redirects", () => {

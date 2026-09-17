@@ -417,3 +417,53 @@ test.describe("Breadcrumb — ReturnPolicy", () => {
     await assertBreadcrumb(page, /return/i);
   });
 });
+
+// ---------------------------------------------------------------------------
+// 18. Cyprus ShippingPolicy + shared footer
+// ---------------------------------------------------------------------------
+
+test.describe("Cyprus shipping policy and footer", () => {
+  test("renders the Cyprus policy copy and legacy footer link", async ({ page }) => {
+    await page.addInitScript((loc) => {
+      window.localStorage.setItem(
+        "presentail_delivery_location_v1",
+        JSON.stringify(loc),
+      );
+    }, { countryCode: "CY", cityId: "cy-larnaca" });
+
+    await page.goto("/en-cy/larnaca/shipping-policy");
+
+    await expect(page.getByTestId("shipping-policy-page")).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByTestId("shipping-policy-page")).toContainText(
+      "before 9:00 AM Cyprus local time",
+    );
+    await expect(page.getByTestId("shipping-policy-page")).toContainText(
+      "9:00 AM to 6:00 PM Cyprus local time",
+    );
+    await expect(page.getByTestId("shipping-policy-page")).toContainText(
+      "postal services or air freight",
+    );
+    await expect(page.getByTestId("shipping-policy-page")).toContainText(
+      "address-based",
+    );
+    await expect(page.getByTestId("shipping-policy-page")).toContainText(
+      "cannot be reached",
+    );
+
+    const shippingLink = page.getByTestId("footer-link-shipping-policy");
+    await expect(shippingLink).toBeVisible();
+    await expect(shippingLink).toHaveAttribute("href", "/cyprus/shipping-policy/");
+  });
+
+  test("does not add the Cyprus Policies section to the Lebanon footer", async ({
+    page,
+  }) => {
+    await seedLocation(page);
+    await page.goto(`${BASE}/`);
+    await expect(page.getByTestId("footer")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("footer-link-shipping-policy")).toHaveCount(0);
+    await expect(page.getByText("Policies", { exact: true })).toHaveCount(0);
+  });
+});

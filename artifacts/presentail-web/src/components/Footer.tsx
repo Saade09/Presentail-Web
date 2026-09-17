@@ -378,6 +378,23 @@ export function Footer() {
                 ))}
               </ul>
             </CollapsibleSection>
+            {isCY && (
+              <div className="mt-6">
+                <CollapsibleSection heading={t("footer.policies")}>
+                  <ul className="space-y-2">
+                    <li>
+                      <a
+                        href="/cyprus/shipping-policy/"
+                        className="text-sm text-white/75 hover:text-white transition-colors"
+                        data-testid="footer-link-shipping-policy"
+                      >
+                        {t("footer.shippingPolicy")}
+                      </a>
+                    </li>
+                  </ul>
+                </CollapsibleSection>
+              </div>
+            )}
           </div>
 
           {/* Currency / Language / Country */}

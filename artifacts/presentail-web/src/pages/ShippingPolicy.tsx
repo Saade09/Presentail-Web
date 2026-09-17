@@ -26,41 +26,41 @@ const INTRO_NOTE: Record<Language, string> = {
 
 const SECTIONS: LegalSection[] = [
   {
-    heading: "Delivery Zones",
+    heading: "Local Fulfilment & Delivery Method",
     body: [
-      "Presentail currently delivers to the following markets:",
+      "Presentail fulfils orders locally in each supported market. Orders are prepared by Presentail and delivered by Presentail couriers or vetted local delivery partners.",
+      "We hand-deliver each order to the delivery address supplied at checkout. We do not use postal services or air freight for Presentail deliveries.",
       {
-        subheading: "Markets",
+        subheading: "Supported markets",
         body: [
-          "Lebanon — Beirut and most Lebanese governorates. Remote areas may require additional lead time.",
-          "United Arab Emirates — Dubai and Abu Dhabi.",
-          "Cyprus — Nicosia and major urban areas.",
+          "Local fulfilment and delivery availability vary by market and delivery address. Presentail currently supports Lebanon, the United Arab Emirates, and Cyprus.",
         ],
       },
-      "Delivery availability is confirmed at checkout based on your selected delivery area and address.",
+      "The available products, dates, delivery windows, and fees are confirmed at checkout for the selected market and address.",
     ],
   },
   {
-    heading: "Same-Day & Scheduled Delivery",
+    heading: "Cyprus Same-Day & Scheduled Delivery",
     body: [
-      "Presentail offers same-day delivery on most orders placed before the cut-off time shown at checkout (typically 2:00 PM local time). Orders placed after the cut-off are automatically scheduled for the next available delivery slot.",
-      "At checkout you may choose a specific delivery date and, where available, a preferred time window (morning or afternoon). We will do our best to honour your preference, but exact delivery times cannot be guaranteed due to traffic, weather, and vendor preparation times.",
+      "For qualifying Cyprus orders, same-day delivery is available when the order is placed before 9:00 AM Cyprus local time. Orders placed after the 9:00 AM cutoff may be delivered the next day, subject to availability.",
+      "The verified Cyprus delivery operating window is 9:00 AM to 6:00 PM Cyprus local time. Availability can vary by delivery address and date, so the delivery options shown at checkout are the current options for your order.",
+      "Checkout supports the available future delivery dates and delivery windows. Select the date shown at checkout before payment; an exact delivery time cannot be guaranteed because traffic, weather, preparation, and access conditions can affect delivery.",
       "For wedding, corporate, and large-volume orders, please contact our team at least 48 hours in advance to confirm availability and scheduling.",
     ],
   },
   {
     heading: "Delivery Fees",
     body: [
-      "Delivery fees are calculated at checkout based on your selected delivery area and order value. Free delivery thresholds may apply in certain markets — the applicable threshold is displayed on the checkout page.",
-      "During peak periods (Valentine's Day, Mother's Day, and similar occasions) or for deliveries to remote areas, an additional fee may apply. This will always be shown clearly before you confirm your order.",
+      "Delivery fees are address-based. They are calculated at checkout for the supplied delivery address and shown clearly before you make payment.",
+      "The fee shown can vary by market, delivery address, date, and available delivery option. Any applicable free-delivery threshold or additional charge is displayed before you confirm the order.",
     ],
   },
   {
     heading: "Recipient Availability",
     body: [
-      "Please ensure that the recipient is available at the delivery address on the chosen date. Our delivery partners will attempt to contact the recipient before arrival.",
-      "If the recipient is unavailable and cannot be reached, we will make one re-delivery attempt. If the second attempt also fails, the order may be returned and a re-delivery fee may apply.",
-      "For surprise deliveries, please ensure that someone at the address will be able to accept the order on behalf of the recipient.",
+      "Please provide an accurate address and a working recipient phone number, and make sure that someone can receive the order during the selected delivery window. Our courier or local delivery partner will contact the recipient to arrange delivery.",
+      "If the recipient cannot be reached, our team will try to contact the order placer to coordinate delivery. We will not deliver to a different address unless an alternative address has been provided and agreed. If no suitable arrangement can be made after attempts to contact you or the recipient, Presentail may cancel the order in line with the Terms of Use; a refund or Presentail credit will be handled according to those terms.",
+      "For surprise deliveries, please ensure that someone at the supplied address can accept the order on the recipient's behalf.",
     ],
   },
   {
