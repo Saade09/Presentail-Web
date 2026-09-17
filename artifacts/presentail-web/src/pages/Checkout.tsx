@@ -555,6 +555,8 @@ type WalletPiSignatureInput = {
   deliveryCityId?: string;
   deliveryDate?: string;
   district?: string;
+  /** Cyprus store: policy acceptance must be true before the PI is valid. */
+  policyAccepted?: boolean;
 };
 function walletPiSignature(input: WalletPiSignatureInput): string {
   return JSON.stringify({
@@ -570,6 +572,7 @@ function walletPiSignature(input: WalletPiSignatureInput): string {
     deliveryCityId: input.deliveryCityId ?? "",
     deliveryDate: input.deliveryDate ?? "",
     district: input.district ?? "",
+    policyAccepted: input.policyAccepted ?? false,
   });
 }
 
@@ -1058,6 +1061,11 @@ function CheckoutForm() {
   // Details ↔ Payment navigation and validation errors within a checkout.
   const [whatsappOptIn, setWhatsappOptIn] = useState(true);
   const whatsappDefaultShownRef = useRef(false);
+  // Policy acceptance — required for Cyprus (CY) checkout only.
+  // Unchecked by default; blocks all payment paths until checked.
+  const POLICY_VERSION = "cy-v1";
+  const isCY = (countryCode ?? "").toUpperCase() === "CY";
+  const [policyAccepted, setPolicyAccepted] = useState(false);
   // Set on the first failed/attempted "Continue to Payment" click. Drives ALL
   // Step-1 inline errors (recipient name, phone, district, address, guest
   // sender name/email/phone): before the first attempt no errors show; after
@@ -2467,6 +2475,13 @@ function CheckoutForm() {
       if (walletReadySig !== null) setWalletReadySig(null);
       return;
     }
+    // Guard (Cyprus): server will reject the PI creation request until the
+    // shopper checks the policy-acceptance box. Pre-creating without it would
+    // leave the wallet stuck in a failed state when the box is later checked.
+    if (isCY && !policyAccepted) {
+      if (walletReadySig !== null) setWalletReadySig(null);
+      return;
+    }
 
     // Mirror _selectedDistrict: fall back to the first active city when the
     // shopper hasn't explicitly chosen a district. currentWalletSig uses the
@@ -2487,6 +2502,7 @@ function CheckoutForm() {
       deliveryDate:
         deliveryMode === "express" ? undefined : recipient.deliveryDate || undefined,
       district: effectDistrict || undefined,
+      policyAccepted: isCY ? policyAccepted : undefined,
     });
     // A fresh PaymentIntent for these exact inputs already exists — make sure
     // the button reflects readiness and stop.
@@ -2531,6 +2547,7 @@ function CheckoutForm() {
             ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
             deliveryDate:
               deliveryMode === "express" ? undefined : recipient.deliveryDate || undefined,
+            ...(isCY ? { policyAccepted, policyVersion: POLICY_VERSION } : {}),
           } as Parameters<typeof createPaymentIntent.mutateAsync>[0]["data"],
         }), 15000);
         if (cancelled) return;
@@ -2713,6 +2730,8 @@ function CheckoutForm() {
     activeCities,
     items,
     walletRetryNonce,
+    isCY,
+    policyAccepted,
   ]);
 
   if (showLoginGate) {
@@ -2827,6 +2846,7 @@ function CheckoutForm() {
     deliveryDate:
       deliveryMode === "express" ? undefined : recipient.deliveryDate || undefined,
     district: _selectedDistrict || undefined,
+    policyAccepted: isCY ? policyAccepted : undefined,
   });
   const isWalletMethodSelected =
     paymentMethod === "apple_pay" || paymentMethod === "google_pay";
@@ -3206,6 +3226,9 @@ function CheckoutForm() {
     paymentMethod: overrides.paymentMethod ?? paymentMethod,
     identitySecret,
     whatsappOptIn,
+    // Policy acceptance — only sent for CY orders; server validates and rejects
+    // if absent when store.storeKey === "cyprus".
+    ...(isCY ? { policyAccepted, policyVersion: POLICY_VERSION } : {}),
     currencyCode: "USD",
     couponDiscount: confirmedCouponDiscount > 0 ? confirmedCouponDiscount : undefined,
     totalUsd: computeCartTotal(subtotal, districtFee + expressFee + slotFee, confirmedCouponDiscount),
@@ -3470,6 +3493,7 @@ function CheckoutForm() {
         deliveryDate:
           deliveryMode === "express" ? undefined : recipient.deliveryDate || undefined,
         district: _selectedDistrict || undefined,
+        policyAccepted: isCY ? policyAccepted : undefined,
       });
       const prefetchedIntent =
         walletIntentRef.current && walletIntentRef.current.signature === walletSig
@@ -3860,6 +3884,7 @@ function CheckoutForm() {
               ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
               deliveryDate:
                 deliveryMode === "express" ? undefined : recipient.deliveryDate || undefined,
+              ...(isCY ? { policyAccepted, policyVersion: POLICY_VERSION } : {}),
             } as Parameters<typeof createPaymentIntent.mutateAsync>[0]["data"],
           });
         } catch (err: unknown) {
@@ -4039,6 +4064,7 @@ function CheckoutForm() {
           ...(deliveryMode !== "express" && deliverySlotId ? { deliverySlotId } : {}),
           ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
           deliveryDate: deliveryMode === "express" ? undefined : recipient.deliveryDate || undefined,
+          ...(isCY ? { policyAccepted, policyVersion: POLICY_VERSION } : {}),
         });
         if (!res.ok || !res.url) {
           toast({
@@ -4077,6 +4103,7 @@ function CheckoutForm() {
           ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
           deliveryDate:
             deliveryMode === "express" ? undefined : recipient.deliveryDate || undefined,
+          ...(isCY ? { policyAccepted, policyVersion: POLICY_VERSION } : {}),
         });
         if (!res.ok || !res.url) {
           toast({
@@ -4110,6 +4137,7 @@ function CheckoutForm() {
             ...(selectedCityData?.id != null ? { cityId: String(selectedCityData.id) } : {}),
             deliveryDate:
               deliveryMode === "express" ? undefined : recipient.deliveryDate || undefined,
+            ...(isCY ? { policyAccepted, policyVersion: POLICY_VERSION } : {}),
           });
         } catch (tabbyErr: any) {
           // apiFetch throws on non-2xx — surface a useful message instead of
@@ -4163,6 +4191,7 @@ function CheckoutForm() {
               deliveryDate:
                 deliveryMode === "express" ? undefined : recipient.deliveryDate || undefined,
               billingCountry: klarnaBillingCountry,
+              ...(isCY ? { policyAccepted, policyVersion: POLICY_VERSION } : {}),
             } as Parameters<typeof createPaymentIntent.mutateAsync>[0]["data"],
           });
         } catch (klarnaErr: any) {
@@ -5260,6 +5289,38 @@ function CheckoutForm() {
                   className="fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-sm px-4 pt-3 border-t border-gray-100 shadow-[0_-2px_10px_rgba(0,0,0,0.06)] lg:hidden"
                   style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.5rem)" }}
                 >
+                  {/* Cyprus policy acceptance — full-width row above the action buttons
+                      so it has readable text and tappable links on mobile. */}
+                  {isCY && (
+                    <label
+                      className="flex items-start gap-3 text-sm text-muted-foreground cursor-pointer select-none w-full mb-3 px-1"
+                      data-testid="label-policy-acceptance"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={policyAccepted}
+                        onChange={(e) => setPolicyAccepted(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 accent-primary cursor-pointer shrink-0"
+                        aria-required="true"
+                        data-testid="check-policy-acceptance"
+                      />
+                      <span className="leading-snug">
+                        {t("checkout.policyAcceptance.prefix")}{" "}
+                        <a href="/cyprus/terms/" target="_blank" rel="noopener noreferrer" className="underline text-foreground hover:text-primary" data-testid="link-policy-terms">
+                          {t("checkout.policyAcceptance.terms")}
+                        </a>
+                        {", "}
+                        <a href="/cyprus/shipping-policy/" target="_blank" rel="noopener noreferrer" className="underline text-foreground hover:text-primary" data-testid="link-policy-shipping">
+                          {t("checkout.policyAcceptance.shipping")}
+                        </a>
+                        {" "}{t("checkout.policyAcceptance.and")}{" "}
+                        <a href="/cyprus/refund-policy/" target="_blank" rel="noopener noreferrer" className="underline text-foreground hover:text-primary" data-testid="link-policy-refund">
+                          {t("checkout.policyAcceptance.refund")}
+                        </a>
+                        {"."}
+                      </span>
+                    </label>
+                  )}
                   <div className="flex gap-3">
                     <Button
                       variant="outline"
@@ -5273,11 +5334,11 @@ function CheckoutForm() {
                     <Button
                       ref={continueToPaymentRef}
                       size="lg"
-                      className={`flex-1 h-14 rounded-xl text-white font-semibold flex items-center justify-between px-4 ${deliveryGateBlocked ? "opacity-50 cursor-not-allowed hover:opacity-50" : ""}`}
+                      className={`flex-1 h-14 rounded-xl text-white font-semibold flex items-center justify-between px-4 ${deliveryGateBlocked || (isCY && !policyAccepted) ? "opacity-50 cursor-not-allowed hover:opacity-50" : ""}`}
                       style={{ backgroundColor: "hsl(var(--primary))" }}
-                      onClick={handleMobileContinue}
+                      onClick={isCY && !policyAccepted ? undefined : handleMobileContinue}
                       aria-describedby="mobile-cta-secure"
-                      aria-disabled={deliveryGateBlocked || undefined}
+                      aria-disabled={deliveryGateBlocked || (isCY && !policyAccepted) || undefined}
                       data-testid="button-continue-to-payment"
                     >
                       <span className="flex flex-col items-start leading-tight min-w-0">
@@ -5573,6 +5634,9 @@ function CheckoutForm() {
             }}
             step={step}
             onContinueToPayment={handleDesktopContinue}
+            isCyprus={isCY}
+            policyAccepted={policyAccepted}
+            onPolicyAcceptedChange={setPolicyAccepted}
             deliveryRequired={
               deliveryGateBlocked
                 ? {

@@ -871,6 +871,8 @@ export const useMamoPayment = () => {
       lastName?: string;
       returnUrl: string;
       failureReturnUrl: string;
+      policyAccepted?: boolean;
+      policyVersion?: string;
     }) => apiFetch<{ ok: boolean; url?: string; id?: string; message?: string; code?: string }>("/payment/mamo", {
       method: "POST",
       body: JSON.stringify(data),
@@ -897,6 +899,8 @@ export const usePaypalPayment = () => {
       cityId?: string;
       /** ISO date of the selected delivery day (YYYY-MM-DD). Omit for express. */
       deliveryDate?: string;
+      policyAccepted?: boolean;
+      policyVersion?: string;
     }) => apiFetch<{ ok: boolean; url?: string; id?: string; message?: string; code?: string }>("/payment/paypal", {
       method: "POST",
       body: JSON.stringify(data),
@@ -922,6 +926,8 @@ export const useTabbyPayment = () => {
       deliverySlotId?: string;
       cityId?: string;
       deliveryDate?: string;
+      policyAccepted?: boolean;
+      policyVersion?: string;
     }) => apiFetch<{ ok: boolean; url?: string; id?: string; message?: string; code?: string }>("/payment/tabby", {
       method: "POST",
       body: JSON.stringify(data),

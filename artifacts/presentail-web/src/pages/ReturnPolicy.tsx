@@ -150,7 +150,13 @@ const CYPRUS_SECTIONS: LegalSection[] = [
 export default function ReturnPolicy() {
   const { language, t } = useLocale();
   const { countryCode } = useLocationSelection();
-  const isCyprus = countryCode?.toUpperCase() === "CY";
+  // Also treat the canonical /cyprus/ URL path as Cyprus-specific regardless of
+  // the shopper's stored location — crawlers and first-time visitors do not have
+  // a CY location stored, so checking only countryCode would render the generic
+  // policy at the canonical Cyprus URL.
+  const isCyprus =
+    countryCode?.toUpperCase() === "CY" ||
+    (typeof window !== "undefined" && window.location.pathname.startsWith("/cyprus/"));
   const sections = isCyprus ? CYPRUS_SECTIONS : SECTIONS;
   return (
     <LegalPage

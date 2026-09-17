@@ -238,7 +238,7 @@ export const WooOrderSchema = z.object({
   qrLink: z.string().optional(),
   qrLabel: z.string().optional(),
   orderNotes: z.string().optional(),
-  paymentMethod: z.enum(["card", "wallet", "apple_pay", "google_pay", "whish", "western", "mamo", "paypal", "klarna", "cybersource"]),
+  paymentMethod: z.enum(["card", "wallet", "apple_pay", "google_pay", "whish", "western", "mamo", "paypal", "tabby", "klarna", "cybersource"]),
   identitySecret: z.boolean().optional(),
   // True when the sender left "Get order updates on WhatsApp" checked at
   // checkout. Optional so legacy payloads (mobile app, queued reconciliation
@@ -253,6 +253,10 @@ export const WooOrderSchema = z.object({
   appDeviceId: z.string().optional(),
   currencyCode: z.string().optional(),
   couponCode: z.string().trim().optional(),
+  // Policy acceptance submitted by the client at checkout. Server validates
+  // this field and derives the authoritative IP and timestamp from the request.
+  policyAccepted: z.boolean().optional(),
+  policyVersion: z.string().optional(),
   // Occasion slug the shopper navigated from before reaching checkout.
   // Read from client-side sessionStorage key ps_occasion_ref and cleared after use.
   // Stored on the app_orders row for occasion-level attribution reporting.
@@ -750,6 +754,11 @@ export async function recordSuccessfulWcOrder(input: {
   currencyCode?: string | null;
   // Order total in the payment currency (minor units). Pairs with currencyCode.
   totalPaymentCents?: number | null;
+  // Policy acceptance audit fields. Server-derived at payment-session creation
+  // (or at order finalization for non-PI flows). Nullable for historical rows.
+  policyAcceptedAt?: string | null;
+  policyAcceptedIp?: string | null;
+  policyVersion?: string | null;
 }) {
   const {
     body,
@@ -767,6 +776,9 @@ export async function recordSuccessfulWcOrder(input: {
     state: inputState,
     currencyCode,
     totalPaymentCents,
+    policyAcceptedAt,
+    policyAcceptedIp,
+    policyVersion: policyVersionInput,
   } = input;
   const orderState = inputState ?? "confirmed";
   // Normalise the stored delivery slot: the web checkout sends deliverySlot:""
@@ -965,6 +977,9 @@ export async function recordSuccessfulWcOrder(input: {
         deliveryWindowEnd: authoritativeMidnightWin
           ? new Date(authoritativeMidnightWin.end)
           : standardWindowEnd,
+        policyAcceptedAt: policyAcceptedAt ? new Date(policyAcceptedAt) : null,
+        policyAcceptedIp: policyAcceptedIp ?? null,
+        policyVersion: policyVersionInput ?? null,
       })
       .onConflictDoUpdate({
         target: appOrdersTable.appOrderId,
@@ -1013,6 +1028,9 @@ export async function recordSuccessfulWcOrder(input: {
           deliveryWindowEnd: authoritativeMidnightWin
             ? new Date(authoritativeMidnightWin.end)
             : standardWindowEnd,
+          policyAcceptedAt: policyAcceptedAt ? new Date(policyAcceptedAt) : null,
+          policyAcceptedIp: policyAcceptedIp ?? null,
+          policyVersion: policyVersionInput ?? null,
           updatedAt: new Date(),
         },
       });
@@ -1894,6 +1912,11 @@ export async function enqueuePendingWcOrder(input: {
   // Server-verified payment currency (e.g. "SAR"). Stored in the reconciliation
   // payload so retries use the same currency instead of the client-supplied value.
   verifiedCurrency?: string | null;
+  // Server-derived policy acceptance audit fields. Stored alongside the payload
+  // so the reconciliation worker can persist them on the eventual app_orders row.
+  policyAcceptedAt?: string | null;
+  policyAcceptedIp?: string | null;
+  policyVersion?: string | null;
   log?: { warn?: (...args: any[]) => void };
 }) {
   const {
@@ -1908,6 +1931,9 @@ export async function enqueuePendingWcOrder(input: {
     storeCityId,
     platform,
     verifiedCurrency,
+    policyAcceptedAt,
+    policyAcceptedIp,
+    policyVersion,
     log,
   } = input;
   const deviceId =
@@ -1916,7 +1942,9 @@ export async function enqueuePendingWcOrder(input: {
       : null;
 
   // Store the payment-verified flag alongside the payload so the worker
-  // doesn't re-verify an already-confirmed payment.
+  // doesn't re-verify an already-confirmed payment. Policy audit fields are
+  // stored with the payload so they survive the reconciliation retry and can
+  // be written to app_orders when the OS order is eventually created.
   const storedPayload = {
     ...body,
     _paymentVerified: paymentVerified,
@@ -1926,6 +1954,9 @@ export async function enqueuePendingWcOrder(input: {
     _storeCityId: storeCityId ?? null,
     _platform: platform ?? null,
     _verifiedCurrency: verifiedCurrency ?? null,
+    _policyAcceptedAt: policyAcceptedAt ?? null,
+    _policyAcceptedIp: policyAcceptedIp ?? null,
+    _policyVersion: policyVersion ?? null,
   };
 
   try {
@@ -2021,6 +2052,12 @@ async function processPendingRow(row: PendingWooOrder): Promise<void> {
   const storedPlatform = normalizePlatform(rawPayload?._platform);
   const storedVerifiedCurrency =
     typeof rawPayload?._verifiedCurrency === "string" ? rawPayload._verifiedCurrency : null;
+  const storedPolicyAcceptedAt =
+    typeof rawPayload?._policyAcceptedAt === "string" ? rawPayload._policyAcceptedAt : null;
+  const storedPolicyAcceptedIp =
+    typeof rawPayload?._policyAcceptedIp === "string" ? rawPayload._policyAcceptedIp : null;
+  const storedPolicyVersion =
+    typeof rawPayload?._policyVersion === "string" ? rawPayload._policyVersion : null;
   const store = resolveStore(storedCountryCode, storedCityId);
 
   // Reconciliation retries via OS (the authoritative order submission path).
@@ -2059,6 +2096,11 @@ async function processPendingRow(row: PendingWooOrder): Promise<void> {
       platform: storedPlatform,
       storeKey: store.storeKey,
       currencyCode: storedVerifiedCurrency,
+      // Restore server-stamped policy acceptance fields so the eventual
+      // app_orders row carries the original audit data even after a retry.
+      policyAcceptedAt: storedPolicyAcceptedAt,
+      policyAcceptedIp: storedPolicyAcceptedIp,
+      policyVersion: storedPolicyVersion,
       log: logger,
     });
     logger.info(

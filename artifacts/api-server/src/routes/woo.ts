@@ -1,5 +1,9 @@
 import { Router, type IRouter, type Request } from "express";
 import { z } from "zod";
+import { pickClientIp } from "../lib/geoCurrency";
+
+/** Server-authoritative Cyprus policy version — matches checkout.ts and payment.ts. */
+const CURRENT_POLICY_VERSION = "cy-v1" as const;
 import { checkAdminToken } from "../lib/admin-auth";
 import { authenticate, resolveAuthenticatedCustomer } from "../lib/auth";
 import { sortProducts, type ProductSortMode } from "../lib/productRanking";
@@ -1624,6 +1628,23 @@ router.post("/woo/order", async (req, res) => {
     resolvedUserId = wcCustomerId;
   }
 
+  // ── Cyprus policy acceptance guard ───────────────────────────────────
+  // Reject new unverified orders for the Cyprus store if the shopper has not
+  // explicitly accepted the Terms, Shipping, and Returns & Refund policies.
+  // Orders that already carry a paymentRef are already charged — blocking them
+  // would create a charged-but-lost order, so we skip the guard for those.
+  if (store.storeKey === "cyprus" && body.policyAccepted !== true) {
+    req.log?.warn?.(
+      { appOrderId: body.orderId, storeKey: store.storeKey },
+      "woo.order: Cyprus order rejected — policy acceptance missing",
+    );
+    return res.status(400).json({
+      ok: false,
+      code: "policy_acceptance_required",
+      message: "Please accept the Terms, Shipping, and Returns & Refund policies before placing an order.", // i18n-ignore
+    });
+  }
+
   // ── Payment verification (layered) ────────────────────────────────────
   let paymentVerified = false;
   const paymentRef = body.paymentRef;
@@ -1647,6 +1668,14 @@ router.post("/woo/order", async (req, res) => {
     | { couponCode: string; couponDiscountUsd: number; couponId?: string | number }
     | undefined;
 
+  // Policy acceptance audit fields — populated from the CartSnapshot (when
+  // available) or derived from the current request as a fallback.
+  // The server always derives IP and timestamp; only policyVersion comes from
+  // the client (via body or snapshot). Never trust client-supplied IP/time.
+  let snapshotPolicyAcceptedAt: string | undefined;
+  let snapshotPolicyAcceptedIp: string | undefined;
+  let snapshotPolicyVersion: string | undefined;
+
   if (body.paymentMethod === "card" || body.paymentMethod === "wallet" || body.paymentMethod === "apple_pay" || body.paymentMethod === "google_pay" || body.paymentMethod === "klarna") {
     if (!paymentRef) {
       return res.status(402).json({
@@ -1659,6 +1688,12 @@ router.post("/woo/order", async (req, res) => {
     // Layer 1: Verify orderId↔paymentRef binding from the checkout intent.
     // This prevents replaying a paid session for a different order.
     const intent = consumePaymentIntent(paymentRef, body.orderId);
+    // Extract server-stamped policy audit fields from the intent snapshot.
+    if (intent?.snapshot?.policyVersion || intent?.snapshot?.policyAcceptedAt) {
+      snapshotPolicyAcceptedAt = intent.snapshot.policyAcceptedAt;
+      snapshotPolicyAcceptedIp = intent.snapshot.policyAcceptedIp;
+      snapshotPolicyVersion = intent.snapshot.policyVersion;
+    }
 
     if (!intent) {
       // The in-memory store is cleared on every server restart and entries
@@ -1986,6 +2021,12 @@ router.post("/woo/order", async (req, res) => {
     body.deliveryServiceType = intent.snapshot.deliveryServiceType;
 
     snapshotItems = intent.snapshot.items;
+    // Extract server-stamped policy audit fields from the Mamo intent snapshot.
+    if (intent.snapshot.policyVersion || intent.snapshot.policyAcceptedAt) {
+      snapshotPolicyAcceptedAt = intent.snapshot.policyAcceptedAt;
+      snapshotPolicyAcceptedIp = intent.snapshot.policyAcceptedIp;
+      snapshotPolicyVersion = intent.snapshot.policyVersion;
+    }
     snapshotFees = {
       districtFeeUsd: intent.snapshot.districtFeeUsd,
       expressFeeUsd: intent.snapshot.expressFeeUsd,
@@ -2083,6 +2124,12 @@ router.post("/woo/order", async (req, res) => {
     body.deliveryServiceType = intent.snapshot.deliveryServiceType;
 
     snapshotItems = intent.snapshot.items;
+    // Extract server-stamped policy audit fields from the PayPal intent snapshot.
+    if (intent.snapshot.policyVersion || intent.snapshot.policyAcceptedAt) {
+      snapshotPolicyAcceptedAt = intent.snapshot.policyAcceptedAt;
+      snapshotPolicyAcceptedIp = intent.snapshot.policyAcceptedIp;
+      snapshotPolicyVersion = intent.snapshot.policyVersion;
+    }
     snapshotFees = {
       districtFeeUsd: intent.snapshot.districtFeeUsd,
       expressFeeUsd: intent.snapshot.expressFeeUsd,
@@ -2128,6 +2175,185 @@ router.post("/woo/order", async (req, res) => {
           message: "Payment could not be captured with PayPal. Please complete payment before placing the order.", // i18n-ignore
         });
       }
+    }
+  } else if (body.paymentMethod === "tabby") {
+    if (!paymentRef) {
+      return res.status(402).json({
+        ok: false,
+        code: "payment_reference_required",
+        message: "A Tabby payment ID (paymentRef) is required for Tabby payments.", // i18n-ignore
+      });
+    }
+
+    // Layer 1: Verify orderId↔paymentRef binding.
+    const intent = consumePaymentIntent(paymentRef, body.orderId);
+    if (!intent) {
+      req.log?.warn?.(
+        { appOrderId: body.orderId, paymentRef },
+        "woo.order: no valid Tabby payment intent found for this paymentRef+orderId pair",
+      );
+      return res.status(402).json({
+        ok: false,
+        code: "payment_intent_invalid",
+        message: "No valid payment session found for this order. Please initiate checkout again.", // i18n-ignore
+      });
+    }
+
+    const cartMismatch = verifyCartMatchesSnapshot(body.items, intent.snapshot, {
+      checkDelivery: true,
+      submittedDistrict: body.district,
+      submittedExpressDelivery: body.expressFee > 0 || body.expressDelivery === true,
+      submittedNoAddress: body.noAddress === true,
+      submittedDeliverySlot: body.deliverySlot ?? "",
+      submittedDeliveryCityId: body.cityId,
+      submittedDeliveryDate: body.deliveryDate,
+      submittedDeliverySlotId: body.deliverySlotId,
+      submittedDeliveryServiceType: body.deliveryServiceType,
+    });
+    if (cartMismatch) {
+      req.log?.warn?.(
+        { appOrderId: body.orderId, paymentRef, reason: cartMismatch },
+        "woo.order: submitted order does not match paid-for Tabby snapshot — rejecting",
+      );
+      return res.status(402).json({
+        ok: false,
+        code: "cart_mismatch",
+        message: "The submitted order does not match the paid-for cart. Please initiate checkout again.", // i18n-ignore
+      });
+    }
+    body.deliveryServiceType = intent.snapshot.deliveryServiceType;
+
+    snapshotItems = intent.snapshot.items;
+    // Extract server-stamped policy audit fields from the Tabby intent snapshot.
+    if (intent.snapshot.policyVersion || intent.snapshot.policyAcceptedAt) {
+      snapshotPolicyAcceptedAt = intent.snapshot.policyAcceptedAt;
+      snapshotPolicyAcceptedIp = intent.snapshot.policyAcceptedIp;
+      snapshotPolicyVersion = intent.snapshot.policyVersion;
+    }
+    snapshotFees = {
+      districtFeeUsd: intent.snapshot.districtFeeUsd,
+      expressFeeUsd: intent.snapshot.expressFeeUsd,
+      slotFeeUsd: intent.snapshot.slotFeeUsd,
+    };
+    verifiedCurrency = intent.currency;
+    if (intent.snapshot.couponCode && intent.snapshot.couponDiscountUsd != null) {
+      intentCouponSnapshot = {
+        couponCode: intent.snapshot.couponCode,
+        couponDiscountUsd: intent.snapshot.couponDiscountUsd,
+        couponId: intent.snapshot.couponId,
+      };
+    }
+
+    const tabbyKey = process.env.TABBY_SECRET_KEY;
+    if (!tabbyKey) {
+      req.log?.warn?.({ appOrderId: body.orderId, paymentRef }, "woo.order: TABBY_SECRET_KEY not configured — rejecting Tabby order");
+      return res.status(402).json({
+        ok: false,
+        code: "payment_not_confirmed",
+        message: "Tabby payment could not be verified: payment provider not configured.", // i18n-ignore
+      });
+    }
+
+    // Verify payment status with Tabby API and ensure funds are captured
+    // before creating the OS order. AUTHORIZED means the shopper approved but
+    // funds have not yet been captured — we capture synchronously here so a
+    // later capture failure cannot leave an OS order without collected funds.
+    // CLOSED means funds are already captured (e.g. via webhook). Any other
+    // status (CREATED, REJECTED, EXPIRED, etc.) is an error.
+    //
+    // On any failure or network error the intent is released so the shopper
+    // can retry without needing to restart the payment flow (same pattern as
+    // Stripe/CyberSource enqueue-failure path).
+    try {
+      const verifyRes = await fetch(`https://api.tabby.ai/api/v2/payments/${paymentRef}`, {
+        headers: { Authorization: `Bearer ${tabbyKey}` },
+      });
+      if (!verifyRes.ok) {
+        req.log?.warn?.({ appOrderId: body.orderId, paymentRef, tabbyHttpStatus: verifyRes.status }, "woo.order: Tabby payment status check returned non-2xx");
+        releasePaymentIntent(paymentRef);
+        void recordFailedPaymentAttempt(body, {
+          paymentRef, snapshotItems, store, platform: requestPlatform,
+          userId: resolvedUserId, customerId: resolvedCustomerId, log: req.log,
+        });
+        return res.status(402).json({
+          ok: false,
+          code: "payment_not_confirmed",
+          message: "Payment could not be confirmed with Tabby. Please complete payment before placing the order.", // i18n-ignore
+        });
+      }
+      const verifyData = (await verifyRes.json()) as { status?: string; amount?: string };
+      const tabbyStatus = (verifyData?.status ?? "").toUpperCase();
+
+      if (tabbyStatus === "AUTHORIZED") {
+        // Capture the authorized payment synchronously before proceeding.
+        const captureRes = await fetch(`https://api.tabby.ai/api/v2/payments/${paymentRef}/captures`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${tabbyKey}` },
+          body: JSON.stringify({ amount: verifyData.amount }),
+        });
+        if (!captureRes.ok) {
+          // If capture fails, check whether the webhook already closed the
+          // payment (race condition: webhook captured just before us). Re-fetch
+          // the status; if it is now CLOSED, proceed without releasing the intent.
+          let closedByWebhook = false;
+          try {
+            const reCheckRes = await fetch(`https://api.tabby.ai/api/v2/payments/${paymentRef}`, {
+              headers: { Authorization: `Bearer ${tabbyKey}` },
+            });
+            if (reCheckRes.ok) {
+              const reCheckData = (await reCheckRes.json()) as { status?: string };
+              closedByWebhook = (reCheckData?.status ?? "").toUpperCase() === "CLOSED";
+            }
+          } catch { /* ignore re-check error */ }
+
+          if (closedByWebhook) {
+            req.log?.info?.({ appOrderId: body.orderId, paymentRef }, "woo.order: Tabby capture returned non-2xx but status is now CLOSED (webhook race) — proceeding");
+            paymentVerified = true;
+          } else {
+            const captureBody = await captureRes.text().catch(() => "");
+            req.log?.warn?.({ appOrderId: body.orderId, paymentRef, captureStatus: captureRes.status, captureBody: captureBody.slice(0, 500) }, "woo.order: Tabby synchronous capture failed");
+            // Release so the shopper can retry the order finalization.
+            releasePaymentIntent(paymentRef);
+            void recordFailedPaymentAttempt(body, {
+              paymentRef, snapshotItems, store, platform: requestPlatform,
+              userId: resolvedUserId, customerId: resolvedCustomerId, log: req.log,
+            });
+            return res.status(402).json({
+              ok: false,
+              code: "payment_capture_failed",
+              message: "Tabby payment capture failed. Please contact support.", // i18n-ignore
+            });
+          }
+        } else {
+          req.log?.info?.({ appOrderId: body.orderId, paymentRef }, "woo.order: Tabby payment captured synchronously");
+          paymentVerified = true;
+        }
+      } else if (tabbyStatus === "CLOSED") {
+        // Already captured (e.g. by webhook) — this is the happy path for the
+        // webhook-then-synchronous-path race. Intent is already consumed; proceed.
+        paymentVerified = true;
+      } else {
+        req.log?.warn?.({ appOrderId: body.orderId, paymentRef, tabbyStatus }, "woo.order: Tabby payment not in AUTHORIZED/CLOSED state");
+        releasePaymentIntent(paymentRef);
+        void recordFailedPaymentAttempt(body, {
+          paymentRef, snapshotItems, store, platform: requestPlatform,
+          userId: resolvedUserId, customerId: resolvedCustomerId, log: req.log,
+        });
+        return res.status(402).json({
+          ok: false,
+          code: "payment_not_confirmed",
+          message: "Payment could not be confirmed with Tabby. Please complete payment before placing the order.", // i18n-ignore
+        });
+      }
+    } catch (tabbyVerifyErr) {
+      req.log?.warn?.({ appOrderId: body.orderId, paymentRef, err: tabbyVerifyErr }, "woo.order: Tabby verification/capture request threw — rejecting order");
+      // Release intent so the shopper can retry when the network recovers.
+      releasePaymentIntent(paymentRef);
+      return res.status(502).json({
+        ok: false,
+        code: "payment_verification_failed",
+        message: "Could not verify your Tabby payment. Please try again.", // i18n-ignore
+      });
     }
   } else if ((body.paymentMethod as string) === "cybersource") {
     if (!paymentRef) {
@@ -2424,6 +2650,21 @@ router.post("/woo/order", async (req, res) => {
           storeCityId: null,
           platform: requestPlatform,
           verifiedCurrency,
+          // Persist server-stamped policy acceptance audit fields so a
+          // reconciliation retry can write them to app_orders on success.
+          // Computed here (not from finalPolicy* below) because the enqueue
+          // path runs before those variables are declared.
+          policyAcceptedAt:
+            snapshotPolicyAcceptedAt ??
+            (body.policyAccepted === true ? new Date().toISOString() : null),
+          policyAcceptedIp: (() => {
+            if (snapshotPolicyAcceptedIp) return snapshotPolicyAcceptedIp;
+            if (body.policyAccepted !== true) return null;
+            return pickClientIp(req.headers["x-forwarded-for"], (req.ip ?? "").toString()) || null;
+          })(),
+          policyVersion:
+            snapshotPolicyVersion ??
+            (body.policyAccepted === true ? CURRENT_POLICY_VERSION : null),
           log: req.log,
         });
       } catch (enqueueErr) {
@@ -2476,6 +2717,24 @@ router.post("/woo/order", async (req, res) => {
   // best-effort (errors are caught+logged, never re-thrown) so this cannot
   // reject and does not block the response beyond the DB write itself — the
   // push notification inside is fire-and-forget as of the change above.
+  //
+  // Policy audit fields: prefer values from the CartSnapshot (server-stamped
+  // at PI creation) when available; otherwise derive from the current request.
+  // The IP and timestamp are ALWAYS server-derived — never trusted from the
+  // request body, even as a fallback.
+  const finalPolicyAcceptedAt =
+    snapshotPolicyAcceptedAt ??
+    (body.policyAccepted === true ? new Date().toISOString() : undefined);
+  const finalPolicyVersion =
+    // Policy version is always server-authoritative — the client-supplied value
+    // is never trusted. CURRENT_POLICY_VERSION is the single source of truth.
+    snapshotPolicyVersion ??
+    (body.policyAccepted === true ? CURRENT_POLICY_VERSION : undefined);
+  const finalPolicyAcceptedIp = (() => {
+    if (snapshotPolicyAcceptedIp) return snapshotPolicyAcceptedIp;
+    if (body.policyAccepted !== true) return undefined;
+    return pickClientIp(req.headers["x-forwarded-for"], (req.ip ?? "").toString()) || undefined;
+  })();
   await recordSuccessfulWcOrder({
     body,
     wcOrderId: null,
@@ -2489,6 +2748,9 @@ router.post("/woo/order", async (req, res) => {
     storeKey: store.storeKey,
     osOrderId: result.osOrderId ?? null,
     currencyCode: verifiedCurrency,
+    policyAcceptedAt: finalPolicyAcceptedAt ?? null,
+    policyAcceptedIp: finalPolicyAcceptedIp ?? null,
+    policyVersion: finalPolicyVersion ?? null,
     log: req.log,
   });
 

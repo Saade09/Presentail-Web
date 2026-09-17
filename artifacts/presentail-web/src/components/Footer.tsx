@@ -384,12 +384,19 @@ export function Footer() {
                 <CollapsibleSection heading={t("footer.policies")}>
                   <ul className="space-y-2">
                     <li>
-                      {/* Link directly to the city-scoped URL so a Larnaca
-                          shopper is not silently redirected through Nicosia.
-                          /cyprus/shipping-policy/ stays as a server-side
-                          fallback for external/direct-entry links only. */}
+                      {/* Use the canonical /cyprus/ URLs for the three policy
+                          pages — these are the stable, indexable, sitemap-submitted
+                          URLs for Cyprus legal content. */}
                       <InLink
-                        href={toCityHref("/shipping-policy")}
+                        href="/cyprus/terms/"
+                        testId="footer-link-terms-cy"
+                      >
+                        {t("footer.terms")}
+                      </InLink>
+                    </li>
+                    <li>
+                      <InLink
+                        href="/cyprus/shipping-policy/"
                         testId="footer-link-shipping-policy"
                       >
                         {t("footer.shippingPolicy")}
@@ -397,7 +404,7 @@ export function Footer() {
                     </li>
                     <li>
                       <InLink
-                        href={toCityHref("/return-policy")}
+                        href="/cyprus/refund-policy/"
                         testId="footer-link-refund-policy"
                       >
                         {t("footer.refundPolicy")}

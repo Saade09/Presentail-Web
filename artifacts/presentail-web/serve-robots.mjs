@@ -198,7 +198,13 @@ export const CANONICAL_PRODUCTION_HOST = "presentail.com"; // i18n-ignore — ca
  *   unit tests pass an empty array or a synthetic fixture.
  * @returns {string|null}  Header value, or null to omit the header.
  */
+// Cyprus canonical policy pages are always indexable, even though the generic
+// `terms` token would otherwise match PRIVATE_ROUTE_RE. Check before the
+// private-path guard so only these exact canonical URLs escape the noindex.
+const CYPRUS_CANONICAL_POLICY_RE = /^\/cyprus\/(?:terms|shipping-policy|refund-policy)(?:\/)?$/;
+
 export function resolveXRobotsTag(host, pathname, search, curatedFilterPages = []) {
+  if (CYPRUS_CANONICAL_POLICY_RE.test(pathname)) return host === CANONICAL_PRODUCTION_HOST ? "index, follow" : null;
   if (isPrivatePath(pathname)) return "noindex";
   if (hasUtmParams(search)) return "noindex";
   if (hasFilterParams(search) && !isCuratedFilterPage(pathname, search || "", curatedFilterPages)) return "noindex, follow";

@@ -158,6 +158,17 @@ export const appOrdersTable = pgTable(
     deliveryWindowEnd: timestamp("delivery_window_end", {
       withTimezone: true,
     }),
+    // ── Policy acceptance audit fields ──────────────────────────────────────
+    // UTC timestamp of when the shopper accepted the applicable policy at
+    // checkout. Server-stamped at payment-session creation; never client-supplied.
+    // Null for historical rows placed before this column was added.
+    policyAcceptedAt: timestamp("policy_accepted_at", { withTimezone: true }),
+    // Real client IP derived from the trusted x-forwarded-for chain at
+    // payment-session creation. Null for historical rows.
+    policyAcceptedIp: text("policy_accepted_ip"),
+    // Explicit policy version string (e.g. "cy-v1") agreed to by the shopper.
+    // Null for historical rows placed before policy acceptance was required.
+    policyVersion: text("policy_version"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

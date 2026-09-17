@@ -1,4 +1,5 @@
 import { Feather } from "@expo/vector-icons";
+import { Linking } from "react-native";
 import Swipeable from "react-native-gesture-handler/Swipeable";
 import QRCode from "react-native-qrcode-svg";
 import {
@@ -750,6 +751,11 @@ function CheckoutScreen() {
   const [paying, setPaying] = useState(false);
   const [cardError, setCardError] = useState<string | null>(null);
   const [paymentEmailError, setPaymentEmailError] = useState<string | null>(null);
+  // Policy acceptance — required for Cyprus (CY) checkout only.
+  // Unchecked by default; blocks all payment paths until checked.
+  const MOBILE_POLICY_VERSION = "cy-v1";
+  const isCY = (effectiveCountry ?? "").toUpperCase() === "CY";
+  const [policyAccepted, setPolicyAccepted] = useState(false);
 
   // ── Saved card / save-card state ────────────────────────────────────────
   const [saveCard, setSaveCard] = useState(false);
@@ -1149,6 +1155,9 @@ function CheckoutScreen() {
     // server should treat this as informational unless explicitly handled.
     currencyCode,
     ...(couponApplied && coupon.trim() ? { couponCode: coupon.trim() } : {}),
+    // Policy acceptance — only sent for CY orders so the server can validate
+    // and store the acceptance audit record.
+    ...(isCY ? { policyAccepted, policyVersion: MOBILE_POLICY_VERSION } : {}),
     ...(!noAddress && selectedPlace
       ? {
           addressBookPlace: {
@@ -1253,6 +1262,15 @@ function CheckoutScreen() {
 
   const placeOrder = async () => {
     if (paying) return;
+    // Policy acceptance guard — required for Cyprus (CY) orders.
+    if (isCY && !policyAccepted) {
+      Alert.alert(
+        "Policy acceptance required", // i18n-ignore
+        "Please read and accept the Terms & Conditions, Shipping Policy, and Returns & Refund Policy before placing your order.", // i18n-ignore
+        [{ text: "OK" }],
+      );
+      return;
+    }
     if (!isValidEmailFormat(senderEmail)) {
       const message = t.authInvalidEmail;
       setPaymentEmailError(message);
@@ -1568,6 +1586,7 @@ function CheckoutScreen() {
         district: district?.name,
         expressDelivery: deliveryMode === "express",
         noAddress,
+        ...(isCY ? { policyAccepted, policyVersion: MOBILE_POLICY_VERSION } : {}),
       });
       if (!intentResult.ok) {
         if (intentResult.code === "already_paid") {
@@ -1670,6 +1689,7 @@ function CheckoutScreen() {
         district: district?.name,
         expressDelivery: deliveryMode === "express",
         noAddress,
+        ...(isCY ? { policyAccepted, policyVersion: MOBILE_POLICY_VERSION } : {}),
       });
       if (!intentResult.ok) {
         if (handledStaleSlotCode(intentResult.code)) return;
@@ -1734,6 +1754,7 @@ function CheckoutScreen() {
           deliverySlot: deliveryMode === "express" ? "" : (slot?.label ?? ""),
           cityId: deliveryCity?.id,
           ...(couponApplied && coupon.trim() ? { couponCode: coupon.trim() } : {}),
+          ...(isCY ? { policyAccepted, policyVersion: MOBILE_POLICY_VERSION } : {}),
         });
         if (session.ok) {
           const deferredStartedAt = Date.now();
@@ -1830,6 +1851,7 @@ function CheckoutScreen() {
         ...(slot?.slotId ? { deliverySlotId: slot.slotId } : {}),
         ...(deliveryCity?.id != null ? { cityId: String(deliveryCity.id) } : {}),
         deliveryDate: date,
+        ...(isCY ? { policyAccepted, policyVersion: MOBILE_POLICY_VERSION } : {}),
         storeContext: { countryCode: selectedCountry?.code, cityId: deliveryCity?.id },
       });
       if (session.ok) {
@@ -1871,6 +1893,7 @@ function CheckoutScreen() {
         ...(slot?.slotId ? { deliverySlotId: slot.slotId } : {}),
         ...(deliveryCity?.id != null ? { cityId: String(deliveryCity.id) } : {}),
         deliveryDate: date,
+        ...(isCY ? { policyAccepted, policyVersion: MOBILE_POLICY_VERSION } : {}),
         storeContext: { countryCode: selectedCountry?.code, cityId: deliveryCity?.id },
       });
       if (session.ok) {
@@ -1909,6 +1932,7 @@ function CheckoutScreen() {
         ...(slot?.slotId ? { deliverySlotId: slot.slotId } : {}),
         ...(deliveryCity?.id != null ? { cityId: String(deliveryCity.id) } : {}),
         deliveryDate: date,
+        ...(isCY ? { policyAccepted, policyVersion: MOBILE_POLICY_VERSION } : {}),
         storeContext: { countryCode: selectedCountry?.code, cityId: deliveryCity?.id },
       });
       if (session.ok) {
@@ -2289,6 +2313,9 @@ function CheckoutScreen() {
               saveAddress={saveAddress}
               setSaveAddress={setSaveAddress}
               effectiveCountry={effectiveCountry}
+              isCY={isCY}
+              policyAccepted={policyAccepted}
+              setPolicyAccepted={setPolicyAccepted}
               onRecipientPhoneInfoOpen={() => {
                 recipientPhoneTooltipOpenedRef.current = true;
                 trackEvent({ name: "phone_tooltip_opened", surface: "checkout" });
@@ -3061,6 +3088,7 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
     senderEmail, setSenderEmail, identitySecret, setIdentitySecret,
     hideSenderName, hideSenderEmail, hideSenderPhone, senderSummary, onEditAccount,
     effectiveCountry,
+    isCY, policyAccepted, setPolicyAccepted,
     onRecipientPhoneInfoOpen, onSenderPhoneInfoOpen,
   } = props;
 
@@ -3649,6 +3677,59 @@ const DeliveryDetailsStep = React.forwardRef(function DeliveryDetailsStep(props:
           <AppText style={{ fontSize: 12, color: "#6b7280", marginTop: 6, marginLeft: 28 }}>
             {t.keepIdentitySecretHint}
           </AppText>
+        )}
+
+        {/* Cyprus policy acceptance — shown only for CY shoppers, unchecked
+            by default. Blocks placeOrder until accepted. */}
+        {isCY && (
+          <Pressable
+            onPress={() => setPolicyAccepted((v: boolean) => !v)}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: policyAccepted }}
+            testID="policy-acceptance-checkbox"
+            style={{
+              flexDirection: "row",
+              alignItems: "flex-start",
+              gap: 10,
+              backgroundColor: colors.background,
+              padding: 12,
+              borderRadius: 10,
+            }}
+          >
+            <View
+              style={{
+                width: 18,
+                height: 18,
+                borderRadius: 4,
+                borderWidth: 1.5,
+                borderColor: policyAccepted ? colors.primary : colors.border,
+                backgroundColor: policyAccepted ? colors.primary : "#fff",
+                alignItems: "center",
+                justifyContent: "center",
+                marginTop: 1,
+              }}
+            >
+              {policyAccepted ? <Feather name="check" size={12} color="#fff" /> : null}
+            </View>
+            <AppText style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: "#6b7280", flex: 1, lineHeight: 18 }}>
+              {`${t.policyAcceptancePrefix} `}
+              <AppText
+                style={{ color: colors.primary, textDecorationLine: "underline" }}
+                onPress={() => Linking.openURL("https://presentail.com/cyprus/terms/").catch(() => {})}
+              >{t.policyAcceptanceTerms}</AppText>
+              {", "}
+              <AppText
+                style={{ color: colors.primary, textDecorationLine: "underline" }}
+                onPress={() => Linking.openURL("https://presentail.com/cyprus/shipping-policy/").catch(() => {})}
+              >{t.policyAcceptanceShipping}</AppText>
+              {` ${t.policyAcceptanceAnd} `}
+              <AppText
+                style={{ color: colors.primary, textDecorationLine: "underline" }}
+                onPress={() => Linking.openURL("https://presentail.com/cyprus/refund-policy/").catch(() => {})}
+              >{t.policyAcceptanceRefund}</AppText>
+              {"."}
+            </AppText>
+          </Pressable>
         )}
       </Card>
     </View>

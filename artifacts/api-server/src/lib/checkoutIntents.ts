@@ -60,6 +60,15 @@ export type CartSnapshot = {
   couponCode?: string;
   /** OS-validated coupon ID. Absent for referral codes (no OS record), FIRST10 uses sentinel "first-order-10", and regular coupons carry the OS numeric ID. Snapshots written before this field was introduced will have it absent. */
   couponId?: string | number;
+  // ── Policy acceptance audit snapshot ──────────────────────────────────────
+  // Stored here so webhooks, redirect-return handlers, and idempotent replays
+  // can finalize the same audit record without re-parsing the original request.
+  /** Policy version string accepted by the shopper (e.g. "cy-v1"). Absent when not required. */
+  policyVersion?: string;
+  /** Server-derived client IP at payment-session creation. Absent when not required. */
+  policyAcceptedIp?: string;
+  /** Server-stamped ISO timestamp of policy acceptance. Absent when not required. */
+  policyAcceptedAt?: string;
 };
 
 export type PaymentIntent = {

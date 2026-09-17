@@ -138,6 +138,10 @@ export async function createPaymentIntent(payload: {
   district?: string;
   /** True when the shopper chose express delivery. */
   expressDelivery?: boolean;
+  /** Cyprus store: explicit policy-acceptance flag. */
+  policyAccepted?: boolean;
+  /** Cyprus store: policy version constant. */
+  policyVersion?: string;
   /** True when the shopper chose the no-address (pick-up / to-be-confirmed)
    *  option; the server applies the flat no-address delivery fee instead of
    *  the per-district fee. */
@@ -265,6 +269,10 @@ export async function createStripeCheckoutSession(payload: {
   cityId?: string;
   /** Applied promo/coupon code. Only included when the shopper pressed Apply. */
   couponCode?: string;
+  /** Cyprus store: explicit policy-acceptance flag. */
+  policyAccepted?: boolean;
+  /** Cyprus store: policy version constant. */
+  policyVersion?: string;
 }): Promise<
   | { ok: true; url: string; id: string }
   | { ok: false; code?: string; message: string }

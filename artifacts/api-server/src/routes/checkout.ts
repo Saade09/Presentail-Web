@@ -1,5 +1,10 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
+
+/** Server-authoritative policy version for Cyprus checkout acceptance. Bump
+ *  this string whenever the legal copy changes; the stored value in app_orders
+ *  reflects which version was in force at the time of each order. */
+const CURRENT_POLICY_VERSION = "cy-v1" as const;
 import Stripe from "stripe";
 import {
   isKlarnaEnabled,
@@ -125,6 +130,10 @@ type Body = {
    * only. Falls back to the store country when absent.
    */
   billingCountry?: string;
+  /** True when the shopper has accepted the applicable policies before hosted checkout. Required for CY store. */
+  policyAccepted?: boolean;
+  /** Policy version string agreed to (e.g. "cy-v1"). */
+  policyVersion?: string;
 };
 
 router.post("/checkout/session", async (req, res) => {
@@ -145,6 +154,8 @@ router.post("/checkout/session", async (req, res) => {
     deliveryDate: rawDeliveryDate,
     couponCode: sessionCouponCode,
     billingCountry,
+    policyAccepted: sessionPolicyAccepted,
+    policyVersion: sessionPolicyVersion,
   } = req.body as Body;
 
   if (!orderId) {
@@ -186,6 +197,23 @@ router.post("/checkout/session", async (req, res) => {
   }
 
   const stripeCurrency = currency.toLowerCase();
+
+  // Policy acceptance guard — required for Cyprus store hosted-checkout sessions.
+  if (store.storeKey === "cyprus" && sessionPolicyAccepted !== true) {
+    return res.status(400).json({
+      ok: false,
+      code: "policy_acceptance_required",
+      message: "Please accept the Terms, Shipping, and Returns & Refund policies before placing an order.", // i18n-ignore
+    });
+  }
+  // Derive server-side policy audit fields (IP + timestamp cannot be client-supplied).
+  // Policy version is server-authoritative — the client value is ignored.
+  const sessionPolicySnapshotFields: { policyVersion?: string; policyAcceptedIp?: string; policyAcceptedAt?: string } = {};
+  if (sessionPolicyAccepted === true) {
+    sessionPolicySnapshotFields.policyVersion = CURRENT_POLICY_VERSION;
+    sessionPolicySnapshotFields.policyAcceptedIp = pickClientIp(req.headers["x-forwarded-for"], (req.ip ?? "").toString()) || undefined;
+    sessionPolicySnapshotFields.policyAcceptedAt = new Date().toISOString();
+  }
 
   // Stale-slot guard — reject BEFORE any charge is initiated so a stale tab
   // can never pay for a same-day slot whose window has already ended.
@@ -486,6 +514,7 @@ router.post("/checkout/session", async (req, res) => {
         couponCode: sessionAppliedCouponCode,
         couponId: sessionAppliedCouponId,
         couponDiscountUsd: sessionCouponDiscountUsd > 0 ? sessionCouponDiscountUsd : undefined,
+        ...sessionPolicySnapshotFields,
       },
     });
 
@@ -546,6 +575,10 @@ type PaymentIntentBody = {
    * Never used for pricing or security — UX hint only.
    */
   billingCountry?: string;
+  /** True when the shopper has ticked the policy-acceptance checkbox. Required for CY store. */
+  policyAccepted?: boolean;
+  /** Policy version string agreed to (e.g. "cy-v1"). Echoed from the client; persisted for audit. */
+  policyVersion?: string;
 };
 
 /**
@@ -669,7 +702,7 @@ async function computeStripeAmounts({
 }
 
 router.post("/checkout/payment-intent", async (req, res) => {
-  const { items, orderId, currency: rawCurrency, email, metadata, deliveryFeeUsd: rawDeliveryFeeUsd, district, expressDelivery, noAddress, deliverySlot, deliverySlotId, cityId, deliveryDate, couponCode, saveCard, billingCountry } =
+  const { items, orderId, currency: rawCurrency, email, metadata, deliveryFeeUsd: rawDeliveryFeeUsd, district, expressDelivery, noAddress, deliverySlot, deliverySlotId, cityId, deliveryDate, couponCode, saveCard, billingCountry, policyAccepted, policyVersion } =
     req.body as PaymentIntentBody;
 
   if (!orderId) {
@@ -703,6 +736,25 @@ router.post("/checkout/payment-intent", async (req, res) => {
   // account (e.g. CAD/AUD/CHF on the LB main account).
   const chargeCurrency = resolveStripeChargeCurrency(currency, isGulf);
   const stripeCurrency = chargeCurrency.toLowerCase();
+
+  // Policy acceptance guard — required for Cyprus store card/wallet/Klarna payments.
+  if (store.storeKey === "cyprus" && policyAccepted !== true) {
+    return res.status(400).json({
+      ok: false,
+      code: "policy_acceptance_required",
+      message: "Please accept the Terms, Shipping, and Returns & Refund policies before placing an order.", // i18n-ignore
+    });
+  }
+  // Derive server-side policy audit fields. IP and timestamp are always
+  // stamped by the server — never trusted from the request body. The policy
+  // version is also server-authoritative: the client-supplied value is ignored
+  // so a caller cannot record a fake/outdated version string.
+  const policySnapshotFields: { policyVersion?: string; policyAcceptedIp?: string; policyAcceptedAt?: string } = {};
+  if (policyAccepted === true) {
+    policySnapshotFields.policyVersion = CURRENT_POLICY_VERSION;
+    policySnapshotFields.policyAcceptedIp = pickClientIp(req.headers["x-forwarded-for"], (req.ip ?? "").toString()) || undefined;
+    policySnapshotFields.policyAcceptedAt = new Date().toISOString();
+  }
 
   // Stale-slot guard — reject BEFORE the PaymentIntent is created so a stale
   // tab or app session can never charge for a same-day slot whose window has
@@ -946,6 +998,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
                 couponCode: appliedCouponCode,
                 couponId: appliedCouponId,
                 couponDiscountUsd: couponDiscountUsd > 0 ? couponDiscountUsd : undefined,
+                ...policySnapshotFields,
               },
             });
             return res.json({
@@ -990,6 +1043,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
               couponCode: appliedCouponCode,
               couponId: appliedCouponId,
               couponDiscountUsd: couponDiscountUsd > 0 ? couponDiscountUsd : undefined,
+              ...policySnapshotFields,
             },
           });
           return res.json({
@@ -1068,6 +1122,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
               couponCode: appliedCouponCode,
               couponId: appliedCouponId,
               couponDiscountUsd: couponDiscountUsd > 0 ? couponDiscountUsd : undefined,
+              ...policySnapshotFields,
             },
           });
           return res.json({
@@ -1192,6 +1247,7 @@ router.post("/checkout/payment-intent", async (req, res) => {
         couponCode: appliedCouponCode,
         couponId: appliedCouponId,
         couponDiscountUsd: couponDiscountUsd > 0 ? couponDiscountUsd : undefined,
+        ...policySnapshotFields,
       },
     });
 

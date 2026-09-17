@@ -241,6 +241,16 @@ export function buildSitemapXml({
     urls.push(urlEntry("/", "1.0", "weekly"));
   }
 
+  // 0. Cyprus canonical policy pages — country-level (not city-level) so they
+  // get a single <url> entry with no hreflang alternates. English sitemap only
+  // since these pages have no localised equivalents and the canonical URL is
+  // language-agnostic.
+  if (locale === "en") {
+    urls.push(urlEntry("/cyprus/terms/", "0.7", "monthly"));
+    urls.push(urlEntry("/cyprus/shipping-policy/", "0.7", "monthly"));
+    urls.push(urlEntry("/cyprus/refund-policy/", "0.7", "monthly"));
+  }
+
   // 1. Static locale pages — one <url> per country × city, each carrying its
   // language alternates (so the three languages collapse into a single block
   // instead of three separate <url> entries).

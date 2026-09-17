@@ -88,6 +88,11 @@ export type OrderSummaryPanelProps = {
       stays clickable (click focuses the notice via onContinueToPayment) but
       renders visually muted with aria-disabled. */
   ctaBlocked?: boolean;
+  /** Cyprus policy acceptance state. When isCyprus is true, a checkbox is
+      shown above the CTA and the CTA is blocked until accepted. */
+  isCyprus?: boolean;
+  policyAccepted?: boolean;
+  onPolicyAcceptedChange?: (accepted: boolean) => void;
 };
 
 export function OrderSummaryPanel({
@@ -129,6 +134,9 @@ export function OrderSummaryPanel({
   onSummaryOpenChange,
   deliveryRequired = null,
   ctaBlocked = false,
+  isCyprus = false,
+  policyAccepted = false,
+  onPolicyAcceptedChange,
 }: OrderSummaryPanelProps) {
   const { t, dir } = useLocale();
   useDisplayCurrency();
@@ -926,13 +934,44 @@ export function OrderSummaryPanel({
               ══════════════════════════════════════════════════ */}
           {step === 1 && (
             <div className="hidden lg:block shrink-0 border-t border-gray-100 px-6 py-5">
+              {/* Cyprus policy acceptance checkbox — shown above CTA for CY shoppers */}
+              {isCyprus && (
+                <label
+                  className="flex items-start gap-2 text-xs text-muted-foreground cursor-pointer select-none mb-3"
+                  data-testid="label-policy-acceptance-sidebar"
+                >
+                  <input
+                    type="checkbox"
+                    checked={policyAccepted}
+                    onChange={(e) => onPolicyAcceptedChange?.(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 accent-primary cursor-pointer shrink-0"
+                    aria-required="true"
+                    data-testid="check-policy-acceptance-sidebar"
+                  />
+                  <span>
+                    {t("checkout.policyAcceptance.prefix")}{" "}
+                    <a href="/cyprus/terms/" target="_blank" rel="noopener noreferrer" className="underline text-foreground hover:text-primary">
+                      {t("checkout.policyAcceptance.terms")}
+                    </a>
+                    {", "}
+                    <a href="/cyprus/shipping-policy/" target="_blank" rel="noopener noreferrer" className="underline text-foreground hover:text-primary">
+                      {t("checkout.policyAcceptance.shipping")}
+                    </a>
+                    {" "}{t("checkout.policyAcceptance.and")}{" "}
+                    <a href="/cyprus/refund-policy/" target="_blank" rel="noopener noreferrer" className="underline text-foreground hover:text-primary">
+                      {t("checkout.policyAcceptance.refund")}
+                    </a>
+                    {"."}
+                  </span>
+                </label>
+              )}
               <button
                 type="button"
-                onClick={onContinueToPayment}
+                onClick={isCyprus && !policyAccepted ? undefined : onContinueToPayment}
                 data-testid="button-continue-to-payment-sidebar"
                 aria-describedby="sidebar-cta-secure"
-                aria-disabled={ctaBlocked || undefined}
-                className={`w-full h-14 flex items-center justify-between px-5 rounded-xl text-white font-semibold text-base transition-opacity select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary ${ctaBlocked ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:opacity-90"}`}
+                aria-disabled={(ctaBlocked || (isCyprus && !policyAccepted)) || undefined}
+                className={`w-full h-14 flex items-center justify-between px-5 rounded-xl text-white font-semibold text-base transition-opacity select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary ${ctaBlocked || (isCyprus && !policyAccepted) ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:opacity-90"}`}
                 style={{ backgroundColor: "hsl(var(--primary))" }}
               >
                 <span>

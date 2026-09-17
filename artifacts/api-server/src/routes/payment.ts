@@ -1,6 +1,10 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { checkAdminToken } from "../lib/admin-auth";
 import { adminTokenIpLimiter } from "../lib/auth-rate-limit";
+import { pickClientIp } from "../lib/geoCurrency";
+
+/** Server-authoritative Cyprus policy version — mirrors checkout.ts. */
+const CURRENT_POLICY_VERSION = "cy-v1" as const;
 import {
   convertFromUsd,
   normalizeCurrency,
@@ -131,6 +135,7 @@ router.post("/payment/mamo", async (req, res) => {
     cityId: rawCityId,
     deliveryDate: rawDeliveryDate,
     shippingCountry: rawMamoShippingCountry,
+    policyAccepted: mamoPolicyAccepted,
   } = req.body as {
     items: { wcId: number; osSlug?: string; quantity: number }[];
     orderId: string;
@@ -150,6 +155,7 @@ router.post("/payment/mamo", async (req, res) => {
     cityId?: string;
     deliveryDate?: string;
     shippingCountry?: string;
+    policyAccepted?: boolean;
   };
 
   if (!orderId) {
@@ -203,6 +209,22 @@ router.post("/payment/mamo", async (req, res) => {
   // Resolve catalog prices server-side. Pass the shipping country so products
   // restricted to specific countries are rejected before the payment link is created.
   const store = resolveStoreFromRequest(req);
+
+  // Policy acceptance guard — required for Cyprus store hosted payments.
+  if (store.storeKey === "cyprus" && mamoPolicyAccepted !== true) {
+    return res.status(400).json({
+      ok: false,
+      code: "policy_acceptance_required",
+      message: "Please accept the Terms, Shipping, and Returns & Refund policies before placing an order.", // i18n-ignore
+    });
+  }
+  const mamoPolicySnapshotFields: { policyVersion?: string; policyAcceptedIp?: string; policyAcceptedAt?: string } = {};
+  if (mamoPolicyAccepted === true) {
+    mamoPolicySnapshotFields.policyVersion = CURRENT_POLICY_VERSION;
+    mamoPolicySnapshotFields.policyAcceptedIp = pickClientIp(req.headers["x-forwarded-for"], (req.ip ?? "").toString()) || undefined;
+    mamoPolicySnapshotFields.policyAcceptedAt = new Date().toISOString();
+  }
+
   const mamoDestinationCountry =
     typeof rawMamoShippingCountry === "string" && rawMamoShippingCountry.trim()
       ? rawMamoShippingCountry.trim().toUpperCase()
@@ -395,6 +417,7 @@ router.post("/payment/mamo", async (req, res) => {
         districtFeeUsd,
         expressFeeUsd,
         slotFeeUsd: mamoSlotFeeUsd,
+        ...mamoPolicySnapshotFields,
       },
     });
 
@@ -469,6 +492,7 @@ router.post("/payment/paypal", async (req, res) => {
     cityId: ppRawCityId,
     deliveryDate: ppRawDeliveryDate,
     shippingCountry: ppRawShippingCountry,
+    policyAccepted: ppPolicyAccepted,
   } = req.body as {
     items: { wcId: number; osSlug?: string; quantity: number }[];
     orderId: string;
@@ -483,6 +507,7 @@ router.post("/payment/paypal", async (req, res) => {
     cityId?: string;
     deliveryDate?: string;
     shippingCountry?: string;
+    policyAccepted?: boolean;
   };
 
   if (!orderId) {
@@ -536,6 +561,21 @@ router.post("/payment/paypal", async (req, res) => {
   // Resolve catalog prices server-side. Pass the shipping country so products
   // restricted to specific countries are rejected before the PayPal order is created.
   const ppStore = resolveStoreFromRequest(req);
+
+  // Policy acceptance guard — required for Cyprus store hosted payments.
+  if (ppStore.storeKey === "cyprus" && ppPolicyAccepted !== true) {
+    return res.status(400).json({
+      ok: false,
+      code: "policy_acceptance_required",
+      message: "Please accept the Terms, Shipping, and Returns & Refund policies before placing an order.", // i18n-ignore
+    });
+  }
+  const ppPolicySnapshotFields: { policyVersion?: string; policyAcceptedIp?: string; policyAcceptedAt?: string } = {};
+  if (ppPolicyAccepted === true) {
+    ppPolicySnapshotFields.policyVersion = CURRENT_POLICY_VERSION;
+    ppPolicySnapshotFields.policyAcceptedIp = pickClientIp(req.headers["x-forwarded-for"], (req.ip ?? "").toString()) || undefined;
+    ppPolicySnapshotFields.policyAcceptedAt = new Date().toISOString();
+  }
   const ppDestinationCountry =
     typeof ppRawShippingCountry === "string" && ppRawShippingCountry.trim()
       ? ppRawShippingCountry.trim().toUpperCase()
@@ -658,6 +698,7 @@ router.post("/payment/paypal", async (req, res) => {
         deliveryDate: ppRawDeliveryDate,
         deliverySlotId: ppRawDeliverySlotId,
         deliveryServiceType: ppDeliveryServiceType,
+        ...ppPolicySnapshotFields,
         districtFeeUsd,
         expressFeeUsd,
         slotFeeUsd: ppSlotFeeUsd,
@@ -718,6 +759,7 @@ router.post("/payment/tabby", async (req, res) => {
     cityId: tabbyRawCityId,
     deliveryDate: tabbyRawDeliveryDate,
     shippingCountry: tabbyRawShippingCountry,
+    policyAccepted: tabbyPolicyAccepted,
   } = req.body as {
     items: { wcId: number; osSlug?: string; quantity: number }[];
     orderId: string;
@@ -735,6 +777,7 @@ router.post("/payment/tabby", async (req, res) => {
     cityId?: string;
     deliveryDate?: string;
     shippingCountry?: string;
+    policyAccepted?: boolean;
   };
 
   if (!orderId) {
@@ -788,6 +831,22 @@ router.post("/payment/tabby", async (req, res) => {
   // Resolve catalog prices server-side. Pass the shipping country so products
   // restricted to specific countries are rejected before the Tabby session is created.
   const tabbyStore = resolveStoreFromRequest(req);
+
+  // Policy acceptance guard — required for Cyprus store hosted payments.
+  if (tabbyStore.storeKey === "cyprus" && tabbyPolicyAccepted !== true) {
+    return res.status(400).json({
+      ok: false,
+      code: "policy_acceptance_required",
+      message: "Please accept the Terms, Shipping, and Returns & Refund policies before placing an order.", // i18n-ignore
+    });
+  }
+  const tabbyPolicySnapshotFields: { policyVersion?: string; policyAcceptedIp?: string; policyAcceptedAt?: string } = {};
+  if (tabbyPolicyAccepted === true) {
+    tabbyPolicySnapshotFields.policyVersion = CURRENT_POLICY_VERSION;
+    tabbyPolicySnapshotFields.policyAcceptedIp = pickClientIp(req.headers["x-forwarded-for"], (req.ip ?? "").toString()) || undefined;
+    tabbyPolicySnapshotFields.policyAcceptedAt = new Date().toISOString();
+  }
+
   const tabbyDestinationCountry =
     typeof tabbyRawShippingCountry === "string" && tabbyRawShippingCountry.trim()
       ? tabbyRawShippingCountry.trim().toUpperCase()
@@ -979,6 +1038,7 @@ router.post("/payment/tabby", async (req, res) => {
         districtFeeUsd,
         expressFeeUsd,
         slotFeeUsd: tabbySlotFeeUsd,
+        ...tabbyPolicySnapshotFields,
       },
     });
 

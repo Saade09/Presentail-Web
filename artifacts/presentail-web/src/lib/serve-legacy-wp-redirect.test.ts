@@ -146,14 +146,38 @@ describe("serve.mjs — duplicate locale prefix normalization", () => {
   });
 });
 
-describe("serve.mjs — Cyprus returns and refund policy redirect", () => {
-  it.each([
-    ["/cyprus/refund-policy", "/en-cy/nicosia/return-policy"],
-    ["/cyprus/refund-policy/", "/en-cy/nicosia/return-policy"],
-  ])("redirects %s to the shared Cyprus return policy in one hop", async (source, expectedLocation) => {
-    const { status, location } = await get(serverPort, source);
+describe("serve.mjs — Cyprus canonical policy pages", () => {
+  it("redirects /cyprus/refund-policy (no slash) to /cyprus/refund-policy/ with 301", async () => {
+    const { status, location } = await get(serverPort, "/cyprus/refund-policy");
     expect(status).toBe(301);
-    expect(location).toBe(expectedLocation);
+    expect(location).toBe("/cyprus/refund-policy/");
+  });
+
+  it("serves /cyprus/refund-policy/ as a 200 SPA shell (canonical page, not a redirect)", async () => {
+    const { status } = await get(serverPort, "/cyprus/refund-policy/");
+    expect(status).toBe(200);
+  });
+
+  it("redirects /cyprus/terms (no slash) to /cyprus/terms/ with 301", async () => {
+    const { status, location } = await get(serverPort, "/cyprus/terms");
+    expect(status).toBe(301);
+    expect(location).toBe("/cyprus/terms/");
+  });
+
+  it("serves /cyprus/terms/ as a 200 SPA shell (canonical page)", async () => {
+    const { status } = await get(serverPort, "/cyprus/terms/");
+    expect(status).toBe(200);
+  });
+
+  it("redirects /cyprus/shipping-policy (no slash) to /cyprus/shipping-policy/ with 301", async () => {
+    const { status, location } = await get(serverPort, "/cyprus/shipping-policy");
+    expect(status).toBe(301);
+    expect(location).toBe("/cyprus/shipping-policy/");
+  });
+
+  it("serves /cyprus/shipping-policy/ as a 200 SPA shell (canonical page)", async () => {
+    const { status } = await get(serverPort, "/cyprus/shipping-policy/");
+    expect(status).toBe(200);
   });
 });
 

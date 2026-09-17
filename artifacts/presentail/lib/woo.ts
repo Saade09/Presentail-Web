@@ -319,6 +319,10 @@ export type WooOrderPayload = {
   // Optional marketing attribution data captured from UTM params / gclid.
   // Passed through to the OS order payload for ad spend attribution.
   marketing_attribution?: MarketingAttribution;
+  // Policy acceptance — required for Cyprus (CY) checkout. Server validates
+  // this field and derives the authoritative IP and timestamp from the request.
+  policyAccepted?: boolean;
+  policyVersion?: string;
 };
 
 export type WcBrand = {
