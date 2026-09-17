@@ -1280,7 +1280,7 @@ const KNOWN_LOCALE_SUBROUTES_EXACT = new Set([
   "/shop", "/best-sellers", "/brands", "/occasions", "/cart", "/checkout",
   "/order-confirmed", "/careers", "/blog", "/partner",
   "/weddings", "/corporate", "/contact", "/faqs", "/terms", "/privacy",
-  "/shipping-policy", "/return-policy", "/account-deletion",
+  "/shipping-policy", "/return-policy", "/refund-policy", "/account-deletion",
   "/reset-password", "/unauthorized", "/account", "/favorites",
   "/sign-in", "/sign-up",
   // /auth is a recognised route in seo-inject.mjs (maps to routeKey "auth");
@@ -1997,7 +1997,7 @@ const server = http.createServer(async (req, res) => {
       const CYPRUS_POLICY_VIRTUAL_PATHS = {
         "/cyprus/terms/": "/en-cy/nicosia/terms",
         "/cyprus/shipping-policy/": "/en-cy/nicosia/shipping-policy",
-        "/cyprus/refund-policy/": "/en-cy/nicosia/return-policy",
+        "/cyprus/refund-policy/": "/en-cy/nicosia/refund-policy",
       };
       const virtualPath = CYPRUS_POLICY_VIRTUAL_PATHS[pathname];
       try {

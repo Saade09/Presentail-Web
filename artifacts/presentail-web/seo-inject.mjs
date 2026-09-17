@@ -262,6 +262,7 @@ const ROUTE_KEYS = [
   { test: (r) => r === "/terms", key: "terms" },
   { test: (r) => r === "/privacy", key: "privacy" },
   { test: (r) => r === "/return-policy", key: "return-policy" },
+  { test: (r) => r === "/refund-policy", key: "return-policy" },
   { test: (r) => r === "/shipping-policy", key: "shipping-policy" },
   { test: (r) => r === "/account-deletion", key: "account-deletion" },
   // Campaign landing — needs its own key so detectRouteKey does not fall

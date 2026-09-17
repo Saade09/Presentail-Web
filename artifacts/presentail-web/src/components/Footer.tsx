@@ -384,11 +384,8 @@ export function Footer() {
                 <CollapsibleSection heading={t("footer.policies")}>
                   <ul className="space-y-2">
                     <li>
-                      {/* Use the canonical /cyprus/ URLs for the three policy
-                          pages — these are the stable, indexable, sitemap-submitted
-                          URLs for Cyprus legal content. */}
                       <InLink
-                        href="/cyprus/terms/"
+                        href={toCityHref("/terms")}
                         testId="footer-link-terms-cy"
                       >
                         {t("footer.terms")}
@@ -396,7 +393,7 @@ export function Footer() {
                     </li>
                     <li>
                       <InLink
-                        href="/cyprus/shipping-policy/"
+                        href={toCityHref("/shipping-policy")}
                         testId="footer-link-shipping-policy"
                       >
                         {t("footer.shippingPolicy")}
@@ -404,7 +401,7 @@ export function Footer() {
                     </li>
                     <li>
                       <InLink
-                        href="/cyprus/refund-policy/"
+                        href={toCityHref("/refund-policy")}
                         testId="footer-link-refund-policy"
                       >
                         {t("footer.refundPolicy")}

@@ -451,6 +451,7 @@ function ShopShell() {
             <Route path="/account-deletion" component={AccountDeletionRoute} />
             <Route path="/shipping-policy" component={ShippingPolicyRoute} />
             <Route path="/return-policy" component={ReturnPolicyRoute} />
+            <Route path="/refund-policy" component={ReturnPolicyRoute} />
             <Route path="/sign-in/:rest*" component={SignInRoute} />
             <Route path="/sign-in" component={SignInRoute} />
             <Route path="/sign-up/:rest*" component={SignUpRoute} />
