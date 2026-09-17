@@ -44,6 +44,7 @@ import { sendAlert } from "./alerts";
 import {
   runDistributedJob,
   saveBackgroundJobSnapshot,
+  saveBackgroundJobSnapshotDirect,
   waitForBackgroundJobSnapshot,
 } from "./distributedJob";
 
@@ -1204,6 +1205,23 @@ export function storeLocationsFromWebhook(payload: OSLocationsResponse): void {
     { countryCount: countries.length, cityCount: totalCities },
     "osLocationsCache: locations updated from OS webhook push",
   );
+
+  // Broadcast the updated payload to the shared snapshot so all other running
+  // instances converge on the new slot schedule without waiting for their own
+  // 15-minute polling cycle. The save is fire-and-forget; errors are logged
+  // inside saveBackgroundJobSnapshotDirect and do not block the webhook response.
+  saveBackgroundJobSnapshotDirect(SHARED_LOCATIONS_SNAPSHOT, {
+    version: 1,
+    countries,
+    status: locationsDataStatus,
+  } satisfies OsLocationsSharedSnapshot).catch(() => {
+    // Already logged inside saveBackgroundJobSnapshotDirect.
+  });
+
+  // Trigger a short-interval re-poll (30 s) so the distributed-job owner
+  // re-fetches from OS and writes a lease-backed snapshot, ensuring the full
+  // distributed pipeline re-converges even if this instance is not the owner.
+  invalidateOsLocationsCache();
 }
 
 /**

@@ -37,6 +37,17 @@ vi.mock("@workspace/presentail-os", async (importOriginal) => {
 // Import the mocked version so individual tests can configure the resolved value.
 import { fetchOsLocations } from "@workspace/presentail-os";
 
+// Mock distributedJob so snapshot saves and invalidation calls are captured.
+vi.mock("./distributedJob", async (importOriginal) => {
+  const original = await importOriginal<typeof import("./distributedJob")>();
+  return {
+    ...original,
+    saveBackgroundJobSnapshotDirect: vi.fn().mockResolvedValue(undefined),
+    runDistributedJob: vi.fn().mockResolvedValue({ status: "skipped", reason: "claimed", windowStart: new Date(), generation: null }),
+  };
+});
+import { saveBackgroundJobSnapshotDirect } from "./distributedJob";
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -1031,5 +1042,115 @@ describe("OS Express fee contract", () => {
     expect(
       resolveEffectiveExpressFeeUsd(config, 0, 15),
     ).toBe(4);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: webhook broadcasts shared snapshot to distributed store
+// ---------------------------------------------------------------------------
+
+describe("osLocationsCache — webhook shared-snapshot broadcast", () => {
+  beforeEach(() => {
+    resetCacheForTesting();
+    vi.mocked(saveBackgroundJobSnapshotDirect).mockClear();
+  });
+
+  it("calls saveBackgroundJobSnapshotDirect after processing a webhook payload", () => {
+    const payload: OSLocationsResponse = {
+      countries: [
+        makeLbCountry([
+          makeCity({ id: 1, slug: "beirut", name: "Beirut" }),
+        ]),
+      ],
+    };
+
+    storeLocationsFromWebhook(payload);
+
+    expect(vi.mocked(saveBackgroundJobSnapshotDirect)).toHaveBeenCalledTimes(1);
+  });
+
+  it("saves the snapshot with snapshot name 'os-locations-cache'", () => {
+    const payload: OSLocationsResponse = {
+      countries: [
+        makeLbCountry([
+          makeCity({ id: 1, slug: "beirut", name: "Beirut" }),
+        ]),
+      ],
+    };
+
+    storeLocationsFromWebhook(payload);
+
+    const [snapshotName] = vi.mocked(saveBackgroundJobSnapshotDirect).mock.calls[0]!;
+    expect(snapshotName).toBe("os-locations-cache");
+  });
+
+  it("saves the updated slot schedule — a slot removed in the webhook is absent from the snapshot payload", () => {
+    // Step 1: seed the cache with Tripoli having a specific narrow slot
+    // (simulates the old 10:00 AM–12:00 PM Tripoli slot from order #LB-2833).
+    const narrowSlot = {
+      slotId: "tripoli-narrow-1000",
+      label: "10:00 AM – 12:00 PM",
+      startHour: 10,
+      endHour: 12,
+      cutoffHour: 10,
+      sameDayEnabled: true,
+      nextDayEnabled: true,
+      enabled: true,
+    };
+    storeLocationsFromWebhook({
+      countries: [
+        makeLbCountry([
+          makeCity({
+            id: 3,
+            slug: "tripoli",
+            name: "Tripoli",
+            timeSlots: [narrowSlot],
+          }),
+        ]),
+      ],
+    });
+    vi.mocked(saveBackgroundJobSnapshotDirect).mockClear();
+
+    // Step 2: OS sends a webhook with the new broader schedule — narrow slot removed.
+    const broadSlot = {
+      slotId: "tripoli-morning",
+      label: "9:00 AM – 2:00 PM",
+      startHour: 9,
+      endHour: 14,
+      cutoffHour: 9,
+      sameDayEnabled: true,
+      nextDayEnabled: true,
+      enabled: true,
+    };
+    storeLocationsFromWebhook({
+      countries: [
+        makeLbCountry([
+          makeCity({
+            id: 3,
+            slug: "tripoli",
+            name: "Tripoli",
+            timeSlots: [broadSlot],
+          }),
+        ]),
+      ],
+    });
+
+    // The shared snapshot must have been saved with the updated schedule.
+    expect(vi.mocked(saveBackgroundJobSnapshotDirect)).toHaveBeenCalledTimes(1);
+
+    const [, snapshotPayload] = vi.mocked(saveBackgroundJobSnapshotDirect).mock.calls[0]!;
+    // The payload must be the shape { version, countries, status }.
+    expect(snapshotPayload).toMatchObject({ version: 1, status: "live" });
+
+    // Find Tripoli in the snapshot payload and confirm the narrow slot is gone.
+    const payload = snapshotPayload as { version: number; status: string; countries: { code: string; cities: { id: string; timeSlots: { slotId: string }[] }[] }[] };
+    const lb = payload.countries.find((c) => c.code === "LB");
+    expect(lb, "LB must be in the snapshot").toBeTruthy();
+    const tripoli = lb!.cities.find((c) => c.id === "lb-tripoli");
+    expect(tripoli, "Tripoli must be in the snapshot").toBeTruthy();
+
+    const slotIds = tripoli!.timeSlots.map((s) => s.slotId);
+    expect(slotIds).not.toContain("tripoli-narrow-1000");
+    expect(slotIds).toContain("tripoli-morning");
   });
 });

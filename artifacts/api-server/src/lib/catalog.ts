@@ -12,7 +12,9 @@ import {
   getOsCityDeliveryFeeUsd,
   getDeliverySlots,
   getExpressConfig,
+  getLocationsDataStatus,
 } from "./osLocationsCache";
+import { logger } from "./logger";
 import {
   getLocalIso,
   isSlotStillBookable,
@@ -422,6 +424,20 @@ export function checkSubmittedSlotBookable(
     hardCutoffMinutes: verifiedLateHardCutoffMinutes,
     now: opts.now,
   });
+  if (bookability.bookable) {
+    const dataStatus = getLocationsDataStatus();
+    if (dataStatus === "stale" || dataStatus === "fallback") {
+      logger.warn(
+        {
+          cityId: opts.cityId,
+          deliverySlot: opts.deliverySlot,
+          deliverySlotId: opts.deliverySlotId,
+          cacheStatus: dataStatus,
+        },
+        "checkSubmittedSlotBookable: order accepted against degraded locations cache — slot schedule may be stale; verify OS availability", // i18n-ignore
+      );
+    }
+  }
   return bookability.bookable && bookedIsMidnight
     ? { ...bookability, serviceType: "midnight" }
     : bookability;

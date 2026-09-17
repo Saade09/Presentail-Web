@@ -929,6 +929,53 @@ export async function saveBackgroundJobSnapshot(
   }
 }
 
+/**
+ * Save a background job snapshot directly to the database without requiring an
+ * active distributed job lease. Intended for webhook handlers that need to
+ * propagate an updated payload to all instances via the shared snapshot store
+ * without waiting for the next polling cycle.
+ *
+ * The snapshot is written with source_generation = -1 to distinguish it from
+ * polling-owner snapshots. Other instances will see the updated payload
+ * the next time they read via loadBackgroundJobSnapshot.
+ *
+ * Any database error is logged as a warning and swallowed so the webhook
+ * response is not affected by a transient DB failure.
+ */
+export async function saveBackgroundJobSnapshotDirect(
+  snapshotName: string,
+  payload: unknown,
+): Promise<void> {
+  try {
+    await pool.query(
+      `
+        INSERT INTO background_job_snapshots (
+          snapshot_name,
+          payload,
+          source_window_start,
+          source_generation,
+          updated_at
+        )
+        VALUES ($1, $2::jsonb, now(), -1, now())
+        ON CONFLICT (snapshot_name) DO UPDATE SET
+          payload            = EXCLUDED.payload,
+          source_window_start = EXCLUDED.source_window_start,
+          source_generation  = EXCLUDED.source_generation,
+          updated_at         = EXCLUDED.updated_at
+      `,
+      [snapshotName, JSON.stringify(payload)],
+    );
+  } catch (err) {
+    logger.warn(
+      {
+        err: err instanceof Error ? err.message : String(err),
+        snapshotName,
+      },
+      "distributedJob: failed to save webhook snapshot directly — other instances will converge on next poll",
+    );
+  }
+}
+
 export async function loadBackgroundJobSnapshot<T>(
   snapshotName: string,
 ): Promise<BackgroundJobSnapshot<T> | null> {
