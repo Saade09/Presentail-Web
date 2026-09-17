@@ -611,6 +611,46 @@ function RootRouter() {
     );
   }
 
+  // Mirror the production server's legacy Cyprus policy redirects for Vite
+  // previews and client-side navigation. The dev/static SPA bypasses
+  // serve.mjs, so without this guard these public entry points fall through
+  // to the generic 404 route.
+  //
+  // The production server (serve.mjs) always redirects to the Nicosia hub
+  // because it has no session context. Here in the SPA we can do better:
+  // read the stored delivery location so a Larnaca shopper lands on the
+  // Larnaca-prefixed URL rather than being dropped in Nicosia.
+  const legacyCyprusPolicyPages: Record<string, string> = {
+    "/cyprus/shipping-policy": "shipping-policy",
+    "/cyprus/shipping-policy/": "shipping-policy",
+    "/cyprus/refund-policy": "return-policy",
+    "/cyprus/refund-policy/": "return-policy",
+  };
+  const legacyCyprusPolicyPage = legacyCyprusPolicyPages[path];
+  if (legacyCyprusPolicyPage) {
+    let cyprusCity = "nicosia";
+    // Known Cyprus city slugs — validate before using as a URL segment.
+    const KNOWN_CY_CITIES = new Set(["nicosia", "larnaca", "limassol", "paphos"]);
+    try {
+      const stored = typeof window !== "undefined"
+        ? window.localStorage.getItem("presentail_delivery_location_v1")
+        : null;
+      if (stored) {
+        const parsed = JSON.parse(stored) as { countryCode?: string; cityId?: string };
+        if (parsed.countryCode?.toUpperCase() === "CY" && parsed.cityId) {
+          // cityId is "cy-larnaca" → slug is "larnaca"
+          const slug = parsed.cityId.replace(/^[a-z]{2}-/, "");
+          if (KNOWN_CY_CITIES.has(slug)) {
+            cyprusCity = slug;
+          }
+        }
+      }
+    } catch {
+      // ignore parse errors — fall back to nicosia hub
+    }
+    return <Redirect to={`/en-cy/${cyprusCity}/${legacyCyprusPolicyPage}`} replace />;
+  }
+
   // The production server normalizes accidental nested-router paths such as
   // /en/en-lb/beirut/shop. Keep the SPA equivalent for Vite previews and
   // client-side navigations, which do not pass through serve.mjs.

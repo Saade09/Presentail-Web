@@ -415,6 +415,9 @@ test.describe("Breadcrumb — ReturnPolicy", () => {
     page,
   }) => {
     await assertBreadcrumb(page, /return/i);
+    await expect(page.getByTestId("return-policy-page")).not.toContainText(
+      "Perishable goods and statutory withdrawal",
+    );
   });
 });
 
@@ -454,7 +457,10 @@ test.describe("Cyprus shipping policy and footer", () => {
 
     const shippingLink = page.getByTestId("footer-link-shipping-policy");
     await expect(shippingLink).toBeVisible();
-    await expect(shippingLink).toHaveAttribute("href", "/cyprus/shipping-policy/");
+    // Footer links directly to the city-scoped URL so Larnaca shoppers are
+    // not routed through the Nicosia hub. /cyprus/shipping-policy/ stays as
+    // a server-side fallback for external/direct-entry links.
+    await expect(shippingLink).toHaveAttribute("href", "/en-cy/larnaca/shipping-policy");
   });
 
   test("does not add the Cyprus Policies section to the Lebanon footer", async ({
@@ -465,5 +471,59 @@ test.describe("Cyprus shipping policy and footer", () => {
     await expect(page.getByTestId("footer")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId("footer-link-shipping-policy")).toHaveCount(0);
     await expect(page.getByText("Policies", { exact: true })).toHaveCount(0);
+  });
+
+  test("renders the Cyprus returns and refund policy with the Cyprus-only footer link", async ({
+    page,
+  }) => {
+    await page.addInitScript((loc) => {
+      window.localStorage.setItem(
+        "presentail_delivery_location_v1",
+        JSON.stringify(loc),
+      );
+    }, { countryCode: "CY", cityId: "cy-larnaca" });
+
+    await page.goto("/en-cy/larnaca/return-policy");
+
+    const policy = page.getByTestId("return-policy-page");
+    await expect(policy).toBeVisible({ timeout: 15_000 });
+    await expect(policy).toContainText("Fresh flowers");
+    await expect(policy).toContainText("deteriorate or expire rapidly");
+    await expect(policy).toContainText("statutory right of withdrawal");
+    await expect(policy).toContainText("within 24 hours after delivery");
+    await expect(policy).toContainText("clear photographs");
+    await expect(policy).toContainText("replacement, redelivery");
+    await expect(policy).toContainText("refund is not automatic");
+    await expect(policy).toContainText("before the order has been dispatched");
+    await expect(policy).toContainText("preparation or fulfilment has started");
+    await expect(policy).toContainText("original payment method or card");
+    await expect(policy).toContainText("Bank and card processing times may vary");
+    await expect(policy).toContainText("hello@presentail.com");
+
+    const refundLink = page.getByTestId("footer-link-refund-policy");
+    await expect(refundLink).toBeVisible();
+    // Footer links directly to the city-scoped URL, not the legacy public entry.
+    await expect(refundLink).toHaveAttribute("href", "/en-cy/larnaca/return-policy");
+  });
+
+  test("redirects the public Cyprus refund URL to the canonical policy page", async ({
+    page,
+  }) => {
+    await page.goto("/cyprus/refund-policy/");
+
+    await expect(page).toHaveURL(/\/en-cy\/nicosia\/return-policy$/);
+    await expect(page.getByTestId("return-policy-page")).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByTestId("return-policy-page")).toContainText(
+      "Perishable goods and statutory withdrawal",
+    );
+  });
+
+  test("does not add the Cyprus refund link to the Lebanon footer", async ({ page }) => {
+    await seedLocation(page);
+    await page.goto(`${BASE}/`);
+    await expect(page.getByTestId("footer")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("footer-link-refund-policy")).toHaveCount(0);
   });
 });

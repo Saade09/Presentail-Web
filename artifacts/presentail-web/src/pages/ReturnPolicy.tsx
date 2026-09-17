@@ -1,4 +1,5 @@
 import { useLocale, type Language } from "@/contexts/LocaleContext";
+import { useLocationSelection } from "@/contexts/LocationContext";
 import { LegalPage, type LegalSection } from "./legal/LegalPage";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 
@@ -94,16 +95,71 @@ const SECTIONS: LegalSection[] = [
   },
 ];
 
+// Cyprus storefront copy is intentionally kept separate from the shared
+// policy. The Cyprus entry point is required for local regulatory review, but
+// the existing Lebanon/UAE customer experience must remain unchanged.
+const CYPRUS_INTRO_NOTE: Record<Language, string> = {
+  en: "This returns and refund policy applies to orders delivered in Cyprus. Please review it before placing your order.",
+  ar: "تنطبق سياسة الإرجاع والاسترداد هذه على الطلبات التي يتم توصيلها في قبرص. يرجى مراجعتها قبل تقديم طلبك.",
+  fr: "Cette politique de retour et de remboursement s'applique aux commandes livrées à Chypre. Veuillez la consulter avant de passer votre commande.",
+  el: "Αυτή η πολιτική επιστροφών και αποζημιώσεων ισχύει για παραγγελίες που παραδίδονται στην Κύπρο. Παρακαλούμε ελέγξτε την πριν υποβάλετε την παραγγελία σας.",
+};
+
+const CYPRUS_SECTIONS: LegalSection[] = [
+  {
+    heading: "Perishable goods and statutory withdrawal",
+    body: [
+      "Fresh flowers and other qualifying perishable goods can deteriorate or expire rapidly. Where the applicable rapid-deterioration exemption applies, the statutory right of withdrawal under applicable EU and Cyprus consumer rules does not apply to those goods.",
+      "This statement is limited to the applicable rapid-deterioration exemption and does not make any broader claim about your mandatory consumer rights.",
+    ],
+  },
+  {
+    heading: "Freshness and quality complaints",
+    body: [
+      "If you have a freshness or quality concern with an order delivered in Cyprus, please contact us within 24 hours after delivery. Please provide your order number, clear photographs showing the issue, and a short description so our team can assess the complaint.",
+      "Complaints are reviewed based on the order and the evidence provided. The 24-hour window and photographs help us assess the condition of perishable goods promptly.",
+    ],
+  },
+  {
+    heading: "Possible resolutions",
+    body: [
+      "Depending on the nature of the complaint, we may offer a replacement, redelivery, or an appropriate partial or full refund. The outcome depends on the details of the complaint; a refund is not automatic for every issue.",
+    ],
+  },
+  {
+    heading: "Order cancellations",
+    body: [
+      "To request a cancellation, contact us as soon as possible and before the order has been dispatched, while preparation has not started. We will confirm whether cancellation is still possible based on the order's current status.",
+      "There is no fixed cancellation cut-off stated in this policy. Once preparation or fulfilment has started, cancellation may be unavailable.",
+    ],
+  },
+  {
+    heading: "Approved refunds",
+    body: [
+      "If a card-paid order is approved for a refund, the refund will be returned to the original payment method or card used for the order. Bank and card processing times may vary after Presentail submits the refund.",
+    ],
+  },
+  {
+    heading: "Contact us",
+    body: [
+      "For a Cyprus quality complaint, cancellation request, or question about this policy, email hello@presentail.com or contact us through the Contact page or WhatsApp. Please include your order number.",
+    ],
+  },
+];
+
 export default function ReturnPolicy() {
   const { language, t } = useLocale();
+  const { countryCode } = useLocationSelection();
+  const isCyprus = countryCode?.toUpperCase() === "CY";
+  const sections = isCyprus ? CYPRUS_SECTIONS : SECTIONS;
   return (
     <LegalPage
       eyebrow={EYEBROW[language]}
       title={TITLE[language]}
-      intro={<p>{INTRO_NOTE[language]}</p>}
+      intro={<p>{isCyprus ? CYPRUS_INTRO_NOTE[language] : INTRO_NOTE[language]}</p>}
       testId="return-policy-page"
       lang={language}
-      sections={SECTIONS}
+      sections={sections}
       breadcrumb={<PageBreadcrumb crumbs={[{ label: t("nav.home"), href: "/" }, { label: TITLE[language] }]} />}
     />
   );

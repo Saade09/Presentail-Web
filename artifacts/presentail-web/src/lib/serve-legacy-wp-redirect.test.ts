@@ -146,6 +146,17 @@ describe("serve.mjs — duplicate locale prefix normalization", () => {
   });
 });
 
+describe("serve.mjs — Cyprus returns and refund policy redirect", () => {
+  it.each([
+    ["/cyprus/refund-policy", "/en-cy/nicosia/return-policy"],
+    ["/cyprus/refund-policy/", "/en-cy/nicosia/return-policy"],
+  ])("redirects %s to the shared Cyprus return policy in one hop", async (source, expectedLocation) => {
+    const { status, location } = await get(serverPort, source);
+    expect(status).toBe(301);
+    expect(location).toBe(expectedLocation);
+  });
+});
+
 describe("serve.mjs — bare language utility routes", () => {
   it.each([
     ["/en", "/en-lb/beirut"],

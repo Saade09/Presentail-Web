@@ -384,13 +384,24 @@ export function Footer() {
                 <CollapsibleSection heading={t("footer.policies")}>
                   <ul className="space-y-2">
                     <li>
-                      <a
-                        href="/cyprus/shipping-policy/"
-                        className="text-sm text-white/75 hover:text-white transition-colors"
-                        data-testid="footer-link-shipping-policy"
+                      {/* Link directly to the city-scoped URL so a Larnaca
+                          shopper is not silently redirected through Nicosia.
+                          /cyprus/shipping-policy/ stays as a server-side
+                          fallback for external/direct-entry links only. */}
+                      <InLink
+                        href={toCityHref("/shipping-policy")}
+                        testId="footer-link-shipping-policy"
                       >
                         {t("footer.shippingPolicy")}
-                      </a>
+                      </InLink>
+                    </li>
+                    <li>
+                      <InLink
+                        href={toCityHref("/return-policy")}
+                        testId="footer-link-refund-policy"
+                      >
+                        {t("footer.refundPolicy")}
+                      </InLink>
                     </li>
                   </ul>
                 </CollapsibleSection>
