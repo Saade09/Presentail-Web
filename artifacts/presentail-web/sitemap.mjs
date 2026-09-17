@@ -45,6 +45,7 @@ export const SITEMAP_CANONICAL_CITIES = HUB_CITY;
 // (/category/<slug>, /occasion/<slug>) are emitted dynamically below so
 // crawlers discover the canonical destinations without following a redirect.
 // Group A pages (city-specific, indexable) are included per city × lang.
+//   Includes policy pages: /shipping-policy, /return-policy, /account-deletion.
 // Group B pages (privacy, terms, careers, partner) are noindex and
 // excluded from the sitemap entirely to avoid wasting crawl budget.
 // The blog index (/blog) is indexable but emitted separately below at the
@@ -52,6 +53,7 @@ export const SITEMAP_CANONICAL_CITIES = HUB_CITY;
 export const SITEMAP_STATIC_PATHS = [
   "/", "/brands", "/occasions", "/contact", "/faqs",
   "/weddings", "/corporate",
+  "/shipping-policy", "/return-policy", "/account-deletion",
 ];
 
 export function escXml(s) {

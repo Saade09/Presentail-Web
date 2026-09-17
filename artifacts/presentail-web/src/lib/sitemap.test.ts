@@ -432,11 +432,16 @@ describe("buildSitemapXml", () => {
       "/checkout",
       "/cart",
       "/auth",
-      "/account",
     ];
     for (const path of blocked) {
       expect(xml, `blocked path ${path} must be absent from the sitemap`).not.toContain(path);
     }
+    // /account is blocked as a route, but /account-deletion is intentionally
+    // indexable. Use a word-boundary regex so the check is specific to the
+    // private /account segment and does not false-match /account-deletion.
+    expect(xml, "private /account route must be absent from the sitemap").not.toMatch(
+      /\/account(?![a-zA-Z0-9-])/,
+    );
   });
 
   it("every hreflang alternate points to a URL present in that locale's sitemap", () => {
@@ -766,6 +771,9 @@ describe("SITEMAP_STATIC_PATHS — expected contents", () => {
     "/faqs",
     "/weddings",
     "/corporate",
+    "/shipping-policy",
+    "/return-policy",
+    "/account-deletion",
   ];
 
   it("contains every expected static sub-path", () => {
