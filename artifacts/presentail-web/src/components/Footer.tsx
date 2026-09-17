@@ -9,6 +9,7 @@ import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { useCatalogMetadata } from "@/lib/queries";
 import { PaymentMethods } from "@/components/product/PaymentMethods";
 import { CurrencySwitcher } from "@/components/CurrencySwitcher";
+import { CyprusCompanyDetails } from "@/components/CyprusCompanyDetails";
 import { trackEvent } from "@/lib/analytics";
 import {
   buildLocalePath,
@@ -436,43 +437,40 @@ export function Footer() {
         <div className="container mx-auto max-w-content px-4 py-6 flex flex-col md:grid md:grid-cols-3 md:items-center gap-4 md:gap-6">
           {/* Copyright + address */}
           <div className="text-xs text-white/70 leading-relaxed">
-            <p data-testid="footer-copyright">
-              {t(
-                isCY
-                  ? "footer.allRightsReservedCyprus"
-                  : cityId === "ae-abu-dhabi"
-                    ? "footer.allRightsReservedAbuDhabi"
-                    : cityId?.startsWith("ae-")
-                      ? "footer.allRightsReservedDubai"
-                      : "footer.allRightsReserved",
-                { year },
-              )}
-            </p>
-            {isCY && (
-              <p data-testid="footer-owned-operated">
-                {t("footer.ownedOperatedCyprus")}
-              </p>
-            )}
-            {isCY || cityId?.startsWith("ae-") ? (
-              <p data-testid="footer-address">
-                {t(
-                  isCY
-                    ? "footer.addressCyprus"
-                    : cityId === "ae-abu-dhabi"
-                      ? "footer.addressAbuDhabi"
-                      : "footer.addressDubai",
-                )}
-              </p>
+            {isCY ? (
+              <CyprusCompanyDetails className="text-white/70" />
             ) : (
-              <a
-                data-testid="footer-address"
-                href={t("footer.addressUrl")}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:underline"
-              >
-                {t("footer.address")}
-              </a>
+              <>
+                <p data-testid="footer-copyright">
+                  {t(
+                    cityId === "ae-abu-dhabi"
+                      ? "footer.allRightsReservedAbuDhabi"
+                      : cityId?.startsWith("ae-")
+                        ? "footer.allRightsReservedDubai"
+                        : "footer.allRightsReserved",
+                    { year },
+                  )}
+                </p>
+                {cityId?.startsWith("ae-") ? (
+                  <p data-testid="footer-address">
+                    {t(
+                      cityId === "ae-abu-dhabi"
+                        ? "footer.addressAbuDhabi"
+                        : "footer.addressDubai",
+                    )}
+                  </p>
+                ) : (
+                  <a
+                    data-testid="footer-address"
+                    href={t("footer.addressUrl")}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:underline"
+                  >
+                    {t("footer.address")}
+                  </a>
+                )}
+              </>
             )}
           </div>
 

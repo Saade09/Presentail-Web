@@ -73,6 +73,7 @@ import {
   CART_RETURN_HISTORY_KEY,
   CompactMobileCartHeader,
 } from "@/components/homepage/CompactMobileCartHeader";
+import { CyprusCompanyDetails } from "@/components/CyprusCompanyDetails";
 function withSuspense<P extends object>(
   Component: React.ComponentType<P>,
   Fallback: React.ComponentType,
@@ -473,6 +474,11 @@ function ShopShell() {
           </Switch>
           </RouteErrorBoundary>
         </main>
+        {isCheckoutPage && (
+          <CyprusCompanyDetails
+            className="mx-auto w-full max-w-content border-t border-primary/10 px-4 py-4 text-muted-foreground"
+          />
+        )}
         {!isCheckoutPage && !hideGlobalFooter && (
           <Suspense fallback={null}>
             {useLandingFooter ? <LandingPageFooter /> : <Footer />}

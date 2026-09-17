@@ -75,6 +75,10 @@ export const footerStrings: Dict = {
     en: "Agapinoros & Arch. Makariou III, 2 IRIS TOWER, 4th Floor, Flat.Office 403-405 1076, Nicosia, Cyprus",
     ar: "أغابينوروس وأرش. ماكاريوس الثالث، 2 IRIS TOWER، الطابق الرابع، مكتب 403-405 1076، نيقوسيا، قبرص",
   },
+  "footer.cyprusCompanyDetails": {
+    en: "All rights reserved © {year} Presentail Ltd — Registration number HE422991 — Registered in the Republic of Cyprus. Agapinoros & Arch. Makariou III, 2 IRIS TOWER, 4th Floor, Flat.Office 403-405 1076, Nicosia, Cyprus. hello@presentail.com",
+    ar: "جميع الحقوق محفوظة © {year} Presentail Ltd — رقم التسجيل HE422991 — مسجلة في جمهورية قبرص. Agapinoros & Arch. Makariou III, 2 IRIS TOWER, 4th Floor, Flat.Office 403-405 1076, Nicosia, Cyprus. hello@presentail.com",
+  },
   "footer.terms": { en: "Terms of Use", ar: "شروط الاستخدام" },
   "footer.privacy": { en: "Privacy Policy", ar: "سياسة الخصوصية" },
 };
@@ -115,6 +119,7 @@ export const footerStringsFr: Record<string, string> = {
   "footer.allRightsReservedCyprus": "Tous droits réservés © {year} Presentail LTD",
   "footer.ownedOperatedCyprus": "Ce site est détenu et exploité par Presentail LTD",
   "footer.addressCyprus": "Agapinoros & Arch. Makariou III, 2 IRIS TOWER, 4ème étage, Bureau 403-405 1076, Nicosie, Chypre",
+  "footer.cyprusCompanyDetails": "Tous droits réservés © {year} Presentail Ltd — Numéro d'immatriculation HE422991 — Enregistrée en République de Chypre. Agapinoros & Arch. Makariou III, 2 IRIS TOWER, 4th Floor, Flat.Office 403-405 1076, Nicosia, Cyprus. hello@presentail.com",
   "footer.terms": "Conditions d'utilisation",
   "footer.privacy": "Politique de confidentialité",
 };
@@ -155,6 +160,7 @@ export const footerStringsEl: Record<string, string> = {
   "footer.allRightsReservedCyprus": "Με την επιφύλαξη παντός δικαιώματος © {year} Presentail LTD",
   "footer.ownedOperatedCyprus": "Αυτός ο ιστότοπος ανήκει και λειτουργεί από την Presentail LTD",
   "footer.addressCyprus": "Agapinoros & Arch. Makariou III, 2 IRIS TOWER, 4ος όροφος, Γραφείο 403-405 1076, Λευκωσία, Κύπρος",
+  "footer.cyprusCompanyDetails": "Με την επιφύλαξη παντός δικαιώματος © {year} Presentail Ltd — Αριθμός εγγραφής HE422991 — Εγγεγραμμένη στη Δημοκρατία της Κύπρου. Agapinoros & Arch. Makariou III, 2 IRIS TOWER, 4th Floor, Flat.Office 403-405 1076, Nicosia, Cyprus. hello@presentail.com",
   "footer.terms": "Όροι χρήσης",
   "footer.privacy": "Πολιτική απορρήτου",
 };

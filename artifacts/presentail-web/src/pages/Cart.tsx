@@ -47,6 +47,8 @@ import cardStationery from "@assets/Elegant-dark-teal-stationery-design_17787422
 import cardLogoEn from "@assets/Presentail_PNG-01_white.png";
 import cardLogoAr from "@assets/Presentail-Arabic-Logo-white.png";
 import { cityHref } from "@/lib/cityHref";
+import { CyprusCompanyDetails } from "@/components/CyprusCompanyDetails";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export const CARD_MESSAGE_KEY = "presentail_card_message_v1";
 export const CARD_TO_KEY = "presentail_card_to_v1";
@@ -232,6 +234,7 @@ export default function Cart() {
     invalidate: invalidateDeliverySelection,
   } = useDeliverySelection();
   const { currencyCode } = useDisplayCurrency();
+  const isBelowLg = useIsMobile(1024);
   const deliveryPromise = useDeliveryPromise();
   const now = useNow();
   const [deliveryInvalidation, setDeliveryInvalidation] =
@@ -1158,6 +1161,9 @@ export default function Cart() {
             countryCode={countryCode}
             cityId={locationCity?.id}
           />
+          {isBelowLg && (
+            <CyprusCompanyDetails className="mt-4 text-center text-muted-foreground" />
+          )}
         </div>
       </div>
     );
@@ -1811,6 +1817,9 @@ export default function Cart() {
           countryCode={countryCode}
           cityId={locationCity?.id}
         />
+        {isBelowLg && (
+          <CyprusCompanyDetails className="mt-4 text-center text-muted-foreground" />
+        )}
       </div>
 
       {/* Sticky bottom bar – visible on mobile only; desktop uses the sidebar button */}
