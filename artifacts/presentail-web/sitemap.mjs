@@ -50,9 +50,18 @@ export const SITEMAP_CANONICAL_CITIES = HUB_CITY;
 // excluded from the sitemap entirely to avoid wasting crawl budget.
 // The blog index (/blog) is indexable but emitted separately below at the
 // canonical hub cities only (like blog posts) rather than per city.
+// Policy pages (shipping/return/account-deletion) are listed separately as
+// hub-city-only entries so there is one canonical per language×country rather
+// than one per language×country×city (which creates hundreds of duplicate-title
+// URLs). See SITEMAP_POLICY_PATHS below.
 export const SITEMAP_STATIC_PATHS = [
   "/", "/brands", "/occasions", "/contact", "/faqs",
   "/weddings", "/corporate",
+];
+
+// Policy pages — one per language × country at the hub city only.
+// All satellite-city variants redirect 301 to the hub city equivalent.
+export const SITEMAP_POLICY_PATHS = [
   "/shipping-policy", "/return-policy", "/account-deletion",
 ];
 
@@ -241,16 +250,6 @@ export function buildSitemapXml({
     urls.push(urlEntry("/", "1.0", "weekly"));
   }
 
-  // 0. Cyprus canonical policy pages — country-level (not city-level) so they
-  // get a single <url> entry with no hreflang alternates. English sitemap only
-  // since these pages have no localised equivalents and the canonical URL is
-  // language-agnostic.
-  if (locale === "en") {
-    urls.push(urlEntry("/cyprus/terms/", "0.7", "monthly"));
-    urls.push(urlEntry("/cyprus/shipping-policy/", "0.7", "monthly"));
-    urls.push(urlEntry("/cyprus/refund-policy/", "0.7", "monthly"));
-  }
-
   // 1. Static locale pages — one <url> per country × city, each carrying its
   // language alternates (so the three languages collapse into a single block
   // instead of three separate <url> entries).
@@ -262,6 +261,16 @@ export function buildSitemapXml({
         const priority = subpath === "/" ? "0.9" : "0.7";
         urls.push(urlEntryWithAlternates(priority, "weekly", country, city, rest));
       }
+    }
+  }
+
+  // 1b. Policy pages — one canonical per language × country, emitted at the
+  // hub city only. Satellite cities redirect 301 to the hub so only hub URLs
+  // need to appear here. This collapses ~345 per-city policy URLs to ~9.
+  for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
+    if (skipCountryForLang(country)) continue;
+    for (const subpath of SITEMAP_POLICY_PATHS) {
+      urls.push(urlEntryWithAlternates("0.5", "monthly", country, city, subpath));
     }
   }
 

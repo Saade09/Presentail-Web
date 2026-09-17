@@ -789,12 +789,21 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
     routeKey === "bestSellers" &&
     Boolean(parsed.city) && Boolean(parsed.country) &&
     parsed.city !== HUB_CITY[parsed.country];
+  // Policy pages at satellite cities redirect 301 to the hub city in serve.mjs;
+  // belt-and-suspenders noindex here guards against any request that bypasses
+  // the redirect (direct calls, curl, tests) so duplicate policy pages are never
+  // indexed even without the redirect.
+  const _POLICY_ROUTE_KEYS = new Set(["return-policy", "shipping-policy", "account-deletion"]);
+  const _isSatellitePolicyPage =
+    _POLICY_ROUTE_KEYS.has(routeKey) &&
+    Boolean(parsed.city) && Boolean(parsed.country) &&
+    parsed.city !== HUB_CITY[parsed.country];
   lines.push(`<link rel="canonical" href="${escapeAttr(canonicalHref)}" />`);
   // Non-public routes (cart, checkout, account, auth, favorites, order
   // confirmation) must not be indexed, but their links may still be followed.
   // Filter-parameterised non-curated URLs also get noindex so Googlebot does
   // not spend crawl budget on duplicate pages like /shop?sort=price-asc.
-  if (NONINDEX_ROUTE_KEYS.has(routeKey) || (hasFilterParamsInSearch && !isCuratedFilterPage) || _isSatelliteBestSellers) {
+  if (NONINDEX_ROUTE_KEYS.has(routeKey) || (hasFilterParamsInSearch && !isCuratedFilterPage) || _isSatelliteBestSellers || _isSatellitePolicyPage) {
     lines.push(`<meta name="robots" content="noindex, follow" />`);
   }
   lines.push(`<meta property="og:title" content="${escapeAttr(ogTitle)}" />`);
@@ -900,8 +909,8 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
         COUNTRY_PLAIN_NAMES.en[parsed.country] ??
         countryLabel
       : null;
-    const countryBreadcrumbUrl = parsed.country
-      ? `${origin}${cleanBase}/${lang}-${parsed.country}`
+    const countryBreadcrumbUrl = parsed.country && HUB_CITY[parsed.country]
+      ? `${origin}${cleanBase}/${lang}-${parsed.country}/${HUB_CITY[parsed.country]}`
       : null;
     const cityBreadcrumb = buildBreadcrumbListSchema([
       { name: breadcrumbHomeLabel, url: siteUrl },
@@ -1453,6 +1462,81 @@ const SHOP_CATEGORY_FAILURE_TTL_MS = 60 * 1000;
 const shopCategorySlugsByCountry = new Map(); // countrySlug -> { slugs: Set, occasionSlugs: Set, expiresAt }
 const shopCategoryInFlight = new Map(); // countrySlug -> Promise
 const shopCategoryFailedUntil = new Map(); // countrySlug -> epoch ms (negative cache)
+
+// ── Blog product-link validation cache ───────────────────────────────────────
+// Blog articles embed product links that can become dead if a product is
+// removed (e.g. sunflower-bloom-basket, chocolate-rocher-cake). This cache
+// holds the set of currently-live product slugs so safeBodyHtml can suppress
+// links to discontinued products without a manual blocklist.
+// One global set (union across LB, AE, CY) is sufficient because a removed
+// product disappears from all markets simultaneously.
+const BLOG_PRODUCT_SLUG_CACHE_TTL_MS = 15 * 60 * 1000;
+const BLOG_PRODUCT_SLUG_FAILURE_TTL_MS = 2 * 60 * 1000;
+let _blogProductSlugsCache = null; // { slugs: Set<string>, expiresAt: number } | null
+let _blogProductSlugsInFlight = null; // Promise | null
+let _blogProductSlugsFailedUntil = 0; // epoch ms
+
+/**
+ * Return the cached live product slug Set synchronously. Callers should call
+ * ensureProductSlugsForBlog() first (in any async context) to populate the
+ * cache. Returns null when the cache is cold so callers can fail open.
+ */
+function getProductSlugsForBlogSync() {
+  if (_blogProductSlugsCache && _blogProductSlugsCache.expiresAt > Date.now()) {
+    return _blogProductSlugsCache.slugs;
+  }
+  return null;
+}
+
+/**
+ * Ensure the live product slug set is populated. Returns the Set when the
+ * cache is warm, an empty Set when the API is unreachable (fail-open so we
+ * never suppress a link just because the API is temporarily down).
+ */
+async function ensureProductSlugsForBlog(apiBaseUrl) {
+  if (!apiBaseUrl) return new Set();
+  if (_blogProductSlugsCache && _blogProductSlugsCache.expiresAt > Date.now()) {
+    return _blogProductSlugsCache.slugs;
+  }
+  if (_blogProductSlugsFailedUntil > Date.now()) return new Set();
+  if (_blogProductSlugsInFlight) return _blogProductSlugsInFlight;
+
+  _blogProductSlugsInFlight = (async () => {
+    const base = apiBaseUrl.replace(/\/$/, "");
+    // Fetch EN products for all three markets; union the slugs so we cover
+    // every product regardless of which country originally linked it.
+    const COUNTRIES = ["LB", "AE", "CY"];
+    const allSlugs = new Set();
+    try {
+      await Promise.allSettled(
+        COUNTRIES.map(async (cc) => {
+          const url = `${base}/api/woo/products?countryCode=${cc}&lang=en&per_page=500`;
+          const resp = await fetch(url, { signal: AbortSignal.timeout(5000) });
+          if (!resp.ok) return;
+          const body = await resp.json();
+          if (!body?.ok || !Array.isArray(body.products)) return;
+          for (const p of body.products) {
+            const slug = typeof p?.id === "string" ? p.id.trim() : "";
+            if (slug) allSlugs.add(slug);
+          }
+        }),
+      );
+      if (allSlugs.size > 0) {
+        _blogProductSlugsCache = { slugs: allSlugs, expiresAt: Date.now() + BLOG_PRODUCT_SLUG_CACHE_TTL_MS };
+        _blogProductSlugsFailedUntil = 0;
+      } else {
+        // All fetches failed or returned zero results — negative-cache briefly.
+        _blogProductSlugsFailedUntil = Date.now() + BLOG_PRODUCT_SLUG_FAILURE_TTL_MS;
+      }
+    } catch {
+      _blogProductSlugsFailedUntil = Date.now() + BLOG_PRODUCT_SLUG_FAILURE_TTL_MS;
+    } finally {
+      _blogProductSlugsInFlight = null;
+    }
+    return allSlugs;
+  })();
+  return _blogProductSlugsInFlight;
+}
 
 const PRODUCT_OCCASION_CACHE_TTL_MS = 10 * 60 * 1000;
 const PRODUCT_OCCASION_FAILURE_TTL_MS = 60 * 1000;
@@ -2245,8 +2329,57 @@ function buildProductBodyHtml(product, { title, description, localeBase, imageUr
     related: "Explore related gifts",
   };
 
+  // Category-specific context phrase prepended to the delivery text to give
+  // each product page a more unique opening sentence for that section.
+  const primaryCategory = Array.isArray(product.categories) && product.categories.length > 0
+    ? product.categories[0] : "";
+  const CATEGORY_DELIVERY_PREFIX = {
+    en: {
+      "hand-bouquets":  "Fresh stems arranged to order —",
+      "flower-boxes":   "A curated flower box, prepared fresh —",
+      "flower-baskets": "A handcrafted floral basket, prepared fresh —",
+      cakes:            "Baked and decorated to order, then",
+      chocolate:        "Packaged and gift-wrapped, then",
+      balloons:         "Inflated and assembled close to delivery time, then",
+      "gift-baskets":   "Hand-assembled and gift-wrapped, then",
+      "stuffed-animals":"Carefully packaged and",
+      plants:           "A healthy, well-watered plant, packed safely and",
+      flowers:          "Fresh blooms, arranged to order and",
+      roses:            "A fresh rose arrangement, prepared and",
+    },
+    ar: {
+      "hand-bouquets":  "باقة طازجة تُرتَّب عند الطلب —",
+      "flower-boxes":   "صندوق زهور منسّق بعناية —",
+      "flower-baskets": "سلة زهور مصنوعة يدوياً —",
+      cakes:            "يُخبَز ويُزيَّن عند الطلب ثم",
+      chocolate:        "يُغلَّف بشكل أنيق ثم",
+      balloons:         "تُنفَّخ وتُجمَّع قبل التوصيل مباشرة ثم",
+      "gift-baskets":   "تُرتَّب يدوياً وتُغلَّف كهدية ثم",
+      "stuffed-animals":"يُعبَّأ بعناية ثم",
+      plants:           "نبتة صحية يتم تغليفها بأمان ثم",
+      flowers:          "زهور طازجة تُرتَّب عند الطلب ثم",
+      roses:            "وردة طازجة تُحضَّر وتُجهَّز ثم",
+    },
+    fr: {
+      "hand-bouquets":  "Tiges fraîches assemblées à la commande —",
+      "flower-boxes":   "Une boîte de fleurs soigneusement préparée —",
+      "flower-baskets": "Un panier floral artisanal, préparé frais —",
+      cakes:            "Cuit et décoré sur commande, puis",
+      chocolate:        "Emballé soigneusement, puis",
+      balloons:         "Gonflé et assemblé juste avant la livraison, puis",
+      "gift-baskets":   "Composé à la main et emballé en cadeau, puis",
+      "stuffed-animals":"Soigneusement emballé, puis",
+      plants:           "Une plante saine, emballée en toute sécurité, puis",
+      flowers:          "Fleurs fraîches assemblées à la commande, puis",
+      roses:            "Une composition florale fraîche, préparée, puis",
+    },
+  };
+  const deliveryPrefix = (CATEGORY_DELIVERY_PREFIX[lang ?? "en"] ?? CATEGORY_DELIVERY_PREFIX.en)[primaryCategory] ?? "";
+  const deliveryTextFull = deliveryPrefix
+    ? `${deliveryPrefix} ${labels.deliveryText.replace("{city}", cityLabel)}`
+    : labels.deliveryText.replace("{city}", cityLabel);
   const cityDeliveryHtml = cityLabel
-    ? `<section><h2>${escapeHtml(labels.delivery.replace("{city}", cityLabel))}</h2><p>${escapeHtml(labels.deliveryText.replace("{city}", cityLabel))}</p></section>`
+    ? `<section><h2>${escapeHtml(labels.delivery.replace("{city}", cityLabel))}</h2><p>${escapeHtml(deliveryTextFull)}</p></section>`
     : "";
 
   const imgHtml = imageUrl
@@ -2354,7 +2487,7 @@ function buildSimpleEntityBodyHtml(entity, { title, description, localeBase }) {
  * @param {string} lang - Current article language, used to localise links.
  * @returns {string} - HTML-safe string with validated anchors preserved.
  */
-function safeBodyHtml(body, lang) {
+function safeBodyHtml(body, lang, { validProductSlugs } = {}) {
   const TOKEN_RE = /(<a\s+href="([^"<>]*)"[^>]*>(.*?)<\/a>|<strong>(.*?)<\/strong>)/g;
   let result = "";
   let lastIndex = 0;
@@ -2367,7 +2500,7 @@ function safeBodyHtml(body, lang) {
     const strongText = match[4];
 
     if (strongText !== undefined) {
-      result += `<strong>${safeBodyHtml(strongText, lang)}</strong>`;
+      result += `<strong>${safeBodyHtml(strongText, lang, { validProductSlugs })}</strong>`;
       lastIndex = match.index + match[0].length;
       continue;
     }
@@ -2384,6 +2517,24 @@ function safeBodyHtml(body, lang) {
       const localizedHref = canonicalMatch
         ? `https://presentail.com${localizedPath}`
         : localizedPath;
+
+      // If this link points to a product page, validate that the product is
+      // still live. When validProductSlugs is provided and non-empty, any
+      // /product/{slug} path whose slug is absent from the set is emitted as
+      // plain text so blog posts stop linking to discontinued products without
+      // needing a manual dead-slug blocklist.
+      const productSlugMatch = /^\/product\/([^/?#]+)/.exec(localizedPath);
+      if (
+        productSlugMatch &&
+        validProductSlugs &&
+        validProductSlugs.size > 0 &&
+        !validProductSlugs.has(decodeURIComponent(productSlugMatch[1]))
+      ) {
+        result += escapeHtml(text);
+        lastIndex = match.index + match[0].length;
+        continue;
+      }
+
       result += `<a href="${escapeAttr(localizedHref)}">${escapeHtml(text)}</a>`;
     } else {
       // Fall back: emit the full unapproved anchor source as escaped text.
@@ -2403,7 +2554,7 @@ const RELATED_ARTICLES_LABEL = {
   fr: "Articles similaires",
 };
 
-function buildBlogPostBodyHtml(article, { localeBase, lang, currentSlug }) {
+function buildBlogPostBodyHtml(article, { localeBase, lang, currentSlug, liveProductSlugs = null }) {
   // Use the display heading (h1) when set; fall back to the SEO title.
   const safeTitle = escapeHtml(article.h1 ?? article.title ?? "");
   const sections = Array.isArray(article.sections) ? article.sections : [];
@@ -2419,10 +2570,10 @@ function buildBlogPostBodyHtml(article, { localeBase, lang, currentSlug }) {
       const tag = sec.subheading ? "h3" : "h2";
       inner += `<${tag}>${escapeHtml(sec.heading)}</${tag}>`;
     }
-    if (sec.body) inner += `<p>${safeBodyHtml(sec.body, lang)}</p>`;
+    if (sec.body) inner += `<p>${safeBodyHtml(sec.body, lang, { validProductSlugs: liveProductSlugs })}</p>`;
     if (Array.isArray(sec.items) && sec.items.length > 0) {
       const listTag = sec.ordered ? "ol" : "ul";
-      inner += `<${listTag}>${sec.items.map((item) => `<li>${safeBodyHtml(item, lang)}</li>`).join("")}</${listTag}>`;
+      inner += `<${listTag}>${sec.items.map((item) => `<li>${safeBodyHtml(item, lang, { validProductSlugs: liveProductSlugs })}</li>`).join("")}</${listTag}>`;
     }
     if (sec.pullQuote) inner += `<blockquote>${escapeHtml(sec.pullQuote)}</blockquote>`;
     if (sec.callout?.body) {
@@ -3421,6 +3572,78 @@ const SSR_PRODUCTS_HEADING = { // i18n-ignore — locale-keyed heading map for t
   ar: "تسوّق الأزهار والهدايا في {city}",
   fr: "Fleurs et cadeaux à {city}",
 };
+
+// ── Catalog metadata cache (brands + categories, used for brands listing SSR) ─
+const CATALOG_METADATA_CACHE_TTL_MS = 10 * 60 * 1000;
+const catalogMetadataCache = new Map(); // `${countryCode}:${lang}` -> { brands, expiresAt }
+
+async function fetchCatalogMetadataForSeo(apiBaseUrl, countryCode, lang) {
+  if (!apiBaseUrl || !countryCode) return null;
+  const key = `${countryCode.toUpperCase()}:${(lang || "en").split("-")[0]}`;
+  const hit = catalogMetadataCache.get(key);
+  if (hit && hit.expiresAt > Date.now()) return hit.data;
+  try {
+    const params = new URLSearchParams({ countryCode: countryCode.toUpperCase() });
+    const langBase = (lang || "en").split("-")[0];
+    if (langBase !== "en") params.set("lang", langBase);
+    const resp = await fetch(
+      `${apiBaseUrl.replace(/\/$/, "")}/api/catalog/metadata?${params.toString()}`,
+      { signal: AbortSignal.timeout(3000) },
+    );
+    if (!resp.ok) return null;
+    const body = await resp.json();
+    const data = { brands: Array.isArray(body?.brands) ? body.brands : [] };
+    catalogMetadataCache.set(key, { data, expiresAt: Date.now() + CATALOG_METADATA_CACHE_TTL_MS });
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+// ── Occasions listing cache (with images, for occasions page SSR) ─────────────
+const OCCASIONS_LISTING_CACHE_TTL_MS = 10 * 60 * 1000;
+const occasionsListingCache = new Map(); // `${countryCode}:${city}:${lang}` -> { occasions, expiresAt }
+
+async function fetchOccasionsForListingPage(apiBaseUrl, countryCode, city, lang) {
+  if (!apiBaseUrl || !countryCode || !city) return [];
+  const key = `${countryCode.toUpperCase()}:${city}:${(lang || "en").split("-")[0]}`;
+  const hit = occasionsListingCache.get(key);
+  if (hit && hit.expiresAt > Date.now()) return hit.occasions;
+  try {
+    const params = new URLSearchParams({
+      countryCode: countryCode.toUpperCase(),
+      city: city.toLowerCase(),
+    });
+    const langBase = (lang || "en").split("-")[0];
+    if (langBase !== "en") params.set("lang", langBase);
+    const resp = await fetch(
+      `${apiBaseUrl.replace(/\/$/, "")}/api/catalog/occasions?${params.toString()}`,
+      { signal: AbortSignal.timeout(3000) },
+    );
+    if (!resp.ok) return [];
+    const body = await resp.json();
+    const occasions = (Array.isArray(body?.occasions) ? body.occasions : [])
+      .filter((o) => typeof o?.slug === "string" && typeof o?.name === "string" && Number(o?.count) > 0)
+      .map((o) => ({ id: o.slug, name: o.name, image: o.image ?? null, count: Number(o.count) }));
+    occasionsListingCache.set(key, { occasions, expiresAt: Date.now() + OCCASIONS_LISTING_CACHE_TTL_MS });
+    return occasions;
+  } catch {
+    return [];
+  }
+}
+
+function buildEntityListHtml(items, { localeBase, urlSegment, headingLabel, lang }) {
+  if (!items.length) return "";
+  const dir = lang === "ar" ? "rtl" : "ltr";
+  const cards = items.slice(0, 20).map((item, idx) => {
+    const href = `${localeBase}/${urlSegment}/${encodeURIComponent(item.id)}`;
+    const imgTag = item.image
+      ? `<img src="${escapeAttr(item.image)}" alt="${escapeAttr(item.name)}" loading="${idx === 0 ? "eager" : "lazy"}" width="200" height="200" />`
+      : "";
+    return `<li><a href="${escapeAttr(href)}">${imgTag}<span>${escapeHtml(item.name)}</span></a></li>`;
+  }).join("");
+  return `<section dir="${dir}"><h2>${escapeHtml(headingLabel)}</h2><ul>${cards}</ul></section>`;
+}
 
 // In-process TTL cache for city product lists so high-traffic city homes
 // don't hit the product API on every request. 5-minute TTL matches the
@@ -4728,10 +4951,15 @@ export function buildBlogPostHead({ article, lang, country, basePath, origin, pa
   // article sections so non-rendering crawlers can read the full copy.
   // localeBase uses the lang-only prefix so in-article links point to
   // /{lang}/blog/... (canonical) rather than city-prefixed variants.
+  //
+  // Use the synchronous slug cache (warmed by injectSeoTagsAsync before calling
+  // this function). On a cold cache the Set is null and all product links pass
+  // through without validation — fails open so a cold API never hides links.
   const bodyHtml = buildBlogPostBodyHtml(article, {
     localeBase: `${siteBase}/${lang}`,
     lang,
     currentSlug: blogPostSlug,
+    liveProductSlugs: getProductSlugsForBlogSync(),
   });
 
   return {
@@ -5213,14 +5441,22 @@ function buildShopEntityHead({
   if (curated && entityKind === "occasion" && countryLabel) {
     const _ep = parseLocalePath(pathname);
     if (_ep.lang && _ep.country) {
-      const countryUrl = `${origin}${cleanBase}/${_ep.lang}-${_ep.country}`;
+      // Point the country crumb at the hub city home (not the bare locale root
+      // which returns 404 — e.g. /en-lb has no route; /en-lb/beirut is correct).
+      const _hubCity = HUB_CITY[_ep.country] || "";
+      const countryUrl = _hubCity
+        ? `${origin}${cleanBase}/${_ep.lang}-${_ep.country}/${_hubCity}`
+        : `${origin}${cleanBase}`;
       crumbItems.push({ name: countryLabel, url: countryUrl });
     }
   }
   if (curated && entityKind === "category" && countryLabel) {
     const _ep = parseLocalePath(pathname);
     if (_ep.lang && _ep.country) {
-      const countryUrl = `${origin}${cleanBase}/${_ep.lang}-${_ep.country}`;
+      const _hubCity = HUB_CITY[_ep.country] || "";
+      const countryUrl = _hubCity
+        ? `${origin}${cleanBase}/${_ep.lang}-${_ep.country}/${_hubCity}`
+        : `${origin}${cleanBase}`;
       crumbItems.push({ name: countryLabel, url: countryUrl });
     }
   }
@@ -5361,8 +5597,9 @@ function buildShopEntityHead({
     const currentLabel = escapeHtml(displayName || altText);
     if (curated && entityKind === "category") {
       const _ep = parseLocalePath(pathname);
-      const countryUrl = _ep.lang && _ep.country
-        ? `${origin}${cleanBase}/${_ep.lang}-${_ep.country}`
+      const _navHubCity = _ep.country ? (HUB_CITY[_ep.country] || "") : "";
+      const countryUrl = _ep.lang && _ep.country && _navHubCity
+        ? `${origin}${cleanBase}/${_ep.lang}-${_ep.country}/${_navHubCity}`
         : siteRoot;
       entityNav =
         `<nav><a href="${siteRoot}">${escapeHtml(entityCrumbLabels.home)}</a> › ` +
@@ -5855,6 +6092,9 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
             blogLang !== "en" &&
             (articlesByLang?.[blogLang] === undefined ||
               articlesByLang?.[blogLang] === articlesByLang?.en);
+          // Warm the live product slug cache (fire-and-forget on the first hit
+          // so subsequent requests read from getProductSlugsForBlogSync()).
+          if (apiBaseUrl) ensureProductSlugsForBlog(apiBaseUrl).catch(() => {});
           const result = buildBlogPostHead({
             article,
             lang: blogLang,
@@ -6115,6 +6355,75 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         return assembleHtml(html, { ...generic, headSnippet, bodyHtml });
       }
     }
+    // Brands listing SSR injection — prerender brand cards with their logos
+    // so the first brand image is available in the initial HTML (LCP candidate).
+    // Occasions listing SSR injection — same pattern for occasion images.
+    // Both degrade cleanly: on failure the unmodified generic body is returned.
+    if (
+      parsed.hasLocalePrefix && parsed.country && parsed.city &&
+      apiBaseUrl
+    ) {
+      const cleanBase = (rest.basePath ?? "").replace(/\/$/, "");
+      const relLocaleBase = `${cleanBase}/${parsed.lang}-${parsed.country}/${parsed.city}`;
+      const isBrandsPage = parsed.rest === "/brands" || parsed.rest === "/brands/";
+      const isOccasionsPage = parsed.rest === "/occasions" || parsed.rest === "/occasions/";
+
+      if (isBrandsPage) {
+        const catalogMeta = await fetchCatalogMetadataForSeo(apiBaseUrl, parsed.country, generic.lang);
+        const brands = (catalogMeta?.brands ?? [])
+          .filter((b) => typeof b?.name === "string" && Number(b?.count) > 0)
+          .sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999));
+        if (brands.length > 0) {
+          const headingLabel =
+            generic.lang === "ar" ? "استكشف المتاجر" :
+            generic.lang === "fr" ? "Nos marques" :
+            "Explore Brands";
+          const listHtml = buildEntityListHtml(
+            brands.map((b) => ({ id: b.slug, name: b.name, image: b.image ?? null })),
+            { localeBase: relLocaleBase, urlSegment: "brand", headingLabel, lang: generic.lang },
+          );
+          const bodyHtml = (generic.bodyHtml ?? "") + listHtml;
+          let headSnippet = generic.headSnippet;
+          const firstImage = brands.find((b) => b.image)?.image;
+          if (firstImage) {
+            headSnippet = appendUniqueImagePreload(
+              headSnippet,
+              firstImage,
+              `<link rel="preload" as="image" fetchpriority="high" href="${escapeAttr(firstImage)}">`,
+            );
+          }
+          return assembleHtml(html, { ...generic, headSnippet, bodyHtml });
+        }
+      }
+
+      if (isOccasionsPage) {
+        const occasions = await fetchOccasionsForListingPage(
+          apiBaseUrl, parsed.country, parsed.city, generic.lang,
+        );
+        if (occasions.length > 0) {
+          const headingLabel =
+            generic.lang === "ar" ? "استكشف المناسبات" :
+            generic.lang === "fr" ? "Nos occasions" :
+            "Shop by Occasion";
+          const listHtml = buildEntityListHtml(
+            occasions.map((o) => ({ id: o.id, name: o.name, image: o.image ?? null })),
+            { localeBase: relLocaleBase, urlSegment: "occasion", headingLabel, lang: generic.lang },
+          );
+          const bodyHtml = (generic.bodyHtml ?? "") + listHtml;
+          let headSnippet = generic.headSnippet;
+          const firstImage = occasions.find((o) => o.image)?.image;
+          if (firstImage) {
+            headSnippet = appendUniqueImagePreload(
+              headSnippet,
+              firstImage,
+              `<link rel="preload" as="image" fetchpriority="high" href="${escapeAttr(firstImage)}">`,
+            );
+          }
+          return assembleHtml(html, { ...generic, headSnippet, bodyHtml });
+        }
+      }
+    }
+
     return assembleHtml(html, generic);
   }
 

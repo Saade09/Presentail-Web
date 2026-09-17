@@ -1991,65 +1991,45 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     if (CYPRUS_POLICY_PATHS_SLASH.has(pathname)) {
-      // Serve as a 200 SPA shell. Use the equivalent locale-prefixed virtual
-      // path so seo-inject.mjs resolves the right title/description/canonical,
-      // then override the canonical to point at the /cyprus/ URL.
-      const CYPRUS_POLICY_VIRTUAL_PATHS = {
-        "/cyprus/terms/": "/en-cy/nicosia/terms",
-        "/cyprus/shipping-policy/": "/en-cy/nicosia/shipping-policy",
-        "/cyprus/refund-policy/": "/en-cy/nicosia/refund-policy",
+      // Redirect to the locale-prefixed canonical. These were previously served
+      // as 200 SPA shells with a /cyprus/ canonical, but the /en-cy/nicosia/
+      // equivalents are the correct SEO destinations. 301 consolidates any
+      // residual link equity onto the current canonical hierarchy.
+      const CYPRUS_POLICY_REDIRECT_TARGETS = {
+        "/cyprus/terms/": `${BASE_PATH}/en-cy/nicosia/terms`,
+        "/cyprus/shipping-policy/": `${BASE_PATH}/en-cy/nicosia/shipping-policy`,
+        "/cyprus/refund-policy/": `${BASE_PATH}/en-cy/nicosia/refund-policy`,
       };
-      const virtualPath = CYPRUS_POLICY_VIRTUAL_PATHS[pathname];
-      try {
-        let html = indexHtml;
-        if (typeof injectSeoTagsAsync === "function") {
-          const origin = `${proto}://${host}`;
-          let seoOut = await injectSeoTagsAsync(html, virtualPath, {
-            origin,
-            basePath: BASE_PATH,
+      const target = CYPRUS_POLICY_REDIRECT_TARGETS[pathname];
+      res.writeHead(301, {
+        location: target,
+        "cache-control": "public, max-age=3600, must-revalidate",
+      });
+      res.end();
+      return;
+    }
+
+    // Section 6d: Non-hub-city policy pages → hub-city redirect (301) --------
+    // Policy pages (return/shipping/account-deletion) are site-wide; they must
+    // not be duplicated once per city. Satellite-city variants redirect to the
+    // hub city so Google sees one canonical per language × country.
+    {
+      const _SATELLITE_POLICY_SUBROUTES = new Set([
+        "/return-policy", "/shipping-policy", "/account-deletion", "/refund-policy",
+      ]);
+      const _policyMatch = pathname.match(LOCALE_PATH_RE);
+      if (_policyMatch) {
+        const [, _pLang, _pCountry, _pCity, _pRest = ""] = _policyMatch;
+        const _pRestNorm = _pRest.replace(/\/$/, "");
+        const _hubCity = SITEMAP_CANONICAL_CITIES[_pCountry];
+        if (_hubCity && _pCity !== _hubCity && _SATELLITE_POLICY_SUBROUTES.has(_pRestNorm)) {
+          res.writeHead(301, {
+            location: `${BASE_PATH}/${_pLang}-${_pCountry}/${_hubCity}${_pRestNorm}`,
+            "cache-control": "public, max-age=3600, must-revalidate",
           });
-          // Override the canonical injected for the virtual city path so
-          // crawlers see /cyprus/{policy}/ rather than /en-cy/nicosia/{policy}/.
-          const canonicalOverride = `${origin}${pathname}`;
-          seoOut = seoOut.replace(
-            /<link rel="canonical" href="[^"]*"/,
-            `<link rel="canonical" href="${canonicalOverride.replace(/"/g, "&quot;")}"`,
-          );
-          // The page is always indexable regardless of the resolved routeKey.
-          seoOut = seoOut.replace(
-            /<meta name="robots" content="noindex[^"]*"/,
-            `<meta name="robots" content="index, follow"`,
-          );
-          const encoding = pickEncoding(req, ".html");
-          const body = await compressBuffer(seoOut, encoding);
-          // Use the wrapper resolveXRobotsTag: serve-robots.mjs exempts the
-          // Cyprus canonical policy paths from the private-route noindex pattern
-          // so this returns "index, follow" on the production host.
-          const xRobotsTagCyPolicy = resolveXRobotsTag(normalizeHostHeader(host), pathname, url.search);
-          const headers = {
-            "content-type": MIME[".html"],
-            ...(xRobotsTagCyPolicy !== null ? { "x-robots-tag": xRobotsTagCyPolicy } : {}),
-            ...buildHtmlCacheHeaders(pathname, xRobotsTagCyPolicy, seoOut),
-            "vary": "Accept-Encoding",
-            "link": `<${canonicalOverride}>; rel="canonical", <${origin}/llms.txt>; rel="describedby"`,
-          };
-          if (encoding) headers["content-encoding"] = encoding;
-          res.writeHead(200, headers);
-          res.end(body);
+          res.end();
           return;
         }
-        // seo-inject.mjs not yet loaded — serve plain shell.
-        res.writeHead(200, {
-          "content-type": MIME[".html"],
-          "cache-control": PRIVATE_HTML_CACHE_CONTROL,
-        });
-        res.end(html);
-        return;
-      } catch (err) {
-        req.log?.warn?.({ err, pathname }, "cyprus-policy: SEO injection failed, serving plain shell");
-        res.writeHead(200, { "content-type": MIME[".html"], "cache-control": PRIVATE_HTML_CACHE_CONTROL });
-        res.end(indexHtml);
-        return;
       }
     }
 
@@ -2101,8 +2081,8 @@ const server = http.createServer(async (req, res) => {
       // Audit note (Aug 2026): only /flower-shops-in-larnaca confirmed wrong;
       // add similar entries for other cities if further bad redirects surface.
       // NOTE: /cyprus/shipping-policy and /cyprus/refund-policy are now
-      // canonical 200 pages handled in Section 6c above — they must NOT appear
-      // here or the canonical pages would redirect instead of serving content.
+      // 301 redirects handled in Section 6c above — they must NOT appear
+      // here or the redirect chain would double up.
       "/cyprus/flower-shops-in-larnaca": `${BASE_PATH}/en-cy/larnaca`,
       "/cyprus/flower-shops-in-limassol": `${BASE_PATH}/en-cy/limassol`,
       "/cyprus/flower-shops-in-paphos":   `${BASE_PATH}/en-cy/paphos`,
