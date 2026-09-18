@@ -74,6 +74,7 @@ import {
   CompactMobileCartHeader,
 } from "@/components/homepage/CompactMobileCartHeader";
 import { CyprusCompanyDetails } from "@/components/CyprusCompanyDetails";
+import { BlogArticleLoadingBoundary } from "@/components/blog/BlogArticleLoadingBoundary";
 function withSuspense<P extends object>(
   Component: React.ComponentType<P>,
   Fallback: React.ComponentType,
@@ -495,6 +496,21 @@ function ShopShell() {
 // WouterRouter are intentionally omitted. Readers get the full layout
 // (header + footer) without the delivery location requirement.
 function BlogShell() {
+  const [path] = useLocation();
+  const isArticleRoute = /^\/blog\/[^/]+\/?$/.test(path.split(/[?#]/, 1)[0]);
+  const articleRoutes = (
+    <main className="flex-1">
+      <RouteErrorBoundary>
+        <Switch>
+          {/* Do not use BlogPostRoute here: its inner Suspense would consume the
+              pending article state before the shared article/footer boundary. */}
+          <Route path="/blog/:slug" component={BlogPost} />
+          <Route component={NotFoundRoute} />
+        </Switch>
+      </RouteErrorBoundary>
+    </main>
+  );
+
   return (
     <>
       <ScrollToTop />
@@ -502,18 +518,26 @@ function BlogShell() {
         <Suspense fallback={<HeaderSkeleton />}>
           <HomepageHeader />
         </Suspense>
-        <main className="flex-1">
-          <RouteErrorBoundary>
-            <Switch>
-              <Route path="/blog/:slug" component={BlogPostRoute} />
-              <Route path="/blog" component={BlogRoute} />
-              <Route component={NotFoundRoute} />
-            </Switch>
-          </RouteErrorBoundary>
-        </main>
-        <Suspense fallback={null}>
-          <Footer />
-        </Suspense>
+        {isArticleRoute ? (
+          <BlogArticleLoadingBoundary
+            article={articleRoutes}
+            footer={<Footer />}
+          />
+        ) : (
+          <>
+            <main className="flex-1">
+              <RouteErrorBoundary>
+                <Switch>
+                  <Route path="/blog" component={BlogRoute} />
+                  <Route component={NotFoundRoute} />
+                </Switch>
+              </RouteErrorBoundary>
+            </main>
+            <Suspense fallback={null}>
+              <Footer />
+            </Suspense>
+          </>
+        )}
       </div>
     </>
   );
