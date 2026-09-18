@@ -46,6 +46,7 @@ import {
 import { resolveGmcLocaleOnlyCheckoutRedirect } from "./gmc-checkout-route.mjs";
 export { getCrawlerProductCurrencyOverride } from "./crawler-product-currency.mjs";
 import { getCrawlerProductCurrencyOverride } from "./crawler-product-currency.mjs";
+import { STOREFRONT_SECURITY_HEADERS } from "./serve-security.mjs";
 
 // seo-inject.mjs and sidecar-cache.mjs are loaded via guarded dynamic import
 // below so a missing or corrupt file produces a structured Slack alert rather
@@ -849,6 +850,7 @@ async function sendCompressedHtml(res, req, html, headers = {}) {
   const body = await compressBuffer(html, encoding);
   const responseHeaders = {
     "content-type": MIME[".html"],
+    ...STOREFRONT_SECURITY_HEADERS,
     ...headers,
     "vary": "Accept-Encoding",
   };
@@ -2804,6 +2806,7 @@ const server = http.createServer(async (req, res) => {
           : "";
         const headers = {
           "content-type": MIME[".html"],
+          ...STOREFRONT_SECURITY_HEADERS,
           // x-robots-tag is omitted on non-canonical hosts so Replit's default noindex applies.
           // On the canonical production host: "index, follow" for public pages,
           // "noindex" for private/transactional paths and UTM-parameterised URLs.
@@ -3186,6 +3189,7 @@ const server = http.createServer(async (req, res) => {
       : "";
     const headers = {
       "content-type": MIME[".html"],
+      ...STOREFRONT_SECURITY_HEADERS,
       // x-robots-tag is omitted on non-canonical hosts so Replit's default noindex applies.
       // On the canonical production host: "index, follow" for public pages,
       // "noindex" for private/transactional paths.

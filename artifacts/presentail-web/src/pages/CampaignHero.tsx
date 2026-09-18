@@ -289,7 +289,7 @@ export function CampaignTrustpilotStrip() {
     };
     const { onScriptLoad, cleanup } = pollAndLoadTrustpilotWidget(el, handleFailure, () => {
       if (active) {
-        cardRef.current?.setAttribute("data-trustpilot-state", "loaded");
+        setStatus("loaded");
       }
     });
     injectTrustpilotScript(onScriptLoad, () => {

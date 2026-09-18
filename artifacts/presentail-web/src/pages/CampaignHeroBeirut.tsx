@@ -391,7 +391,7 @@ export function CampaignTrustBarBeirut() {
       handleFailure,
       () => {
         if (active) {
-          ratingRef.current?.setAttribute("data-trustpilot-state", "loaded");
+          setStatus("loaded");
         }
       },
     );

@@ -104,3 +104,4 @@
 - [OS Express fee contract](express-fee-contract.md) — `express_delivery_fee` is a total unless OS explicitly supplies `express_surcharge`; split it against effective standard delivery.
 - [Real-delivery social proof](real-delivery-social-proof.md) — fail-closed OS photo contract; opaque hashed asset refs in registry; avif supported by imgProxy/catalog routes now; section hidden when no approved photos.
 - [Mobile header scope](mobile-header-scope.md) — the compact header reference applies to the responsive web storefront MainNavbar; do not change native Expo header behavior unless explicitly requested.
+- [Trustpilot bootstrap lifecycle](trustpilot-lifecycle.md) — treat embedded trustbox documents as legitimate iframe loads; app code should only own singleton bootstrap and per-element initialization.

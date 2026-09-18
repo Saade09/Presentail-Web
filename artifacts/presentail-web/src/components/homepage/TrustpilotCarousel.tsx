@@ -45,36 +45,8 @@ export function TrustpilotCarousel({
       },
     );
 
-    // Observe the container (height: 340px, always visible) rather than the
-    // widget div itself. The widget div starts with 0 height because the
-    // Trustpilot SDK hasn't run yet, making IntersectionObserver unreliable
-    // across iOS/Safari versions when it is the observed target.
-    const target = el.parentElement ?? el;
-
-    if (typeof IntersectionObserver === "undefined") {
-      injectTrustpilotScript(onScriptLoad, handleFailure);
-    } else {
-      const observer = new IntersectionObserver(
-        (entries) => {
-          for (const entry of entries) {
-            if (entry.isIntersecting) {
-              observer.disconnect();
-              onVisibleRef.current?.();
-              injectTrustpilotScript(onScriptLoad, handleFailure);
-            }
-          }
-        },
-        { rootMargin: "200px", threshold: 0 },
-      );
-
-      observer.observe(target);
-
-      return () => {
-        active = false;
-        observer.disconnect();
-        cleanup();
-      };
-    }
+    onVisibleRef.current?.();
+    injectTrustpilotScript(onScriptLoad, handleFailure);
 
     return () => {
       active = false;

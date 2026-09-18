@@ -49,4 +49,11 @@ describe("Trustpilot script-backed surface inventory", () => {
     expect(contents).not.toContain("trustpilot-widget");
     expect(contents).not.toContain("injectTrustpilotScript");
   });
+
+  it("keeps Trustpilot loading free of template probes and country branches", () => {
+    const loader = source("lib/trustpilot.ts");
+    expect(loader).not.toMatch(/index\.html|fetch\(|XMLHttpRequest|\bcountry\b|\bgeo\b|\bVPN\b/);
+    expect(loader).not.toContain("setTimeout");
+    expect(loader).toContain("WeakSet");
+  });
 });

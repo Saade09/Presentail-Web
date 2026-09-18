@@ -14,19 +14,27 @@ function trustpilotScripts(src: string): HTMLScriptElement[] {
   );
 }
 
+async function settleMicrotasks() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
+function installSdk(loadFromElement = vi.fn()) {
+  window.Trustpilot = { loadFromElement };
+  return loadFromElement;
+}
+
 describe("injectTrustpilotScript", () => {
   beforeEach(() => {
-    vi.useFakeTimers();
     document.head.innerHTML = "";
     delete window.Trustpilot;
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
-    vi.useRealTimers();
   });
 
-  it("injects the script once and queues concurrent callers", async () => {
+  it("requests the official bootstrap once for concurrent callers", async () => {
     const { injectTrustpilotScript, TRUSTPILOT_SCRIPT_SRC } = await loadModule();
     const first = vi.fn();
     const second = vi.fn();
@@ -36,83 +44,20 @@ describe("injectTrustpilotScript", () => {
 
     const scripts = trustpilotScripts(TRUSTPILOT_SCRIPT_SRC);
     expect(scripts).toHaveLength(1);
+
+    installSdk();
     scripts[0].dispatchEvent(new Event("load"));
+    await settleMicrotasks();
+
     expect(first).toHaveBeenCalledOnce();
     expect(second).toHaveBeenCalledOnce();
-  });
-
-  it("piggy-backs on an existing script tag", async () => {
-    const { injectTrustpilotScript, TRUSTPILOT_SCRIPT_SRC } = await loadModule();
-    const existing = document.createElement("script");
-    existing.src = TRUSTPILOT_SCRIPT_SRC;
-    document.head.appendChild(existing);
-    const onLoad = vi.fn();
-
-    injectTrustpilotScript(onLoad);
-
-    expect(trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)).toEqual([existing]);
-    existing.dispatchEvent(new Event("load"));
-    expect(onLoad).toHaveBeenCalledOnce();
-  });
-
-  it("handles an existing script whose load event happened before attachment", async () => {
-    const { injectTrustpilotScript, TRUSTPILOT_SCRIPT_SRC } = await loadModule();
-    const existing = document.createElement("script");
-    existing.src = TRUSTPILOT_SCRIPT_SRC;
-    existing.dataset.loaded = "1";
-    document.head.appendChild(existing);
-    const onLoad = vi.fn();
-
-    injectTrustpilotScript(onLoad);
-
-    expect(onLoad).toHaveBeenCalledOnce();
-  });
-
-  it("retries two seconds after the first load error", async () => {
-    const { injectTrustpilotScript, TRUSTPILOT_SCRIPT_SRC } = await loadModule();
-    injectTrustpilotScript(vi.fn());
-    const first = trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0];
-
-    first.dispatchEvent(new Event("error"));
-    expect(trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)).toHaveLength(0);
-    await vi.advanceTimersByTimeAsync(1999);
-    expect(trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)).toHaveLength(0);
-    await vi.advanceTimersByTimeAsync(1);
     expect(trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)).toHaveLength(1);
   });
 
-  it("calls onError after the retry also fails", async () => {
+  it("uses a pre-existing SDK without injecting another script", async () => {
     const { injectTrustpilotScript, TRUSTPILOT_SCRIPT_SRC } = await loadModule();
-    const onError = vi.fn();
-    injectTrustpilotScript(vi.fn(), onError);
-    trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0].dispatchEvent(new Event("error"));
-    await vi.advanceTimersByTimeAsync(2000);
-
-    trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0].dispatchEvent(new Event("error"));
-
-    expect(onError).toHaveBeenCalledOnce();
-  });
-
-  it("notifies every concurrent waiter exactly once after terminal failure", async () => {
-    const { injectTrustpilotScript, TRUSTPILOT_SCRIPT_SRC } = await loadModule();
-    const firstError = vi.fn();
-    const secondError = vi.fn();
-
-    injectTrustpilotScript(vi.fn(), firstError);
-    injectTrustpilotScript(vi.fn(), secondError);
-    trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0].dispatchEvent(new Event("error"));
-    await vi.advanceTimersByTimeAsync(2000);
-    trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0].dispatchEvent(new Event("error"));
-    trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0]?.dispatchEvent(new Event("error"));
-
-    expect(firstError).toHaveBeenCalledOnce();
-    expect(secondError).toHaveBeenCalledOnce();
-  });
-
-  it("loads immediately without a script event when the SDK already exists", async () => {
-    const { injectTrustpilotScript, TRUSTPILOT_SCRIPT_SRC } = await loadModule();
-    window.Trustpilot = { loadFromElement: vi.fn() };
     const onLoad = vi.fn();
+    installSdk();
 
     injectTrustpilotScript(onLoad);
 
@@ -120,195 +65,145 @@ describe("injectTrustpilotScript", () => {
     expect(trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)).toHaveLength(0);
   });
 
-  it("recovers when the SDK appears after a missed script event", async () => {
-    const { injectTrustpilotScript } = await loadModule();
+  it("initializes after the SDK is installed by the bootstrap load event", async () => {
+    const { injectTrustpilotScript, TRUSTPILOT_SCRIPT_SRC } = await loadModule();
     const onLoad = vi.fn();
 
     injectTrustpilotScript(onLoad);
-    await vi.advanceTimersByTimeAsync(250);
-    window.Trustpilot = { loadFromElement: vi.fn() };
-    await vi.advanceTimersByTimeAsync(250);
+    const script = trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0];
+    script.dispatchEvent(new Event("load"));
+    // The browser has completed script execution before dispatching load. This
+    // assignment models that ordering while also covering queued load handling.
+    installSdk();
+    await settleMicrotasks();
 
     expect(onLoad).toHaveBeenCalledOnce();
+  });
+
+  it("reports a bootstrap error once and never retries or probes a template", async () => {
+    const { injectTrustpilotScript, TRUSTPILOT_SCRIPT_SRC } = await loadModule();
+    const onError = vi.fn();
+    const remountError = vi.fn();
+    const onLoad = vi.fn();
+
+    injectTrustpilotScript(onLoad, onError);
+    const script = trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0];
+    script.dispatchEvent(new Event("error"));
+    injectTrustpilotScript(onLoad, remountError);
+
+    expect(onError).toHaveBeenCalledOnce();
+    expect(remountError).toHaveBeenCalledOnce();
+    expect(onLoad).not.toHaveBeenCalled();
+    expect(trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)).toHaveLength(1);
+    expect(document.querySelector("iframe")).toBeNull();
+  });
+
+  it("treats a loaded script with no SDK global as a bootstrap failure", async () => {
+    const { injectTrustpilotScript, TRUSTPILOT_SCRIPT_SRC } = await loadModule();
+    const onError = vi.fn();
+
+    injectTrustpilotScript(vi.fn(), onError);
+    trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0].dispatchEvent(new Event("load"));
+    await settleMicrotasks();
+
+    expect(onError).toHaveBeenCalledOnce();
+    expect(trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)).toHaveLength(1);
   });
 });
 
 describe("pollAndLoadTrustpilotWidget", () => {
   beforeEach(() => {
-    vi.useFakeTimers();
     document.head.innerHTML = "";
     delete window.Trustpilot;
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
-    vi.useRealTimers();
   });
 
-  it("calls loadFromElement once when the SDK is available", async () => {
+  it("calls loadFromElement exactly once for a mounted element", async () => {
     const { pollAndLoadTrustpilotWidget } = await loadModule();
     const el = document.createElement("div");
-    const loadFromElement = vi.fn();
-    window.Trustpilot = { loadFromElement };
+    const loadFromElement = installSdk();
+    const onLoaded = vi.fn();
+    const loader = pollAndLoadTrustpilotWidget(el, vi.fn(), onLoaded);
 
-    pollAndLoadTrustpilotWidget(el).onScriptLoad();
-
-    expect(loadFromElement).toHaveBeenCalledOnce();
-    expect(loadFromElement).toHaveBeenCalledWith(el, true);
-  });
-
-  it("replaces a completed stale script after polling and keeps concurrent callbacks", async () => {
-    const {
-      injectTrustpilotScript,
-      pollAndLoadTrustpilotWidget,
-      TRUSTPILOT_SCRIPT_SRC,
-    } = await loadModule();
-    const firstEl = document.createElement("div");
-    const secondEl = document.createElement("div");
-    const firstLoader = pollAndLoadTrustpilotWidget(firstEl);
-    const secondLoader = pollAndLoadTrustpilotWidget(secondEl);
-
-    injectTrustpilotScript(firstLoader.onScriptLoad);
-    injectTrustpilotScript(secondLoader.onScriptLoad);
-    const staleScript = trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0];
-    staleScript.dispatchEvent(new Event("load"));
-    await vi.advanceTimersByTimeAsync(20 * 250);
-
-    const scripts = trustpilotScripts(TRUSTPILOT_SCRIPT_SRC);
-    expect(scripts).toHaveLength(1);
-    expect(scripts[0]).not.toBe(staleScript);
-
-    const loadFromElement = vi.fn();
-    window.Trustpilot = { loadFromElement };
-    scripts[0].dispatchEvent(new Event("load"));
-    expect(loadFromElement).toHaveBeenCalledTimes(2);
-    expect(loadFromElement).toHaveBeenCalledWith(firstEl, true);
-    expect(loadFromElement).toHaveBeenCalledWith(secondEl, true);
-  });
-
-  it("waits for a delayed SDK global during empty-script recovery", async () => {
-    const {
-      injectTrustpilotScript,
-      pollAndLoadTrustpilotWidget,
-      TRUSTPILOT_SCRIPT_SRC,
-    } = await loadModule();
-    const el = document.createElement("div");
-    const loadFromElement = vi.fn();
-    const loader = pollAndLoadTrustpilotWidget(el);
-
-    injectTrustpilotScript(loader.onScriptLoad);
-    trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0].dispatchEvent(new Event("load"));
-    await vi.advanceTimersByTimeAsync(20 * 250);
-
-    const recoveryScript = trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0];
-    recoveryScript.dispatchEvent(new Event("load"));
-    await vi.advanceTimersByTimeAsync(5 * 250);
-    window.Trustpilot = { loadFromElement };
-    await vi.advanceTimersByTimeAsync(250);
-
-    expect(loadFromElement).toHaveBeenCalledOnce();
-    expect(loadFromElement).toHaveBeenCalledWith(el, true);
-  });
-
-  it("gives up after one empty-script recovery attempt", async () => {
-    const {
-      injectTrustpilotScript,
-      pollAndLoadTrustpilotWidget,
-      TRUSTPILOT_SCRIPT_SRC,
-    } = await loadModule();
-    const onGiveUp = vi.fn();
-    const loader = pollAndLoadTrustpilotWidget(document.createElement("div"), onGiveUp);
-
-    injectTrustpilotScript(loader.onScriptLoad);
-    trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0].dispatchEvent(new Event("load"));
-    await vi.advanceTimersByTimeAsync(21 * 250);
-
-    const recoveryScript = trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0];
-    recoveryScript.dispatchEvent(new Event("load"));
-    await vi.advanceTimersByTimeAsync(21 * 250);
-
-    expect(onGiveUp).toHaveBeenCalledOnce();
-  });
-
-  it("catches loadFromElement errors", async () => {
-    const { pollAndLoadTrustpilotWidget } = await loadModule();
-    const error = new Error("widget failed");
-    const onGiveUp = vi.fn();
-    window.Trustpilot = { loadFromElement: vi.fn(() => { throw error; }) };
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    expect(() =>
-      pollAndLoadTrustpilotWidget(document.createElement("div"), onGiveUp).onScriptLoad(),
-    ).not.toThrow();
-    expect(warn).toHaveBeenCalledWith(
-      "[Trustpilot] loadFromElement threw:",
-      error,
-    );
-    expect(onGiveUp).toHaveBeenCalledOnce();
-  });
-
-  it("allows one SPA-session retry after terminal failure when no script is in the DOM", async () => {
-    const { injectTrustpilotScript, TRUSTPILOT_SCRIPT_SRC } = await loadModule();
-    const onError = vi.fn();
-
-    // First attempt: load + retry both fail → terminal failure
-    injectTrustpilotScript(vi.fn(), onError);
-    trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0].dispatchEvent(new Event("error"));
-    await vi.advanceTimersByTimeAsync(2000);
-    trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0].dispatchEvent(new Event("error"));
-
-    expect(onError).toHaveBeenCalledOnce();
-    // Script element was removed after the final failure
-    expect(trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)).toHaveLength(0);
-
-    // SPA re-navigation: a new caller comes in after terminal failure with no script in DOM
-    const retryLoad = vi.fn();
-    const retryError = vi.fn();
-    injectTrustpilotScript(retryLoad, retryError);
-
-    // A fresh script must have been injected (the session retry fired)
-    const retryScripts = trustpilotScripts(TRUSTPILOT_SCRIPT_SRC);
-    expect(retryScripts).toHaveLength(1);
-
-    // Succeed on the retry
-    retryScripts[0].dispatchEvent(new Event("load"));
-    expect(retryLoad).toHaveBeenCalledOnce();
-    expect(retryError).not.toHaveBeenCalled();
-  });
-
-  it("does not retry a second time if the session retry also fails", async () => {
-    const { injectTrustpilotScript, TRUSTPILOT_SCRIPT_SRC } = await loadModule();
-
-    // First terminal failure
-    injectTrustpilotScript(vi.fn(), vi.fn());
-    trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0].dispatchEvent(new Event("error"));
-    await vi.advanceTimersByTimeAsync(2000);
-    trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0].dispatchEvent(new Event("error"));
-
-    // Session retry: inject → fail again (use up _retryUsed inside the fresh inject cycle)
-    const firstRetryError = vi.fn();
-    injectTrustpilotScript(vi.fn(), firstRetryError);
-    trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0].dispatchEvent(new Event("error"));
-    await vi.advanceTimersByTimeAsync(2000);
-    trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)[0].dispatchEvent(new Event("error"));
-    expect(firstRetryError).toHaveBeenCalledOnce();
-
-    // Third caller: no script in DOM, but session retry already used → immediate error
-    const thirdError = vi.fn();
-    injectTrustpilotScript(vi.fn(), thirdError);
-    expect(thirdError).toHaveBeenCalledOnce();
-    expect(trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)).toHaveLength(0);
-  });
-
-  it("cleanup cancels a pending poll timer", async () => {
-    const { pollAndLoadTrustpilotWidget, TRUSTPILOT_SCRIPT_SRC } =
-      await loadModule();
-    const loader = pollAndLoadTrustpilotWidget(document.createElement("div"));
+    loader.onScriptLoad();
     loader.onScriptLoad();
 
-    loader.cleanup();
-    await vi.runAllTimersAsync();
+    expect(loadFromElement).toHaveBeenCalledOnce();
+    expect(loadFromElement).toHaveBeenCalledWith(el, true);
+    expect(onLoaded).toHaveBeenCalledOnce();
+  });
 
-    expect(trustpilotScripts(TRUSTPILOT_SCRIPT_SRC)).toHaveLength(0);
+  it("does not initialize an element after cleanup", async () => {
+    const { pollAndLoadTrustpilotWidget } = await loadModule();
+    const loadFromElement = installSdk();
+    const loader = pollAndLoadTrustpilotWidget(document.createElement("div"));
+
+    loader.cleanup();
+    loader.onScriptLoad();
+
+    expect(loadFromElement).not.toHaveBeenCalled();
+  });
+
+  it("falls back only when loadFromElement throws or returns false", async () => {
+    const { pollAndLoadTrustpilotWidget } = await loadModule();
+    const thrownFailure = vi.fn();
+    installSdk(vi.fn(() => {
+      throw new Error("widget failed");
+    }));
+    pollAndLoadTrustpilotWidget(
+      document.createElement("div"),
+      thrownFailure,
+    ).onScriptLoad();
+    expect(thrownFailure).toHaveBeenCalledOnce();
+
+    vi.resetModules();
+    const { pollAndLoadTrustpilotWidget: loadWidget } = await loadModule();
+    const returnedFailure = vi.fn();
+    installSdk(vi.fn(() => false));
+    loadWidget(document.createElement("div"), returnedFailure).onScriptLoad();
+    expect(returnedFailure).toHaveBeenCalledOnce();
+  });
+
+  it("initializes a newly mounted element after SPA unmount/remount", async () => {
+    const { injectTrustpilotScript, pollAndLoadTrustpilotWidget } =
+      await loadModule();
+    const loadFromElement = installSdk();
+    const firstElement = document.createElement("div");
+    const firstLoader = pollAndLoadTrustpilotWidget(firstElement);
+
+    injectTrustpilotScript(firstLoader.onScriptLoad);
+    firstLoader.cleanup();
+
+    const secondElement = document.createElement("div");
+    const secondLoader = pollAndLoadTrustpilotWidget(secondElement);
+    injectTrustpilotScript(secondLoader.onScriptLoad);
+
+    expect(loadFromElement).toHaveBeenCalledTimes(2);
+    expect(loadFromElement).toHaveBeenNthCalledWith(1, firstElement, true);
+    expect(loadFromElement).toHaveBeenNthCalledWith(2, secondElement, true);
+  });
+
+  it("records iframe creation without using it as a success or failure signal", async () => {
+    const { pollAndLoadTrustpilotWidget } = await loadModule();
+    const el = document.createElement("div");
+    const loadFromElement = installSdk(vi.fn(() => {
+      const iframe = document.createElement("iframe");
+      el.appendChild(iframe);
+    }));
+    const debug = vi.spyOn(console, "debug").mockImplementation(() => {});
+    const onLoaded = vi.fn();
+
+    pollAndLoadTrustpilotWidget(el, vi.fn(), onLoaded).onScriptLoad();
+    await settleMicrotasks();
+
+    expect(loadFromElement).toHaveBeenCalledOnce();
+    expect(onLoaded).toHaveBeenCalledOnce();
+    expect(debug).toHaveBeenCalledWith(
+      "[Trustpilot] iframe-created",
+      {},
+    );
   });
 });

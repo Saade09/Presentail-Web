@@ -25,7 +25,7 @@ export function TrustpilotMicroWidget() {
       el,
       handleFailure,
       () => {
-        if (active) el.setAttribute("data-trustpilot-state", "loaded");
+        if (active) setStatus("loaded");
       },
     );
     injectTrustpilotScript(onScriptLoad, handleFailure);
