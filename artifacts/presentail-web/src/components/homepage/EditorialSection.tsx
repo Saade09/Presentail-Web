@@ -2,7 +2,8 @@ import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { useLocale } from "@/contexts/LocaleContext";
 import { Button } from "@/components/ui/button";
-import hero from "@/assets/hero.png";
+import hero828 from "@/assets/generated/homepage-editorial-828.webp";
+import hero1408 from "@/assets/generated/homepage-editorial-1408.webp";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { cityHref } from "@/lib/cityHref";
 
@@ -23,8 +24,12 @@ export function EditorialSection() {
           >
             <div className="aspect-[4/5] rounded-3xl overflow-hidden bg-muted shadow-lg">
               <img
-                src={hero}
+                src={hero828}
+                srcSet={`${hero828} 828w, ${hero1408} 1408w`}
+                sizes="(min-width: 768px) 50vw, 100vw"
                 alt={t("editorial.imageAlt")}
+                width={1408}
+                height={768}
                 className="w-full h-full object-cover"
                 loading="lazy"
               />

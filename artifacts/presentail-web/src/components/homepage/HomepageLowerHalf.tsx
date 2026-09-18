@@ -8,7 +8,8 @@ import { TrustpilotCarousel } from "@/components/homepage/TrustpilotCarousel";
 import { TrustpilotBrandsRow } from "@/components/homepage/TrustpilotBrandsRow";
 import { TRUSTPILOT_PROFILE_URL } from "@/lib/trustpilot";
 import { buildHomepageFaqs } from "@/lib/homepageFaqs.mjs";
-import hero from "@/assets/hero.png";
+import hero828 from "@/assets/generated/homepage-editorial-828.webp";
+import hero1408 from "@/assets/generated/homepage-editorial-1408.webp";
 
 type TaxonomyLinks = {
   categories: Array<{ href: string; label: string }>;
@@ -183,7 +184,9 @@ export function HomepageLowerHalf({
         <div className="grid md:grid-cols-2 gap-6 md:gap-10 items-center rounded-2xl bg-secondary/35 p-4 md:p-6">
           <div className="aspect-[16/10] overflow-hidden rounded-xl bg-muted">
             <img
-              src={hero}
+              src={hero828}
+              srcSet={`${hero828} 828w, ${hero1408} 1408w`}
+              sizes="(min-width: 768px) 50vw, 100vw"
               alt={t("home.lower.story.imageAlt")}
               width={1408}
               height={768}
