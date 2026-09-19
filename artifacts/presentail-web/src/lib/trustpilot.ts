@@ -22,32 +22,16 @@ let activeScript: HTMLScriptElement | null = null;
 const waiters: LoadWaiter[] = [];
 const initializedElements = new WeakSet<Element>();
 
-// Diagnostics are intentionally bounded and contain no URLs, identifiers, or
-// customer data. They can be removed after production verification without
-// changing the loader contract.
-const MAX_DIAGNOSTIC_EVENTS = 80;
-let diagnosticEvents = 0;
-
-function diagnostic(event: string, details: Record<string, boolean | number | string> = {}) {
-  if (diagnosticEvents >= MAX_DIAGNOSTIC_EVENTS) return;
-  diagnosticEvents += 1;
-  console.debug(`[Trustpilot] ${event}`, details);
-}
-
 function flushLoaded() {
   if (loadState === "loaded") return;
   loadState = "loaded";
-  diagnostic("bootstrap-loaded", {
-    trustpilotPresent: Boolean(window.Trustpilot),
-  });
   const pending = waiters.splice(0);
   for (const waiter of pending) waiter.onLoad();
 }
 
-function flushFailed(reason: string) {
+function flushFailed() {
   if (loadState === "failed") return;
   loadState = "failed";
-  diagnostic("bootstrap-failed", { reason });
   const pending = waiters.splice(0);
   for (const waiter of pending) waiter.onError?.();
 }
@@ -64,7 +48,7 @@ function handleScriptLoad(script: HTMLScriptElement) {
     if (window.Trustpilot) {
       flushLoaded();
     } else {
-      flushFailed("sdk-global-missing-after-load");
+      flushFailed();
     }
   });
 }
@@ -72,14 +56,13 @@ function handleScriptLoad(script: HTMLScriptElement) {
 function attachScript(script: HTMLScriptElement) {
   if (activeScript === script) return;
   activeScript = script;
-  diagnostic("bootstrap-requested", {});
 
   script.addEventListener("load", () => handleScriptLoad(script), { once: true });
   script.addEventListener(
     "error",
     () => {
       if (activeScript !== script || loadState !== "loading") return;
-      flushFailed("script-error");
+      flushFailed();
     },
     { once: true },
   );
@@ -92,7 +75,7 @@ function attachScript(script: HTMLScriptElement) {
     if (window.Trustpilot) {
       flushLoaded();
     } else {
-      flushFailed("sdk-global-missing-from-existing-script");
+      flushFailed();
     }
   }
 }
@@ -124,7 +107,6 @@ export function injectTrustpilotScript(
 ): void {
   if (window.Trustpilot) {
     if (loadState !== "loaded") loadState = "loaded";
-    diagnostic("sdk-already-present", {});
     onLoad();
     return;
   }
@@ -156,20 +138,16 @@ export function pollAndLoadTrustpilotWidget(
 ): { onScriptLoad: () => void; cleanup: () => void } {
   let cancelled = false;
   let completed = false;
-  let iframeSeen = false;
-  let observer: MutationObserver | null = null;
 
-  const fail = (reason: string) => {
+  const fail = () => {
     if (cancelled || completed) return;
     completed = true;
-    diagnostic("widget-failed", { reason });
     onGiveUp?.();
   };
 
   const succeed = () => {
     if (cancelled || completed) return;
     completed = true;
-    diagnostic("loadFromElement-result", { success: true });
     onLoaded?.();
   };
 
@@ -177,52 +155,31 @@ export function pollAndLoadTrustpilotWidget(
     if (cancelled || completed || initializedElements.has(el)) return;
     const sdk = window.Trustpilot;
     if (!sdk) {
-      fail("sdk-global-missing");
+      fail();
       return;
     }
 
     initializedElements.add(el);
-    diagnostic("loadFromElement-called", { trustpilotPresent: true });
-
-    if (typeof MutationObserver !== "undefined") {
-      observer = new MutationObserver((records) => {
-        if (iframeSeen) return;
-        const created = records.some((record) =>
-          Array.from(record.addedNodes).some(
-            (node) =>
-              node instanceof HTMLIFrameElement ||
-              (node instanceof Element && Boolean(node.querySelector("iframe"))),
-          ),
-        );
-        if (created) {
-          iframeSeen = true;
-          diagnostic("iframe-created", {});
-        }
-      });
-      observer.observe(el, { childList: true, subtree: true });
-    }
 
     try {
       const result = sdk.loadFromElement(el, true);
       if (result && typeof (result as PromiseLike<unknown>).then === "function") {
         void Promise.resolve(result).then(
-          (value) => (value === false ? fail("loadFromElement-returned-false") : succeed()),
-          () => fail("loadFromElement-rejected"),
+          (value) => (value === false ? fail() : succeed()),
+          () => fail(),
         );
       } else if (result === false) {
-        fail("loadFromElement-returned-false");
+        fail();
       } else {
         succeed();
       }
     } catch {
-      fail("loadFromElement-threw");
+      fail();
     }
   };
 
   const cleanup = () => {
     cancelled = true;
-    observer?.disconnect();
-    observer = null;
   };
 
   return { onScriptLoad, cleanup };

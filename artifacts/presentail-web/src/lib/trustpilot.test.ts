@@ -186,7 +186,7 @@ describe("pollAndLoadTrustpilotWidget", () => {
     expect(loadFromElement).toHaveBeenNthCalledWith(2, secondElement, true);
   });
 
-  it("records iframe creation without using it as a success or failure signal", async () => {
+  it("treats iframe creation as a successful SDK initialization without lifecycle logging", async () => {
     const { pollAndLoadTrustpilotWidget } = await loadModule();
     const el = document.createElement("div");
     const loadFromElement = installSdk(vi.fn(() => {
@@ -201,9 +201,6 @@ describe("pollAndLoadTrustpilotWidget", () => {
 
     expect(loadFromElement).toHaveBeenCalledOnce();
     expect(onLoaded).toHaveBeenCalledOnce();
-    expect(debug).toHaveBeenCalledWith(
-      "[Trustpilot] iframe-created",
-      {},
-    );
+    expect(debug).not.toHaveBeenCalled();
   });
 });
