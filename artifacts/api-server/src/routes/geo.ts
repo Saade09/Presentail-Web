@@ -16,6 +16,13 @@ import {
 
 const router: IRouter = Router();
 
+// Every response in this router varies by visitor IP, coordinates, or a
+// development-only override. It must never be stored by a shared cache.
+router.use((_req, res, next) => {
+  res.setHeader("Cache-Control", "private, no-store");
+  next();
+});
+
 // Key the rate limiter on the same client IP we use for geolocation. With
 // `trust proxy: 1` and Replit's multi-hop proxy chain, `req.ip` (the
 // express-rate-limit default) is an internal proxy hop shared by every

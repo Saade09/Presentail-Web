@@ -64,6 +64,18 @@ export async function getRankingConfig(): Promise<CollectionRankingConfigRow[]> 
 }
 
 const router: IRouter = Router();
+const PUBLIC_HOMEPAGE_CACHE_CONTROL =
+  "public, max-age=120, s-maxage=600, stale-while-revalidate=1800";
+
+function setHomepageCacheHeaders(
+  res: import("express").Response,
+  debug = false,
+): void {
+  res.setHeader(
+    "Cache-Control",
+    debug ? "private, no-store" : PUBLIC_HOMEPAGE_CACHE_CONTROL,
+  );
+}
 
 // ── Homepage banner stale-on-error cache ──────────────────────────────────
 //
@@ -97,6 +109,7 @@ function makeBannerCacheKey(cc: string | undefined, dev: string): string {
 const BANNER_FANOUT_COUNTRIES = ["LB", "AE", "CY"] as const;
 
 router.get("/homepage/banners", async (req, res) => {
+  setHomepageCacheHeaders(res);
   const { countryCode, cityId, device, lang } = GetHomepageBannersQueryParams.parse(req.query);
   const resolvedLang = lang ?? "en";
   const osBase = process.env.PRESENTAIL_OS_API_URL ?? "https://os.presentail.com";
@@ -513,6 +526,7 @@ router.get("/homepage/categories", async (req, res) => {
   const cityId = typeof req.query.cityId === "string" ? req.query.cityId : null;
   const lang = typeof req.query.lang === "string" ? req.query.lang.toLowerCase() : "en";
   const debug = isDebugRequest(req);
+  setHomepageCacheHeaders(res, debug);
 
   const { items: scored, debugMap } = await buildOsCategories(countryCode, cityId);
   let items = scored ?? [];
@@ -541,6 +555,7 @@ router.get("/homepage/occasions", async (req, res) => {
   const cityId = typeof req.query.cityId === "string" ? req.query.cityId : null;
   const lang = typeof req.query.lang === "string" ? req.query.lang.toLowerCase() : "en";
   const debug = isDebugRequest(req);
+  setHomepageCacheHeaders(res, debug);
 
   const { items: scored, debugMap } = await buildOsOccasions(countryCode, cityId);
   let items = scored ?? [];
@@ -742,6 +757,7 @@ export function resolveProductPricing(
 // price data from the order line items and a null image.
 
 router.get("/homepage/best-sellers", async (req, res) => {
+  setHomepageCacheHeaders(res);
   const store = resolveStoreFromRequest(req);
 
   const countryCode =
@@ -997,6 +1013,7 @@ registerPricingEnrichmentListener(() => {
 // Structured identically to /homepage/best-sellers so the same client Product
 // type can be used.
 router.get("/homepage/collection-best-sellers", async (req, res) => {
+  setHomepageCacheHeaders(res);
   const store = resolveStoreFromRequest(req);
   const countryCode =
     typeof req.query.countryCode === "string" ? req.query.countryCode.toUpperCase() : null;

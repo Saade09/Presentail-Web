@@ -5,6 +5,7 @@ import { fetchOsProducts, fetchOsProductPricing, isValidOsNumericId } from "./os
 import { mapOsProduct, isVisibleOsProduct, isDeliverableOsProduct } from "./osProductMapper";
 import { readAttribution } from "./attribution";
 import { readOccasionRef, clearOccasionRef } from "./occasionAttribution";
+import { getStartupItem } from "./startupState";
 
 // Brand slugs allowed to appear on the storefront.
 // Fetched from /api/catalog/brand-allowlist on startup so it stays in sync
@@ -117,6 +118,21 @@ export type DeliveryLocationsResponse = {
   countries: DeliveryCountry[];
   dataStatus: "live" | "stale" | "fallback";
 };
+
+const DELIVERY_LOCATION_STORAGE_KEY = "presentail_delivery_location_v1";
+
+function readStoredDeliveryCityId(): string | null {
+  try {
+    const raw = getStartupItem(DELIVERY_LOCATION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { cityId?: unknown };
+    return typeof parsed.cityId === "string" && parsed.cityId
+      ? parsed.cityId
+      : null;
+  } catch {
+    return null;
+  }
+}
 
 type LocalizedParams = { countryCode?: string; cityId?: string; lang?: string };
 
@@ -503,10 +519,16 @@ export const useBrandProducts = (
 // itself only contains the supported destinations (LB / AE / CY).
 
 export const useDeliveryLocations = () => {
+  const selectedCityId = readStoredDeliveryCityId();
   return useQuery({
-    queryKey: ["delivery-locations"],
+    queryKey: ["delivery-locations", "summary", selectedCityId],
     queryFn: async () => {
-      const data = await apiFetch<DeliveryLocationsResponse>("/delivery-locations");
+      const selectedCityQuery = selectedCityId
+        ? `&cityId=${encodeURIComponent(selectedCityId)}`
+        : "";
+      const data = await apiFetch<DeliveryLocationsResponse>(
+        `/delivery-locations?profile=summary${selectedCityQuery}`,
+      );
       const countries = (data.countries ?? []).map((c) => ({
         ...c,
         code: c.code.toUpperCase(),

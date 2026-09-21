@@ -38,6 +38,7 @@
     "check-clarity-snippet": "node scripts/check-clarity-snippet.mjs dist/public",
     "check-web-vitals-budget": "node scripts/check-web-vitals-budget.mjs dist/public",
     "benchmark:storefront": "node scripts/benchmark-storefront-performance.mjs",
+    "check:public-cache-boundary": "node scripts/check-public-cache-boundary.mjs",
     "check-public-image-budget": "node scripts/check-public-image-budget.mjs public",
     "check-font-budget": "node scripts/check-public-font-budget.mjs src/fonts",
     "check-contact-title-length": "node scripts/check-contact-title-length.mjs",

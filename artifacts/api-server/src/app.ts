@@ -101,6 +101,15 @@ app.use(
   }),
 );
 
+// Default every API response to private/no-store. Public, URL-addressed routes
+// opt in explicitly in their handlers after all response-varying inputs have
+// been encoded in the URL. This fail-closed default protects auth, account,
+// cart, checkout, payment, and order responses from accidental shared caching.
+app.use("/api", (_req, res, next) => {
+  res.setHeader("Cache-Control", "private, no-store");
+  next();
+});
+
 // Public product images must bypass Clerk entirely. Authentication middleware
 // can attach session-dependent headers/cookies that make otherwise cacheable
 // responses private at the edge. The route performs its own strict OS-host/path

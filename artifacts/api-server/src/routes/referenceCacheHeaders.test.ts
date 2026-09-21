@@ -85,5 +85,53 @@ describe("public reference cache headers", () => {
     expect(res.headers["cache-control"]).toBe(
       "public, max-age=300, s-maxage=900, stale-while-revalidate=3600",
     );
+    expect(res.headers["x-delivery-locations-profile"]).toBe("full");
+  });
+
+  it("omits schedules for unselected cities in the summary profile", async () => {
+    getLocationsMock.mockReturnValue([
+      {
+        id: "lb",
+        name: "Lebanon",
+        code: "LB",
+        flag: "LB",
+        currency: "USD",
+        isActive: true,
+        cities: [
+          {
+            id: "lb-beirut",
+            name: "Beirut",
+            isActive: true,
+            expressAvailable: true,
+            expressDeliveryLabel: "",
+            sameDayCutoffHour: 22,
+            operationsConfigVerified: true,
+            timeSlots: [{ label: "Morning", cutoffHour: 10 }],
+            slotsByDay: { monday: [{ label: "Morning", cutoffHour: 10 }] },
+          },
+          {
+            id: "lb-metn",
+            name: "Metn",
+            isActive: true,
+            expressAvailable: true,
+            expressDeliveryLabel: "",
+            sameDayCutoffHour: 22,
+            operationsConfigVerified: true,
+            timeSlots: [{ label: "Evening", cutoffHour: 18 }],
+          },
+        ],
+      },
+    ]);
+    const app = await buildApp();
+    const res = await request(app).get(
+      "/api/delivery-locations?profile=summary&cityId=lb-beirut",
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.headers["x-delivery-locations-profile"]).toBe("summary");
+    expect(res.body.countries[0].cities[0].timeSlots).toHaveLength(1);
+    expect(res.body.countries[0].cities[0].slotsByDay.monday).toHaveLength(1);
+    expect(res.body.countries[0].cities[1].timeSlots).toBeUndefined();
+    expect(res.body.countries[0].cities[1].slotsByDay).toBeUndefined();
   });
 });

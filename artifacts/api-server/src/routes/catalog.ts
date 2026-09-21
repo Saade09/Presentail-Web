@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { Router, type IRouter } from "express";
 import type { OSProductOccasion } from "@workspace/presentail-os";
 import { getOsOccasionStatsMap } from "../lib/osOccasionStats";
@@ -86,7 +87,13 @@ function catalogResolveStoreKey(countryCode?: string | null): string {
 // Max 300 entries or ~75 MB total (catalog images can be larger than product
 // thumbnails so we allocate a slightly bigger pool than imgProxy.ts).
 
-type CacheEntry = { data: Buffer; contentType: string; size: number; cachedAt: number };
+type CacheEntry = {
+  data: Buffer;
+  contentType: string;
+  size: number;
+  etag: string;
+  cachedAt: number;
+};
 
 const CACHE_MAX_ENTRIES = 300;
 const CACHE_MAX_BYTES = 75 * 1024 * 1024;
@@ -109,7 +116,10 @@ function catalogCacheGet(key: string): CacheEntry | undefined {
   return entry;
 }
 
-function catalogCacheSet(key: string, entry: Omit<CacheEntry, "cachedAt">): void {
+function catalogCacheSet(
+  key: string,
+  entry: Omit<CacheEntry, "cachedAt" | "etag">,
+): CacheEntry {
   if (catalogImageCache.has(key)) {
     const old = catalogImageCache.get(key)!;
     catalogCacheBytes -= old.size;
@@ -125,8 +135,31 @@ function catalogCacheSet(key: string, entry: Omit<CacheEntry, "cachedAt">): void
     catalogCacheBytes -= evicted.size;
     catalogImageCache.delete(firstKey);
   }
-  catalogImageCache.set(key, { ...entry, cachedAt: Date.now() });
+  const cached = {
+    ...entry,
+    etag: `"${createHash("sha256").update(entry.data).digest("hex")}"`,
+    cachedAt: Date.now(),
+  };
+  catalogImageCache.set(key, cached);
   catalogCacheBytes += entry.size;
+  return cached;
+}
+
+function sendCatalogImage(
+  req: import("express").Request,
+  res: import("express").Response,
+  entry: CacheEntry,
+  cacheState: "HIT" | "MISS",
+): void {
+  res.setHeader("Content-Type", entry.contentType);
+  res.setHeader("Cache-Control", CATALOG_IMAGE_CACHE_CONTROL);
+  res.setHeader("ETag", entry.etag);
+  res.setHeader("X-Cache", cacheState); // i18n-ignore
+  if (req.headers["if-none-match"] === entry.etag) {
+    res.status(304).end();
+    return;
+  }
+  res.send(entry.data);
 }
 
 // ── Brand image proxy ─────────────────────────────────────────────────────────
@@ -164,21 +197,15 @@ router.get("/catalog/brand-image/:filename", async (req, res) => {
 
   const cached = catalogCacheGet(cacheKey);
   if (cached) {
-    res.setHeader("Content-Type", cached.contentType);
-    res.setHeader("Cache-Control", CATALOG_IMAGE_CACHE_CONTROL);
-    res.setHeader("X-Cache", "HIT"); // i18n-ignore
-    res.send(cached.data);
+    sendCatalogImage(req, res, cached, "HIT");
     return;
   }
 
   const upstream = `${OS_BRAND_IMAGE_PREFIX}${filename}`;
   try {
     const result = await fetchAndTransformCatalogImage(upstream, apiKey, { width, format, quality });
-    catalogCacheSet(cacheKey, { data: result.data, contentType: result.contentType, size: result.data.byteLength });
-    res.setHeader("Content-Type", result.contentType);
-    res.setHeader("Cache-Control", CATALOG_IMAGE_CACHE_CONTROL);
-    res.setHeader("X-Cache", "MISS"); // i18n-ignore
-    res.send(result.data);
+    const entry = catalogCacheSet(cacheKey, { data: result.data, contentType: result.contentType, size: result.data.byteLength });
+    sendCatalogImage(req, res, entry, "MISS");
   } catch (error) {
     req.log.warn({ err: error }, "catalog/brand-image: delivery failed");
     res.status(error instanceof ImageDeliveryError ? error.status : 502).end();
@@ -223,10 +250,7 @@ router.get("/catalog/occasion-image/:id", async (req, res) => {
 
   const cached = catalogCacheGet(cacheKey);
   if (cached) {
-    res.setHeader("Content-Type", cached.contentType);
-    res.setHeader("Cache-Control", CATALOG_IMAGE_CACHE_CONTROL);
-    res.setHeader("X-Cache", "HIT"); // i18n-ignore
-    res.send(cached.data);
+    sendCatalogImage(req, res, cached, "HIT");
     return;
   }
 
@@ -252,11 +276,8 @@ router.get("/catalog/occasion-image/:id", async (req, res) => {
   }
   try {
     const result = await fetchAndTransformCatalogImage(imageUrl, apiKey, { width, format, quality });
-    catalogCacheSet(cacheKey, { data: result.data, contentType: result.contentType, size: result.data.byteLength });
-    res.setHeader("Content-Type", result.contentType);
-    res.setHeader("Cache-Control", CATALOG_IMAGE_CACHE_CONTROL);
-    res.setHeader("X-Cache", "MISS"); // i18n-ignore
-    res.send(result.data);
+    const entry = catalogCacheSet(cacheKey, { data: result.data, contentType: result.contentType, size: result.data.byteLength });
+    sendCatalogImage(req, res, entry, "MISS");
   } catch (error) {
     req.log.warn({ err: error }, "catalog/occasion-image: delivery failed");
     // When OS provides a URL that isn't a real image asset (e.g. an SPA route
@@ -301,10 +322,7 @@ router.get("/catalog/category-image/:id", async (req, res) => {
 
   const cached = catalogCacheGet(cacheKey);
   if (cached) {
-    res.setHeader("Content-Type", cached.contentType);
-    res.setHeader("Cache-Control", CATALOG_IMAGE_CACHE_CONTROL);
-    res.setHeader("X-Cache", "HIT"); // i18n-ignore
-    res.send(cached.data);
+    sendCatalogImage(req, res, cached, "HIT");
     return;
   }
 
@@ -318,15 +336,12 @@ router.get("/catalog/category-image/:id", async (req, res) => {
   try {
     const result = await fetchAndTransformCatalogImage(imageUrl, apiKey, { width, format, quality });
 
-    catalogCacheSet(cacheKey, {
+    const entry = catalogCacheSet(cacheKey, {
       data: result.data,
       contentType: result.contentType,
       size: result.data.byteLength,
     });
-    res.setHeader("Content-Type", result.contentType);
-    res.setHeader("Cache-Control", CATALOG_IMAGE_CACHE_CONTROL);
-    res.setHeader("X-Cache", "MISS"); // i18n-ignore
-    res.send(result.data);
+    sendCatalogImage(req, res, entry, "MISS");
   } catch (error) {
     req.log.warn({ err: error }, "catalog/category-image: delivery failed");
     res.status(error instanceof ImageDeliveryError ? error.status : 502).end();
@@ -416,10 +431,7 @@ async function handleProductImageRequest(
 
   const cached = catalogCacheGet(cacheKey);
   if (cached) {
-    res.setHeader("Content-Type", cached.contentType);
-    res.setHeader("Cache-Control", CATALOG_IMAGE_CACHE_CONTROL);
-    res.setHeader("X-Cache", "HIT"); // i18n-ignore
-    res.send(cached.data);
+    sendCatalogImage(req, res, cached, "HIT");
     return;
   }
 
@@ -448,20 +460,14 @@ async function handleProductImageRequest(
     // the standard parseOsImageUrl → no-auth fetch path.
     if (imagePublicUrl) {
       const result = await fetchAndTransformCatalogImage(imagePublicUrl, apiKey, { width, format, quality });
-      catalogCacheSet(cacheKey, { data: result.data, contentType: result.contentType, size: result.data.byteLength });
-      res.setHeader("Content-Type", result.contentType);
-      res.setHeader("Cache-Control", CATALOG_IMAGE_CACHE_CONTROL);
-      res.setHeader("X-Cache", "MISS"); // i18n-ignore
-      res.send(result.data);
+      const entry = catalogCacheSet(cacheKey, { data: result.data, contentType: result.contentType, size: result.data.byteLength });
+      sendCatalogImage(req, res, entry, "MISS");
       return;
     }
     // Fall back to the private URL with server-side API-key authentication.
     const result = await fetchAndTransformPrivateCatalogImage(imagePrivateUrl!, apiKey, { width, format, quality });
-    catalogCacheSet(cacheKey, { data: result.data, contentType: result.contentType, size: result.data.byteLength });
-    res.setHeader("Content-Type", result.contentType);
-    res.setHeader("Cache-Control", CATALOG_IMAGE_CACHE_CONTROL);
-    res.setHeader("X-Cache", "MISS"); // i18n-ignore
-    res.send(result.data);
+    const entry = catalogCacheSet(cacheKey, { data: result.data, contentType: result.contentType, size: result.data.byteLength });
+    sendCatalogImage(req, res, entry, "MISS");
   } catch (error) {
     req.log.warn({ err: error }, "catalog/product-image: delivery failed");
     res.status(error instanceof ImageDeliveryError ? error.status : 502).end();

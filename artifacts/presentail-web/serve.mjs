@@ -782,31 +782,17 @@ async function compressBuffer(data, encoding) {
   return Buffer.isBuffer(data) ? data : Buffer.from(data);
 }
 
-const PUBLIC_HTML_CACHE_CONTROL =
-  "public, max-age=0, s-maxage=300, stale-while-revalidate=60";
-const PUBLIC_EDGE_CACHE_CONTROL =
-  "public, s-maxage=300, stale-while-revalidate=60";
 const PRIVATE_HTML_CACHE_CONTROL = "private, no-store, no-cache, must-revalidate";
 
 /**
- * Build cache headers that remain unambiguous to browsers and shared proxies.
- * `no-cache` and `Expires: 0` caused the deployment edge to rewrite otherwise
- * public responses to `private`. max-age=0 keeps browser revalidation while
- * explicit CDN/Surrogate directives retain safe shared caching.
+ * HTML remains private until it can be delivered by a cookie-free origin.
+ * Replit's autoscale router establishes GAESA affinity on a first anonymous
+ * request, so public origin directives are rewritten and cannot provide safe,
+ * predictable shared HTML caching. URL-addressed assets and APIs are evaluated
+ * separately; transactional and anonymous HTML intentionally share this policy.
  */
-function buildHtmlCacheHeaders(pathname, xRobotsTag, html = "", crawlerProductCurrencyOverride) {
-  const noindex =
-    typeof xRobotsTag === "string" && xRobotsTag.toLowerCase().includes("noindex");
-  const metaNoindex =
-    /<meta\s+name=["']robots["'][^>]*content=["'][^"']*noindex/i.test(html);
-  if (isTransactionalPage(pathname) || noindex || metaNoindex || crawlerProductCurrencyOverride) {
-    return { "cache-control": PRIVATE_HTML_CACHE_CONTROL };
-  }
-  return {
-    "cache-control": PUBLIC_HTML_CACHE_CONTROL,
-    "cdn-cache-control": PUBLIC_EDGE_CACHE_CONTROL,
-    "surrogate-control": "max-age=300, stale-while-revalidate=60",
-  };
+function buildHtmlCacheHeaders(_pathname, _xRobotsTag, _html = "", _crawlerProductCurrencyOverride) {
+  return { "cache-control": PRIVATE_HTML_CACHE_CONTROL };
 }
 
 function formatServerTiming(timings) {
@@ -2811,12 +2797,10 @@ const server = http.createServer(async (req, res) => {
           // On the canonical production host: "index, follow" for public pages,
           // "noindex" for private/transactional paths and UTM-parameterised URLs.
           ...(xRobotsTag !== null ? { "x-robots-tag": xRobotsTag } : {}),
-          // Transactional pages (cart, checkout, order-confirmed) use no-store to
-          // prevent any cache layer from serving stale payment/order state and to
-          // opt Safari out of BFCache for those critical flows.
-          // All other HTML pages use max-age=0 so browsers revalidate the shell,
-          // while explicit s-maxage/CDN directives allow the deployed edge to
-          // retain the SEO-injected response for five minutes.
+          // All HTML remains private/no-store until a cookie-free origin is
+          // available. Transactional pages require this for privacy; anonymous
+          // pages use the same policy because autoscale affinity prevents
+          // reliable shared HTML caching on the current deployment.
           ...buildHtmlCacheHeaders(pathname, xRobotsTag, out, getCrawlerProductCurrencyOverride(req.headers["user-agent"], pathname)),
           "vary": "Accept-Encoding",
           // HTTP Link header mirrors the <link rel="canonical"> injected into
@@ -2856,12 +2840,21 @@ const server = http.createServer(async (req, res) => {
       // pick up updates promptly while still reducing origin load.
       // perf: short-lived cache for unhashed SEO config files
       const isSeoConfigFile = baseName === "robots.txt" || baseName === "llms.txt";
-      const maxAgeSeconds = isWellKnown || isSeoConfigFile ? 3600 : isIconAsset ? 604800 : 31536000;
-      const cacheControl = isWellKnown || isSeoConfigFile
-        ? "public, max-age=3600, must-revalidate"
-        : isIconAsset
-          ? "public, max-age=604800, must-revalidate" // 7 days; ?v= query string is the escape hatch on icon changes
-          : "public, max-age=31536000, immutable";
+      const isHtmlFile = ext === ".html";
+      const maxAgeSeconds = isHtmlFile
+        ? 0
+        : isWellKnown || isSeoConfigFile
+          ? 3600
+          : isIconAsset
+            ? 604800
+            : 31536000;
+      const cacheControl = isHtmlFile
+        ? PRIVATE_HTML_CACHE_CONTROL
+        : isWellKnown || isSeoConfigFile
+          ? "public, max-age=3600, must-revalidate"
+          : isIconAsset
+            ? "public, max-age=604800, must-revalidate" // 7 days; ?v= query string is the escape hatch on icon changes
+            : "public, max-age=31536000, immutable";
       // apple-app-site-association has no extension — serve it as JSON so
       // Apple's CDN crawler accepts it. assetlinks.json already has .json.
       const contentType =
@@ -2872,7 +2865,7 @@ const server = http.createServer(async (req, res) => {
       const headers = {
         "content-type": contentType,
         "cache-control": cacheControl,
-        "expires": makeExpires(maxAgeSeconds),
+        ...(isHtmlFile ? {} : { "expires": makeExpires(maxAgeSeconds) }),
         "vary": "Accept-Encoding",
       };
 

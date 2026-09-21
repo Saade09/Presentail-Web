@@ -7,8 +7,8 @@
  *   1. Hashed JS assets (/assets/*.js) → public, max-age=31536000, immutable
  *      (browser and CDN can cache forever; content hash guarantees freshness)
  *
- *   2. Public HTML pages (/en-lb/beirut/) → public, s-maxage=300, ...
- *      (CDN caches for 5 minutes; browsers validate on every request)
+ *   2. Anonymous HTML pages (/en-lb/beirut/) → private, no-store
+ *      (the autoscale origin establishes affinity, so HTML is not shared)
  *
  *   3. Transactional HTML pages (/en-lb/beirut/checkout) → no-store
  *      (never cache payment/order state in any layer)
@@ -70,11 +70,11 @@ test.describe("Cache-Control — hashed JS assets (/assets/*.js)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2. Public HTML pages: s-maxage ≥ 60 (CDN cache)
+// 2. Anonymous HTML pages remain private until a cookie-free origin exists
 // ---------------------------------------------------------------------------
 
-test.describe("Cache-Control — public HTML pages (/en-lb/beirut/)", () => {
-  test("city homepage has s-maxage ≥ 60 in Cache-Control", async ({
+test.describe("Cache-Control — anonymous HTML pages (/en-lb/beirut/)", () => {
+  test("city homepage is private and not shared", async ({
     request,
   }) => {
     const response = await request.get("/en-lb/beirut/");
@@ -83,26 +83,14 @@ test.describe("Cache-Control — public HTML pages (/en-lb/beirut/)", () => {
     const cc = response.headers()["cache-control"];
     expect(cc, "Cache-Control header must be present on public HTML pages").toBeDefined();
 
-    // Extract s-maxage value
-    const sMaxAgeMatch = cc.match(/s-maxage\s*=\s*(\d+)/i);
-    expect(
-      sMaxAgeMatch,
-      `Cache-Control '${cc}' must contain s-maxage for CDN caching`,
-    ).not.toBeNull();
-    const sMaxAge = parseInt(sMaxAgeMatch![1], 10);
-    expect(
-      sMaxAge,
-      `s-maxage=${sMaxAge} must be ≥ 60 (at least 1 minute CDN cache)`,
-    ).toBeGreaterThanOrEqual(60);
-    expect(cc).toContain("public");
-    expect(cc).not.toContain("private");
-    expect(cc).not.toContain("no-cache");
-    expect(response.headers()["cdn-cache-control"]).toContain("s-maxage=300");
-    expect(response.headers()["surrogate-control"]).toContain("max-age=300");
+    expect(cc).toContain("private");
+    expect(cc).toContain("no-store");
+    expect(response.headers()["cdn-cache-control"]).toBeUndefined();
+    expect(response.headers()["surrogate-control"]).toBeUndefined();
     expect(response.headers()["server-timing"]).toMatch(/route;dur=.*seo;dur=.*total;dur=/);
   });
 
-  test("root homepage (/) also has s-maxage in Cache-Control", async ({
+  test("root homepage (/) is also private", async ({
     request,
   }) => {
     const response = await request.get("/");
@@ -110,12 +98,8 @@ test.describe("Cache-Control — public HTML pages (/en-lb/beirut/)", () => {
 
     const cc = response.headers()["cache-control"];
     expect(cc).toBeDefined();
-    const sMaxAgeMatch = cc.match(/s-maxage\s*=\s*(\d+)/i);
-    expect(sMaxAgeMatch, `Cache-Control '${cc}' must contain s-maxage`).not.toBeNull();
-    const sMaxAge = parseInt(sMaxAgeMatch![1], 10);
-    expect(sMaxAge).toBeGreaterThanOrEqual(60);
-    expect(cc).not.toContain("private");
-    expect(cc).not.toContain("no-cache");
+    expect(cc).toContain("private");
+    expect(cc).toContain("no-store");
   });
 });
 
