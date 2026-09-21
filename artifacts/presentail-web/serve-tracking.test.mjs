@@ -65,7 +65,7 @@ function waitForReady(port, maxMs = 12_000) {
 
 /**
  * Make a single HTTP GET without following redirects.
- * Returns { status, location, body }.
+ * Returns { status, location, xRobotsTag, body }.
  */
 function get(port, urlPath) {
   return new Promise((resolve, reject) => {
@@ -76,7 +76,12 @@ function get(port, urlPath) {
         res.setEncoding("utf8");
         res.on("data", (chunk) => (body += chunk));
         res.on("end", () =>
-          resolve({ status: res.statusCode ?? 0, location: res.headers["location"], body }),
+          resolve({
+            status: res.statusCode ?? 0,
+            location: res.headers["location"],
+            xRobotsTag: res.headers["x-robots-tag"],
+            body,
+          }),
         );
       },
     );
@@ -442,6 +447,25 @@ describe("serve.mjs Section 8 — /country/product/:slug redirects", () => {
     expect(status).toBe(301);
     expect(location).toBe("/en-lb/beirut/product/luxury-bouquet-75");
   });
+});
+
+describe("serve.mjs locale entity route crawlability", () => {
+  const entityRoutes = ["product", "brand", "category", "occasion", "blog"];
+
+  it.each(entityRoutes)(
+    "returns a noindex HTTP 404 for extra segments after a %s slug",
+    async (entityType) => {
+      const { status, xRobotsTag, body } = await get(
+        serverPort,
+        `/en-lb/beirut/${entityType}/rose/anything`,
+      );
+
+      expect(status).toBe(404);
+      expect(xRobotsTag).toBe("noindex");
+      expect(body).toContain("<title>404 Not Found – Presentail</title>"); // i18n-ignore — server response assertion
+      expect(body).not.toContain('rel="canonical"');
+    },
+  );
 });
 
 // ---------------------------------------------------------------------------
