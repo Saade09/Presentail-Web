@@ -498,6 +498,20 @@ export function Footer() {
             <InLink href={toCityHref("/privacy")} testId="footer-link-privacy">
               {t("footer.privacy")}
             </InLink>
+            <span className="text-white/30" aria-hidden>|</span>
+            <InLink
+              href={toCityHref("/shipping-policy")}
+              testId="footer-link-shipping-policy-global"
+            >
+              {t("footer.shippingPolicy")}
+            </InLink>
+            <span className="text-white/30" aria-hidden>|</span>
+            <InLink
+              href={toCityHref("/return-policy")}
+              testId="footer-link-return-policy-global"
+            >
+              {t("footer.refundPolicy")}
+            </InLink>
           </div>
 
           {/* Payment logos — flat logos on a single white rounded card */}
