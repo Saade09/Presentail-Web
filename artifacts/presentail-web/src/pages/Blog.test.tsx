@@ -3,7 +3,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import { renderWithProviders } from "@/test-utils";
-import { BLOG_POSTS } from "@workspace/blog-content";
+import { BLOG_POSTS, getBlogPostLanguages } from "@workspace/blog-content";
 
 // ---------------------------------------------------------------------------
 // Module mocks — must be declared before the component is imported.
@@ -39,4 +39,24 @@ describe("Blog index — story card thumbnail", () => {
     expect(match!.getAttribute("width")).toBe(String(ARTICLE.ogImage!.width));
     expect(match!.getAttribute("height")).toBe(String(ARTICLE.ogImage!.height));
   });
+});
+
+describe("Blog index — translated listings", () => {
+  it.each(["ar", "fr"] as const)(
+    "lists only articles with a dedicated %s translation",
+    (language) => {
+      renderWithProviders(<Blog />, { locale: { language } });
+
+      const linkedSlugs = [...document.querySelectorAll<HTMLAnchorElement>('a[href*="/blog/"]')]
+        .map((link) => link.getAttribute("href"))
+        .filter((href): href is string => Boolean(href))
+        .map((href) => decodeURIComponent(href.split("/blog/")[1] ?? ""))
+        .filter(Boolean);
+
+      expect(linkedSlugs.length).toBeGreaterThan(0);
+      expect(
+        linkedSlugs.every((slug) => getBlogPostLanguages(BLOG_POSTS[slug]).includes(language)),
+      ).toBe(true);
+    },
+  );
 });

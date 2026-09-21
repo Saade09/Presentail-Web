@@ -3,7 +3,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen } from "@testing-library/react";
 import { renderWithProviders } from "@/test-utils";
-import { BLOG_POSTS } from "@workspace/blog-content";
+import { BLOG_POSTS, getBlogPostLanguages } from "@workspace/blog-content";
 
 // ---------------------------------------------------------------------------
 // Module mocks — must be declared before the component is imported so Vitest
@@ -165,6 +165,32 @@ describe("BlogPost — legacy article fallbacks (no new fields)", () => {
     // Legacy fallback still shows a working intro CTA.
     expect(screen.getByTestId("blog-post-cta-intro")).toBeTruthy();
   });
+});
+
+describe("BlogPost — translated related articles", () => {
+  it.each(["ar", "fr"] as const)(
+    "links only to articles with a dedicated %s translation",
+    (language) => {
+      mockSlug = Object.keys(BLOG_POSTS).find((slug) =>
+        getBlogPostLanguages(BLOG_POSTS[slug]).includes(language),
+      )!;
+
+      renderWithProviders(<BlogPost />, { locale: { language } });
+
+      const related = screen.queryByTestId("blog-post-related-articles");
+      expect(related).toBeTruthy();
+      const linkedSlugs = [...related!.querySelectorAll<HTMLAnchorElement>('a[href*="/blog/"]')]
+        .map((link) => link.getAttribute("href"))
+        .filter((href): href is string => Boolean(href))
+        .map((href) => decodeURIComponent(href.split("/blog/")[1] ?? ""))
+        .filter(Boolean);
+
+      expect(linkedSlugs.length).toBeGreaterThan(0);
+      expect(
+        linkedSlugs.every((slug) => getBlogPostLanguages(BLOG_POSTS[slug]).includes(language)),
+      ).toBe(true);
+    },
+  );
 });
 
 describe("BlogPost — corporate gifting in Lebanon", () => {

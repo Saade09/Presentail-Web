@@ -6994,6 +6994,33 @@ describe("JSON-LD — required-field guardrail over representative routes", () =
     );
   });
 
+  it.each(["ar", "fr"] as const)(
+    "%s blog post crawler links include only dedicated translations",
+    async (language) => {
+      const sourceSlug = Object.keys(BLOG_POSTS).find((slug) =>
+        getBlogPostLanguages(BLOG_POSTS[slug]).includes(language),
+      )!;
+      const fallbackOnlySlugs = Object.keys(BLOG_POSTS).filter(
+        (slug) =>
+          getBlogPostLanguages(BLOG_POSTS[slug]).includes("en") &&
+          !getBlogPostLanguages(BLOG_POSTS[slug]).includes(language),
+      );
+
+      expect(fallbackOnlySlugs.length).toBeGreaterThan(0);
+      const out = await injectSeoTagsAsync(
+        HTML,
+        `/${language}/blog/${encodeURIComponent(sourceSlug)}`,
+        OPTS,
+      );
+
+      for (const slug of fallbackOnlySlugs) {
+        expect(out).not.toContain(
+          `https://presentail.test/${language}/blog/${encodeURIComponent(slug)}`,
+        );
+      }
+    },
+  );
+
   it("serves the optimized French corporate article as visible semantic fallback HTML", async () => {
     const articleSource = BLOG_POSTS["corporate-gifting-lebanon"].fr!;
     const rootHtml =
