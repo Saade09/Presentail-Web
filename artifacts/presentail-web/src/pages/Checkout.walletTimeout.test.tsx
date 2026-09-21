@@ -98,7 +98,7 @@ vi.mock("./checkoutPayMethods", async (importOriginal) => {
 const mockCardElement = {};
 
 vi.mock("@stripe/stripe-js", () => ({
-  loadStripe: vi.fn().mockResolvedValue(null),
+  loadStripe: vi.fn().mockResolvedValue(mockStripe),
 }));
 
 vi.mock("@stripe/react-stripe-js", () => ({
@@ -143,7 +143,19 @@ vi.mock("@/lib/queries", () => ({
   // available: undefined would be interpreted as "optimistically true" and hide the
   // card tile for LB+USD, preventing StripeCheckoutSection from ever mounting.
   useDeliveryLocations: () => ({
-    data: { countries: [], cities: [] },
+    data: {
+      countries: [{
+        code: "LB",
+        cities: [{
+          name: "Beirut",
+          id: "beirut",
+          fee: 8,
+          expressAvailable: true,
+          timeSlots: [{ label: "10:00 AM – 1:00 PM", cutoffHour: 23 }],
+        }],
+      }],
+      cities: [],
+    },
     isLoading: false,
   }),
   useCurrenciesData: () => ({ data: undefined, isLoading: false }),
@@ -161,9 +173,16 @@ vi.mock("@/contexts/LocationContext", async (importOriginal) => {
     useLocationSelection: () => ({
       countryCode: "LB",
       country: { name: "Lebanon", code: "LB", flag: "🇱🇧" },
-      city: { name: "Beirut", id: "beirut", fee: 8 },
-      activeCities: [{ name: "Beirut", id: "beirut", fee: 8 }],
-      selectedCityData: { name: "Beirut", id: "beirut", fee: 8, freeDeliveryEnabled: false },
+      city: { name: "Beirut", id: "beirut", fee: 8, expressAvailable: true },
+      activeCities: [{ name: "Beirut", id: "beirut", fee: 8, expressAvailable: true }],
+      selectedCityData: {
+        name: "Beirut",
+        id: "beirut",
+        fee: 8,
+        expressAvailable: true,
+        freeDeliveryEnabled: false,
+        timeSlots: [{ label: "10:00 AM – 1:00 PM", cutoffHour: 23 }],
+      },
     }),
     LocationProvider: ({ children }: React.PropsWithChildren) => <>{children}</>,
   };
@@ -172,7 +191,7 @@ vi.mock("@/contexts/LocationContext", async (importOriginal) => {
 vi.mock("@/contexts/DeliverySelectionContext", () => ({
   useDeliverySelection: () => ({
     date: "2025-06-06",
-    mode: "schedule",
+    mode: "express",
     slotLabel: null,
     hasSelection: true,
     setSelection: vi.fn(),
@@ -208,6 +227,9 @@ const mockTrackEvent = vi.fn();
 vi.mock("@/lib/analytics", () => ({
   trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
   trackWebEvent: (...args: unknown[]) => mockTrackEvent(...args),
+  trackFunnelEvent: vi.fn(),
+  trackFunnelEventOnce: vi.fn(),
+  funnelValueBucket: () => "under_50",
 }));
 
 vi.mock("@/lib/fbPixel", () => ({

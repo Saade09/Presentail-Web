@@ -76,7 +76,7 @@ vi.mock("@/hooks/use-mobile", () => ({
 const mockCardElement = {}; // opaque card element reference
 
 vi.mock("@stripe/stripe-js", () => ({
-  loadStripe: vi.fn().mockResolvedValue(null),
+  loadStripe: vi.fn().mockResolvedValue(mockStripe),
 }));
 
 vi.mock("@stripe/react-stripe-js", () => ({
@@ -105,7 +105,19 @@ vi.mock("@workspace/api-client-react", () => ({
 }));
 
 vi.mock("@/lib/queries", () => {
-  const deliveryLocations = { countries: [], cities: [] };
+  const deliveryLocations = {
+    countries: [{
+      code: "LB",
+      cities: [{
+        name: "Beirut",
+        id: "beirut",
+        fee: 8,
+        expressAvailable: true,
+        timeSlots: [{ label: "10:00 AM – 1:00 PM", cutoffHour: 23 }],
+      }],
+    }],
+    cities: [],
+  };
   return {
     useCreateOrder: () => ({
       mutateAsync: mockCreateOrderMutate,
@@ -134,7 +146,7 @@ vi.mock("@/lib/queries", () => {
 vi.mock("@/contexts/LocationContext", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/contexts/LocationContext")>();
   const country = { name: "Lebanon", code: "LB", flag: "🇱🇧" };
-  const city = { name: "Beirut", id: "beirut", fee: 8 };
+  const city = { name: "Beirut", id: "beirut", fee: 8, expressAvailable: true };
   const activeCities = [city];
   const selectedCityData = {
     ...city,
@@ -157,7 +169,7 @@ vi.mock("@/contexts/LocationContext", async (importOriginal) => {
 vi.mock("@/contexts/DeliverySelectionContext", () => ({
   useDeliverySelection: () => ({
     date: "2025-06-06",
-    mode: "schedule",
+    mode: "express",
     slotLabel: null,
     hasSelection: true,
     setSelection: vi.fn(),

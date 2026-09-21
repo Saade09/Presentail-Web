@@ -449,6 +449,8 @@ export type AnalyticsEvent = {
   carouselPosition?: number;
   selectedCity?: string;
   landingPath?: string;
+  /** Coarse checkout phase for provider initialization diagnostics. */
+  state?: string;
 };
 
 function generateSessionId(): string {

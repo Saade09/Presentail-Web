@@ -132,6 +132,10 @@ import {
 // never bundled into the instant checkout chunk and are only fetched when the
 // user picks a Stripe-backed payment method (card / Apple Pay / Google Pay).
 import { LocationCombobox } from "@/components/checkout/LocationCombobox";
+import type {
+  StripeInitializationFailureReason,
+  StripeInitializationStatus,
+} from "@/components/StripeCheckoutSection";
 const LazyStripeSection = lazy(() =>
   import("@/components/StripeCheckoutSection").then((m) => ({ default: m.StripeCheckoutSection })),
 );
@@ -229,6 +233,46 @@ let _stripePromiseGulf: Promise<import("@stripe/stripe-js").Stripe | null> | nul
 const STRIPE_MERCHANT_COUNTRY_GULF: string =
   (import.meta.env.VITE_STRIPE_MERCHANT_COUNTRY_GULF as string | undefined) || "AE";
 
+type StripeAccount = "main" | "gulf";
+const STRIPE_INITIALIZATION_TIMEOUT_MS = 10_000;
+const STRIPE_LOAD_TIMEOUT = Symbol("stripe-load-timeout");
+
+function stripeAccountForCountry(deliveryCountryCode?: string): StripeAccount {
+  return deliveryCountryCode === "AE" ? "gulf" : "main";
+}
+
+function stripeFailureReasonForError(error: unknown): StripeInitializationFailureReason {
+  return error === STRIPE_LOAD_TIMEOUT ? "pending_timeout" : "rejected_load";
+}
+
+function loadStripeWithTimeout(
+  promise: Promise<import("@stripe/stripe-js").Stripe | null>,
+): Promise<import("@stripe/stripe-js").Stripe | null> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const timeoutId = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(STRIPE_LOAD_TIMEOUT);
+    }, STRIPE_INITIALIZATION_TIMEOUT_MS);
+
+    promise.then(
+      (value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        resolve(value);
+      },
+      (error: unknown) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        reject(error);
+      },
+    );
+  });
+}
+
 /**
  * Returns the Stripe.js promise for the correct account based on the shopper's
  * DELIVERY country code, not their display currency.
@@ -241,8 +285,8 @@ const STRIPE_MERCHANT_COUNTRY_GULF: string =
  * Lebanon ("LB") and must use the main account — the Lebanon main Stripe account
  * handles all non-UAE deliveries regardless of display currency.
  */
-function getStripePromise(deliveryCountryCode?: string) {
-  if (deliveryCountryCode === "AE") {
+function getStripePromise(account: StripeAccount) {
+  if (account === "gulf") {
     return (_stripePromiseGulf ??= import("@stripe/stripe-js").then(({ loadStripe }) =>
       loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY_GULF || null),
     ));
@@ -252,11 +296,23 @@ function getStripePromise(deliveryCountryCode?: string) {
   ));
 }
 
+function resetStripePromise(account: StripeAccount): void {
+  if (account === "gulf") {
+    _stripePromiseGulf = null;
+  } else {
+    _stripePromise = null;
+  }
+}
+
 // The web checkout supports a subset of the shared payment-method catalog
 // (no Western Union). All availability / label / fallback decisions go
 // through the pure helpers in `./checkoutPayMethods`, which wrap the shared
 // `@workspace/pay-methods` table and mirror the mobile checkout.
 type PaymentMethodId = WebPaymentMethodId | "klarna";
+
+function isStripeBackedPaymentMethod(method: PaymentMethodId): boolean {
+  return method === "card" || method === "apple_pay" || method === "google_pay" || method === "klarna";
+}
 
 // Branded submit button — swaps the generic teal button for a method-specific
 // branded button when the shopper has selected Apple Pay, Google Pay, PayPal,
@@ -628,18 +684,125 @@ function CheckoutForm() {
   >(null);
   const [stripe, setStripe] = useState<import("@stripe/stripe-js").Stripe | null>(null);
   const [elements, setElements] = useState<import("@stripe/stripe-js").StripeElements | null>(null);
+  const [stripeInitializationStatus, setStripeInitializationStatus] =
+    useState<StripeInitializationStatus>("idle");
+  const [stripeInitializationFailure, setStripeInitializationFailure] =
+    useState<StripeInitializationFailureReason | null>(null);
+  const stripeLoadAttemptRef = useRef(0);
+  const stripeInstanceRef = useRef<import("@stripe/stripe-js").Stripe | null>(null);
+  const stripeLoadAccountRef = useRef<StripeAccount | null>(null);
+  const stripeInitializationStatusRef = useRef<StripeInitializationStatus>("idle");
+  stripeInitializationStatusRef.current = stripeInitializationStatus;
+  const stripeAccount = stripeAccountForCountry(countryCode ?? undefined);
   // Stays true once set so LazyStripeSection is never unmounted after first load.
   const [stripeNeeded, setStripeNeeded] = useState(false);
   // Tracks whether the Stripe <PaymentElement> has fired its onReady callback.
   const triggerStripeLoad = useCallback(() => {
-    setStripePromise(getStripePromise(countryCode ?? undefined));
+    const account = stripeAccountForCountry(countryCode ?? undefined);
+    if (
+      stripeLoadAccountRef.current === account &&
+      (stripeInstanceRef.current || stripeInitializationStatusRef.current === "loading")
+    ) {
+      return;
+    }
+    const attempt = ++stripeLoadAttemptRef.current;
+    const promise = getStripePromise(account);
+    stripeLoadAccountRef.current = account;
+    setStripePromise(promise);
     setStripeNeeded(true);
+    setStripe(null);
+    stripeInstanceRef.current = null;
+    setElements(null);
+    setStripeInitializationFailure(null);
+    setStripeInitializationStatus("loading");
+
+    trackEvent({
+      name: "payment_error",
+      surface: "checkout",
+      action: "provider",
+      state: `stripe_init_loading_${account}`,
+      errorCode: "stripe_initialization_pending",
+    });
+
+    void loadStripeWithTimeout(promise).then(
+      (resolvedStripe) => {
+        if (stripeLoadAttemptRef.current !== attempt) return;
+        if (!resolvedStripe) {
+          // Elements can expose a usable instance just before the underlying
+          // load promise settles (notably with test doubles and some cached
+          // browser sessions). Never downgrade that usable instance to a
+          // null-result failure.
+          if (stripeInstanceRef.current) return;
+          resetStripePromise(account);
+          setStripe(null);
+          setElements(null);
+          setStripeInitializationFailure("null_result");
+          setStripeInitializationStatus("failed");
+          trackEvent({
+            name: "payment_error",
+            surface: "checkout",
+            action: "provider",
+            state: `stripe_init_failed_${account}`,
+            errorCode: "stripe_initialization_null_result",
+          });
+          return;
+        }
+        stripeInstanceRef.current = resolvedStripe;
+        setStripe(resolvedStripe);
+        setStripeInitializationFailure(null);
+        setStripeInitializationStatus("ready");
+        trackEvent({
+          name: "payment_error",
+          surface: "checkout",
+          action: "provider",
+          state: `stripe_init_ready_${account}`,
+          errorCode: "stripe_initialization_ready",
+        });
+      },
+      (error: unknown) => {
+        if (stripeLoadAttemptRef.current !== attempt) return;
+        if (stripeInstanceRef.current) return;
+        const reason = stripeFailureReasonForError(error);
+        resetStripePromise(account);
+        setStripe(null);
+        setElements(null);
+        setStripeInitializationFailure(reason);
+        setStripeInitializationStatus("failed");
+        trackEvent({
+          name: "payment_error",
+          surface: "checkout",
+          action: "provider",
+          state: `stripe_init_failed_${account}`,
+          errorCode: `stripe_initialization_${reason}`,
+        });
+      },
+    );
   }, [countryCode]);
+
+  const retryStripeLoad = useCallback(() => {
+    resetStripePromise(stripeAccount);
+    triggerStripeLoad();
+  }, [stripeAccount, triggerStripeLoad]);
+
+  // A delivery-country change can move the checkout between Stripe accounts.
+  // Reinitialize the active Stripe-backed method instead of reusing the other
+  // account's instance or promise.
+  useEffect(() => {
+    if (stripeNeeded) triggerStripeLoad();
+  }, [countryCode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleStripeReady = useCallback(
     (s: import("@stripe/stripe-js").Stripe | null, e: import("@stripe/stripe-js").StripeElements | null) => {
-      setStripe(s);
-      setElements(e);
+      // Elements reports null briefly while its provider is hydrating. The
+      // bounded load state owns failure detection; do not turn that temporary
+      // value into a misleading "not configured" state.
+      if (s) {
+        stripeInstanceRef.current = s;
+        setStripe(s);
+        setStripeInitializationFailure(null);
+        setStripeInitializationStatus("ready");
+      }
+      if (e) setElements(e);
     },
     [],
   );
@@ -1041,6 +1204,15 @@ function CheckoutForm() {
       triggerStripeLoad();
     }
   };
+
+  // The default wallet is selected before the payment step is shown. Start
+  // Stripe only when that step becomes visible, preserving the lazy-load
+  // behavior for shoppers who never reach payment.
+  useEffect(() => {
+    if (step === 2 && isStripeBackedPaymentMethod(paymentMethod) && !stripeNeeded) {
+      triggerStripeLoad();
+    }
+  }, [step, paymentMethod, stripeNeeded, triggerStripeLoad]);
 
   const [noAddress, setNoAddress] = useState(false);
   // ── Landmark recognition (verified OS Address Book places) ──────────────
@@ -2352,7 +2524,7 @@ function CheckoutForm() {
   // is never stuck on a tile that would fail at submission.
   const walletCheckedRef = useRef(false);
   useEffect(() => {
-    if (!stripe || walletCheckedRef.current) return;
+    if (stripeInitializationStatus !== "ready" || !stripe || walletCheckedRef.current) return;
     walletCheckedRef.current = true;
     // Use the Stripe merchant account's registered country (STRIPE_MERCHANT_COUNTRY,
     // default "US") — NOT the shopper's delivery country. Passing the shopper's
@@ -2409,7 +2581,7 @@ function CheckoutForm() {
       // Chrome iOS canMakePayment() timing out after 5 s).
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stripe]);
+  }, [stripe, stripeInitializationStatus]);
 
   // Pre-create the wallet PaymentIntent so the Apple Pay / Google Pay sheet can
   // display the server's exact charge (see walletIntentRef above). Runs whenever
@@ -2421,6 +2593,7 @@ function CheckoutForm() {
     const isWallet = paymentMethod === "apple_pay" || paymentMethod === "google_pay";
     if (
       !isWallet ||
+      stripeInitializationStatus !== "ready" ||
       !stripe ||
       !walletSupported ||
       !isHydrated ||
@@ -2429,7 +2602,9 @@ function CheckoutForm() {
       // Not a Stripe-wallet context: drop any prepared intent so the button
       // never shows "ready" for stale inputs.
       if (walletReadySig !== null) setWalletReadySig(null);
-      setWalletPrepareFailed(false);
+      walletIntentRef.current = null;
+      paymentRequestRef.current = null;
+      setWalletPrepareFailed(isWallet && stripeInitializationStatus === "failed");
       return;
     }
 
@@ -2713,6 +2888,7 @@ function CheckoutForm() {
   }, [
     paymentMethod,
     stripe,
+    stripeInitializationStatus,
     walletSupported,
     countryCode,
     checkoutCurrency,
@@ -3433,17 +3609,18 @@ function CheckoutForm() {
       // apple_pay selected, form filled out, submit clicked directly).
       // If Stripe hasn't resolved yet we bail early so the user can retry
       // once LazyStripeSection re-renders with the live stripe instance.
-      if (paymentMethod === "card" || paymentMethod === "apple_pay" || paymentMethod === "google_pay" || paymentMethod === "klarna") {
-        triggerStripeLoad();
-        if (!stripe) {
-          // Stripe is now loading; the component will re-render once the
-          // Elements context hydrates.  Ask the user to try once more.
-          toast({
-            title: t("checkout.toast.stripeInitTitle"),
-            description: t("checkout.toast.stripeInitDesc"),
-          });
-          return;
-        }
+      if (isStripeBackedPaymentMethod(paymentMethod) &&
+        (stripeInitializationStatus !== "ready" || !stripe)) {
+        if (stripeInitializationStatus !== "loading") triggerStripeLoad();
+        toast({
+          title: stripeInitializationStatus === "failed"
+            ? t("checkout.toast.stripeInitFailedTitle")
+            : t("checkout.toast.stripeInitTitle"),
+          description: stripeInitializationStatus === "failed"
+            ? t("checkout.toast.stripeInitFailedDesc")
+            : t("checkout.toast.stripeInitDesc"),
+        });
+        return;
       }
 
       // Stale-slot re-check — a tab left open can still hold a same-day slot
@@ -5512,6 +5689,14 @@ function CheckoutForm() {
                                 selectedSavedCardId={selectedSavedCardId}
                                 onSelectSavedCard={setSelectedSavedCardId}
                                 onRemoveSavedCard={handleRemoveSavedCard}
+                                initializationStatus={stripeInitializationStatus}
+                                initializationFailure={stripeInitializationFailure}
+                                onRetryInitialization={retryStripeLoad}
+                                showInitializationStatus={
+                                  paymentMethod === "card" ||
+                                  paymentMethod === "apple_pay" ||
+                                  paymentMethod === "google_pay"
+                                }
                               />
                             </Suspense>
                           )}                       </div>
