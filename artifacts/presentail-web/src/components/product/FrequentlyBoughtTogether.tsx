@@ -165,51 +165,54 @@ export function FrequentlyBoughtTogether({ slug, anchor }: Props) {
           return (
             <div
               key={c.id}
-              onClick={() => { if (c.inStock) toggle(c.id); }}
               className={cn(
                 "snap-start shrink-0 w-36 sm:w-40 flex flex-col items-center gap-2 rounded-2xl border-2 p-3 transition-all select-none",
-                c.inStock ? "cursor-pointer" : "cursor-not-allowed opacity-50",
+                !c.inStock && "opacity-50",
                 sel.checked && c.inStock ? "border-foreground bg-card" : "border-border bg-card/60",
               )}
             >
-              <div className="relative w-full">
-                <div className="aspect-square rounded-xl overflow-hidden bg-secondary/40 w-full">
-                  {img ? (
-                    <img src={img} alt={c.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full" />
-                  )}
-                </div>
-                <input
-                  id={`fbt-select-${c.id}`}
-                  type="checkbox"
-                  checked={sel.checked && c.inStock}
-                  disabled={!c.inStock}
-                  aria-label={c.name}
-                  onChange={() => toggle(c.id)}
-                  onClick={(e) => e.stopPropagation()}
-                  className="absolute top-1.5 left-1.5 z-10 h-5 w-5 cursor-pointer appearance-none rounded-full border-2 border-transparent bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed"
-                />
-                <div className={cn(
-                  "absolute top-1.5 left-1.5 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors",
-                  sel.checked && c.inStock ? "bg-foreground border-foreground" : "bg-background border-border",
-                )}>
-                  {sel.checked && c.inStock && (
-                    <svg viewBox="0 0 12 12" className="w-3 h-3 fill-none stroke-background stroke-[2.5]">
-                      <polyline points="1.5,6 4.5,9 10.5,3" />
-                    </svg>
-                  )}
-                </div>
-                {!c.inStock && (
-                  <div className="absolute inset-0 rounded-xl bg-background/50 flex items-center justify-center">
-                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide px-1 text-center">{t("product.outOfStock")}</span>
+              <label
+                htmlFor={`fbt-select-${c.id}`}
+                className={cn("flex w-full flex-col items-center gap-2", c.inStock ? "cursor-pointer" : "cursor-not-allowed")}
+              >
+                <div className="relative w-full">
+                  <div className="aspect-square rounded-xl overflow-hidden bg-secondary/40 w-full">
+                    {img ? (
+                      <img src={img} alt={c.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full" />
+                    )}
                   </div>
-                )}
-              </div>
-              <p className="text-xs font-medium text-foreground text-center leading-tight line-clamp-2 w-full min-h-[2.5rem]">
-                {c.name}
-              </p>
-              <FormattedPrice usdValue={effectivePrice(c)} className="text-xs font-semibold text-foreground" />
+                  <input
+                    id={`fbt-select-${c.id}`}
+                    data-testid={`checkbox-fbt-product-${c.id}`}
+                    type="checkbox"
+                    checked={sel.checked && c.inStock}
+                    disabled={!c.inStock}
+                    onChange={() => toggle(c.id)}
+                    className="absolute top-1.5 left-1.5 z-10 h-5 w-5 cursor-pointer appearance-none rounded-full border-2 border-transparent bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed"
+                  />
+                  <div className={cn(
+                    "absolute top-1.5 left-1.5 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors",
+                    sel.checked && c.inStock ? "bg-foreground border-foreground" : "bg-background border-border",
+                  )}>
+                    {sel.checked && c.inStock && (
+                      <svg viewBox="0 0 12 12" className="w-3 h-3 fill-none stroke-background stroke-[2.5]">
+                        <polyline points="1.5,6 4.5,9 10.5,3" />
+                      </svg>
+                    )}
+                  </div>
+                  {!c.inStock && (
+                    <div className="absolute inset-0 rounded-xl bg-background/50 flex items-center justify-center">
+                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide px-1 text-center">{t("product.outOfStock")}</span>
+                    </div>
+                  )}
+                </div>
+                <span className="text-xs font-medium text-foreground text-center leading-tight line-clamp-2 w-full min-h-[2.5rem]">
+                  {c.name}
+                </span>
+                <FormattedPrice usdValue={effectivePrice(c)} className="text-xs font-semibold text-foreground" />
+              </label>
               <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                 <button
                   onClick={(e) => changeQty(c.id, -1, e)}
