@@ -7,7 +7,7 @@ import { useCreateOrder } from "@/lib/queries";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "@/contexts/LocaleContext";
-import { trackEvent, trackWebEvent } from "@/lib/analytics";
+import { trackEvent, trackWebEvent, trackFunnelEvent, trackFunnelEventOnce, funnelValueBucket } from "@/lib/analytics";
 import { trackFbEvent } from "@/lib/fbPixel";
 import { fireAdsPurchaseConversion, fireGtagEvent, fireGA4PurchaseEvent } from "@/lib/gtag";
 import { FormattedPrice } from "@/components/FormattedPrice";
@@ -306,6 +306,18 @@ export default function OrderConfirmed() {
       countryCode: deliveryCountryInline,
     });
     fireGA4PurchaseEvent({ transactionId: state.ref, value, currency, items: ga4Items });
+    if (state.ref && !state.ref.startsWith("pi_")) {
+      trackFunnelEventOnce("payment_completed", state.ref, {
+        method: "unknown",
+        currency,
+        value_bucket: funnelValueBucket(value),
+      });
+      trackFunnelEventOnce("order_confirmed", state.ref, {
+        method: "unknown",
+        currency,
+        value_bucket: funnelValueBucket(value),
+      });
+    }
     try { sessionStorage.setItem(conversionKey, "1"); } catch { /* best-effort */ }
   // state is included so the effect re-runs if the FinalizeState reference changes.
   // authLoading/user are included so the event fires after session hydration on
@@ -435,6 +447,20 @@ export default function OrderConfirmed() {
             currency: (payload.currencyCode as string | undefined) ?? "USD",
           });
           const orderRef = String(payload.orderId ?? res.osOrderId ?? res.wcOrderId);
+          const completedData = {
+            method: chosenMethod ?? "unknown",
+            currency: (payload.currencyCode as string | undefined) ?? "USD",
+            value_bucket: funnelValueBucket(
+              typeof payload.totalUsd === "number" ? payload.totalUsd : 0,
+            ),
+          } as const;
+          if (orderRef && orderRef !== "null" && orderRef !== "undefined") {
+            trackFunnelEventOnce("payment_completed", orderRef, completedData);
+            trackFunnelEventOnce("order_confirmed", orderRef, completedData);
+          } else {
+            trackFunnelEvent("payment_completed", completedData);
+            trackFunnelEvent("order_confirmed", completedData);
+          }
           const conversionKey = `${ADS_CONVERSION_KEY_PREFIX}${orderRef}`;
           if (!purchaseFiredRef.current && sessionStorage.getItem(conversionKey) === null) {
             purchaseFiredRef.current = true;

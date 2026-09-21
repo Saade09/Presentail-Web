@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocation } from "wouter";
-import { trackWebEvent, umamiTrack } from "@/lib/analytics";
+import { trackWebEvent, trackFunnelEvent } from "@/lib/analytics";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Command } from "cmdk";
 import { useSearch } from "@/lib/queries";
@@ -45,7 +45,8 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
   }, [open]);
 
   const handleSelect = useCallback(
-    (href: string) => {
+    (href: string, productId?: string) => {
+      if (productId) trackFunnelEvent("product_selected", { product_id: productId, source: "search" });
       onClose();
       setQ("");
       navigate(href);
@@ -88,10 +89,10 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
     if (hasAnyResult) {
       const resultCount = (data?.products?.length ?? 0) + (data?.categories?.length ?? 0) + (data?.occasions?.length ?? 0) + (data?.brands?.length ?? 0);
       trackWebEvent({ type: "search", properties: { searchQuery: q, resultCount } });
-      umamiTrack("search", { result_count: resultCount });
+      trackFunnelEvent("search_completed", { result_count: resultCount });
     } else {
       trackWebEvent({ type: "search_no_result", properties: { searchQuery: q } });
-      umamiTrack("search_no_result", { result_count: 0 });
+      trackFunnelEvent("search_empty", { result_count: 0 });
     }
   // Intentionally depend only on isFetching to fire once per completed fetch
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -367,7 +368,7 @@ export function SearchOverlay({ open, onClose, brandSlug, brandName }: Props) {
                     <Command.Item
                       key={product.slug}
                       value={`product-${product.slug}-${product.name}`}
-                      onSelect={() => handleSelect(`/product/${product.slug}`)}
+                       onSelect={() => handleSelect(`/product/${product.slug}`, product.slug)}
                       className="mx-2 flex items-center gap-3.5 px-3 py-2.5 rounded-xl
                                  cursor-pointer select-none outline-none
                                  aria-selected:bg-[#e5e7eb] hover:bg-[#e5e7eb]

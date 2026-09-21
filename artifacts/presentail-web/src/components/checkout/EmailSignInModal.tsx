@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLocale } from "@/contexts/LocaleContext";
-import { trackWebEvent } from "@/lib/analytics";
+import { trackWebEvent, trackFunnelEvent } from "@/lib/analytics";
 import type { ShimUser } from "@/contexts/AuthContext";
 
 /**
@@ -67,6 +67,7 @@ export function EmailSignInModal({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const authStartedRef = useRef(false);
+  const outcomeRef = useRef(false);
 
   // Reset transient state each time the modal opens (keep the typed email so
   // reopening after an accidental close doesn't lose it).
@@ -77,6 +78,7 @@ export function EmailSignInModal({
       setError(null);
       setBusy(false);
       authStartedRef.current = false;
+      outcomeRef.current = false;
     }
   }, [open]);
 
@@ -108,6 +110,7 @@ export function EmailSignInModal({
         passwordLoginAvailable?: boolean;
       } | null;
       if (!res.ok || !json || json.ok !== true) {
+        trackFunnelEvent("checkout_auth_action", { method: "email", result: "failure", reason: "provider" });
         setError(t("auth.checkFailed"));
         return;
       }
@@ -121,6 +124,11 @@ export function EmailSignInModal({
       // helpful message for social-only accounts.
       setStep("password");
     } catch {
+      trackFunnelEvent("checkout_auth_action", {
+        method: "email",
+        result: "failure",
+        reason: "network",
+      });
       setError(t("auth.checkFailed"));
     } finally {
       setBusy(false);
@@ -146,16 +154,20 @@ export function EmailSignInModal({
           type: "checkout_auth_failed",
           properties: { method: "email", error_category: "invalid_credentials" },
         });
+        trackFunnelEvent("checkout_auth_action", { method: "email", result: "failure", reason: "validation" });
         setError(msg);
         return;
       }
       trackWebEvent({ type: "checkout_auth_completed", properties: { method: "email" } });
+      trackFunnelEvent("checkout_auth_action", { method: "email", result: "success" });
+      outcomeRef.current = true;
       onSuccess(data.token, mapApiUser(data.user));
     } catch {
       trackWebEvent({
         type: "checkout_auth_failed",
         properties: { method: "email", error_category: "network" },
       });
+      trackFunnelEvent("checkout_auth_action", { method: "email", result: "failure", reason: "network" });
       setError(t("auth.checkFailed"));
     } finally {
       setBusy(false);
@@ -164,7 +176,17 @@ export function EmailSignInModal({
 
   const handleGuest = () => {
     trackWebEvent({ type: "checkout_continue_as_guest", properties: { source: "email_modal" } });
+    trackFunnelEvent("checkout_auth_action", { method: "guest", result: "success" });
+    outcomeRef.current = true;
     onContinueAsGuest();
+  };
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && open && !outcomeRef.current) {
+      outcomeRef.current = true;
+      trackFunnelEvent("checkout_auth_action", { method: "email", result: "cancelled" });
+    }
+    onOpenChange(nextOpen);
   };
 
   const guestButton = (
@@ -189,7 +211,7 @@ export function EmailSignInModal({
   );
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         className="w-full gap-0 p-8 sm:max-w-md sm:rounded-2xl max-sm:max-w-none max-sm:top-auto max-sm:bottom-0 max-sm:translate-y-0 max-sm:rounded-b-none max-sm:rounded-t-2xl max-sm:p-6"
         data-testid="dialog-checkout-email-signin"

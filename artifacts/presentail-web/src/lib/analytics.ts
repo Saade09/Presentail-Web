@@ -563,6 +563,171 @@ declare global {
 }
 
 /**
+ * Canonical Replit/Umami shopping funnel taxonomy.
+ *
+ * Trigger semantics:
+ * - *_viewed/impression: after the corresponding UI has rendered.
+ * - *_selected/started: after a shopper commits an interaction.
+ * - *_completed: only after the authoritative server/provider outcome.
+ * - *_failed: only after a user-visible failure, with a coarse reason.
+ *
+ * Values are deliberately identifiers, enums, counts, and coarse buckets.
+ * Never add customer-entered text, names, contact details, addresses, tokens,
+ * provider messages, or complete order references to this contract.
+ */
+export type FunnelEventName =
+  | "landing_viewed"
+  | "product_viewed"
+  | "search_completed"
+  | "search_empty"
+  | "product_selected"
+  | "filter_applied"
+  | "cart_item_added"
+  | "cart_item_removed"
+  | "cart_viewed"
+  | "checkout_started"
+  | "checkout_step_completed"
+  | "delivery_selected"
+  | "checkout_auth_prompt_viewed"
+  | "checkout_auth_action"
+  | "payment_method_selected"
+  | "payment_attempted"
+  | "payment_failed"
+  | "payment_completed"
+  | "order_confirmed";
+
+type FunnelPrimitive = string | number | boolean;
+export type FunnelEventData = Partial<{
+  method: string;
+  result: "success" | "failure" | "cancelled";
+  reason: string;
+  surface: string;
+  delivery_type: "standard" | "express" | "midnight";
+  item_count: number;
+  result_count: number;
+  quantity: number;
+  currency: string;
+  value_bucket: "zero" | "under_50" | "50_to_99" | "100_to_249" | "250_plus";
+  country: string;
+  city_id: string;
+  product_id: string;
+  category: string;
+  source: string;
+  step: string;
+  status: string;
+}>;
+
+const FUNNEL_ALLOWED_KEYS = new Set<keyof FunnelEventData>([
+  "method", "result", "reason", "surface", "delivery_type", "item_count",
+  "result_count", "quantity", "currency", "value_bucket", "country", "city_id",
+  "product_id", "category", "source", "step", "status",
+]);
+
+const FUNNEL_ENUMS: Record<string, Set<string>> = {
+  method: new Set(["card", "apple_pay", "google_pay", "paypal", "mamo", "tabby", "whish", "klarna", "email", "google", "apple", "guest", "password", "unknown"]),
+  result: new Set(["success", "failure", "cancelled"]),
+  delivery_type: new Set(["standard", "express", "midnight"]),
+  value_bucket: new Set(["zero", "under_50", "50_to_99", "100_to_249", "250_plus"]),
+  reason: new Set(["unknown", "network", "declined", "cancelled", "validation", "provider", "unavailable"]),
+  surface: new Set(["checkout"]),
+  currency: new Set(["USD", "AED", "EUR"]),
+  country: new Set(["LB", "AE", "CY"]),
+  category: new Set(["anniversary_gender", "love_romance_gender", "newborn_gender", "bear_size"]),
+  source: new Set([
+    "home", "product", "category", "occasion", "brand", "shop", "cart",
+    "checkout", "other", "search", "all", "her", "him", "boy", "girl",
+    "small", "medium", "life-size",
+  ]),
+  step: new Set(["landing", "delivery_details"]),
+  status: new Set(["valid"]),
+};
+
+export function funnelValueBucket(value: number | null | undefined): FunnelEventData["value_bucket"] {
+  if (!Number.isFinite(value) || (value ?? 0) <= 0) return "zero";
+  if ((value ?? 0) < 50) return "under_50";
+  if ((value ?? 0) < 100) return "50_to_99";
+  if ((value ?? 0) < 250) return "100_to_249";
+  return "250_plus";
+}
+
+function sanitizeFunnelData(data?: FunnelEventData): Record<string, FunnelPrimitive> | undefined {
+  if (!data) return undefined;
+  const output: Record<string, FunnelPrimitive> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (!FUNNEL_ALLOWED_KEYS.has(key as keyof FunnelEventData)) continue;
+    if (value === undefined || value === null) continue;
+    if (typeof value === "number") {
+      if (Number.isFinite(value)) output[key] = Math.max(0, Math.round(value));
+      continue;
+    }
+    if (typeof value === "boolean") {
+      output[key] = value;
+      continue;
+    }
+    const normalized = value.slice(0, 80);
+    if (
+      (key === "product_id" || key === "city_id") &&
+      (!/^[a-zA-Z0-9_-]+$/.test(normalized) || normalized.includes("@"))
+    ) {
+      continue;
+    }
+    const allowed = FUNNEL_ENUMS[key];
+    output[key] = allowed && !allowed.has(normalized) ? "unknown" : normalized;
+  }
+  return Object.keys(output).length ? output : undefined;
+}
+
+/** Privacy-safe canonical funnel event. Non-blocking and browser-only. */
+export function trackFunnelEvent(name: FunnelEventName, data?: FunnelEventData): void {
+  umamiTrack(`funnel_${name}`, sanitizeFunnelData(data));
+}
+
+/** Fire a canonical milestone once per browser session and semantic key. */
+export function trackFunnelEventOnce(
+  name: FunnelEventName,
+  dedupeKey: string,
+  data?: FunnelEventData,
+): void {
+  const key = `presentail_funnel_once:${name}:${dedupeKey.slice(0, 120)}`;
+  try {
+    if (typeof sessionStorage !== "undefined" && sessionStorage.getItem(key) === "1") return;
+  } catch {
+    // Analytics must never block the shopper.
+  }
+  const deliver = () => {
+    if (typeof window === "undefined" || !window.umami?.track) return false;
+    try {
+      try {
+        if (sessionStorage.getItem(key) === "1") return true;
+      } catch {
+        // Storage may be unavailable; delivery can still proceed.
+      }
+      window.umami.track(`funnel_${name}`, sanitizeFunnelData(data));
+      try { sessionStorage.setItem(key, "1"); } catch { /* best-effort */ }
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  if (deliver()) return;
+  // Umami is injected asynchronously in production. Keep one pending delivery
+  // per semantic key and retry briefly; importantly, do not mark it delivered
+  // until the tracker actually accepts the event.
+  if (pendingFunnelEvents.has(key)) return;
+  let attempts = 0;
+  const retry = () => {
+    if (deliver() || ++attempts >= 50) {
+      pendingFunnelEvents.delete(key);
+      return;
+    }
+    pendingFunnelEvents.set(key, setTimeout(retry, 100));
+  };
+  pendingFunnelEvents.set(key, setTimeout(retry, 100));
+}
+
+const pendingFunnelEvents = new Map<string, ReturnType<typeof setTimeout>>();
+
+/**
  * Fire a custom event on Replit's injected Umami analytics tracker.
  * Safe to call anywhere — a no-op when the tracker is absent (local dev,
  * before analytics is enabled in Publishing settings, or before the

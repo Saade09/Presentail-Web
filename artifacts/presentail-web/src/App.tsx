@@ -7,7 +7,7 @@ import {
 } from "wouter";
 import { lazy, Suspense, useEffect, useRef, startTransition } from "react";
 import { captureAttribution } from "@/lib/attribution";
-import { trackWebEvent } from "@/lib/analytics";
+import { trackWebEvent, trackFunnelEventOnce } from "@/lib/analytics";
 import {
   LATE_NIGHT_CAMPAIGN_SECTION_KEY,
   markCampaignIdentity,
@@ -843,6 +843,18 @@ function PageViewTracker() {
       markCampaignIdentity(LATE_NIGHT_CAMPAIGN_SECTION_KEY);
     }
     trackWebEvent({ type: "page_view" });
+    const pathname = (path || "/").split("?")[0] || "/";
+    const source =
+      pathname === "/" ? "home"
+      : /\/product\//.test(pathname) ? "product"
+      : /\/category\//.test(pathname) ? "category"
+      : /\/occasion\//.test(pathname) ? "occasion"
+      : /\/brand\//.test(pathname) ? "brand"
+      : /\/shop(?:\/|$)/.test(pathname) ? "shop"
+      : /\/cart(?:\/|$)/.test(pathname) ? "cart"
+      : /\/checkout(?:\/|$)/.test(pathname) ? "checkout"
+      : "other";
+    trackFunnelEventOnce("landing_viewed", "session_entry", { source, step: "landing" });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path]);
   return null;

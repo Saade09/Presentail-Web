@@ -50,7 +50,7 @@ import { useNow } from "@/lib/useNow";
 import { resolveProductBreadcrumbCategory } from "@/lib/productCategory";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { trackFbEvent } from "@/lib/fbPixel";
-import { trackWebEvent, trackEvent, umamiTrack } from "@/lib/analytics";
+import { trackWebEvent, trackEvent, trackFunnelEventOnce, umamiTrack } from "@/lib/analytics";
 import { buildProductSeo } from "@/lib/seo";
 import { CompleteYourGift } from "@/components/product/CompleteYourGift";
 import { calcCheckoutFees } from "@/pages/checkoutFees";
@@ -258,6 +258,10 @@ export default function ProductDetail() {
         category: product.category ?? undefined,
         occasion: product.occasions?.[0] ?? undefined,
       },
+    });
+    trackFunnelEventOnce("product_viewed", product.id, {
+      product_id: product.id,
+      category: product.category ?? undefined,
     });
   }, [product?.id]); // i18n-ignore
 

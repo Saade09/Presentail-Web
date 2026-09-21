@@ -187,12 +187,17 @@ vi.mock("@/lib/useNow", () => ({
   useNow: () => new Date("2025-06-05T10:00:00Z"),
 }));
 
-const mockTrackEvent = vi.fn();
+const mockTrackEvent = vi.hoisted(() => vi.fn());
+const mockTrackFunnelEvent = vi.hoisted(() => vi.fn());
+const mockTrackFunnelEventOnce = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/analytics", () => ({
   // Wrap in a thunk so the factory (hoisted to the top of the file) does not
   // read mockTrackEvent before its const initialiser has run.
   trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
   trackWebEvent: vi.fn(),
+  trackFunnelEvent: (...args: unknown[]) => mockTrackFunnelEvent(...args),
+  trackFunnelEventOnce: (...args: unknown[]) => mockTrackFunnelEventOnce(...args),
+  funnelValueBucket: () => "under_50",
 }));
 
 vi.mock("react-phone-number-input", async (importOriginal) => {
@@ -497,6 +502,8 @@ async function navigateToStep2(user: ReturnType<typeof userEvent.setup>) {
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
+  mockTrackFunnelEvent.mockClear();
+  mockTrackFunnelEventOnce.mockClear();
   vi.stubGlobal(
     "fetch",
     vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
@@ -564,7 +571,11 @@ describe("Checkout — card payment flow (handleSubmit)", () => {
     // navigateToStep2() explicitly clicked the Card tile, so the card path
     // is active regardless of what canMakePayment returns.
     const submitBtn = screen.getByTestId("button-submit-payment");
+    expect(mockTrackFunnelEvent.mock.calls.some(([name]) => name === "payment_attempted")).toBe(false);
     await user.click(submitBtn);
+    await waitFor(() =>
+      expect(mockTrackFunnelEvent.mock.calls.some(([name]) => name === "payment_attempted")).toBe(true),
+    );
 
     await waitFor(() => {
       // PaymentIntent was created server-side.
@@ -589,6 +600,23 @@ describe("Checkout — card payment flow (handleSubmit)", () => {
         expect.stringContaining("/order-confirmed"),
       );
     });
+    await waitFor(() => {
+      expect(mockTrackFunnelEventOnce).toHaveBeenCalledWith(
+        "payment_completed",
+        expect.any(String),
+        expect.any(Object),
+      );
+      expect(mockTrackFunnelEventOnce).toHaveBeenCalledWith(
+        "order_confirmed",
+        expect.any(String),
+        expect.any(Object),
+      );
+    });
+    for (const [, data] of mockTrackFunnelEvent.mock.calls) {
+      expect(data).not.toHaveProperty("email");
+      expect(data).not.toHaveProperty("name");
+      expect(data).not.toHaveProperty("address");
+    }
   });
 
   // ── 2. 3DS required path: requires_action → auth succeeds ──────────────
@@ -653,6 +681,8 @@ describe("Checkout — card payment flow (handleSubmit)", () => {
     expect(mockCreateOrderMutate).not.toHaveBeenCalled();
     // No redirect.
     expect(mockSetLocation).not.toHaveBeenCalled();
+    expect(mockTrackFunnelEvent.mock.calls.some(([name]) => name === "payment_failed")).toBe(true);
+    expect(mockTrackFunnelEvent.mock.calls.some(([name]) => name === "payment_attempted")).toBe(true);
   });
 
   // ── 3b. Failure path: 3DS cancelled ────────────────────────────────────
@@ -1138,6 +1168,7 @@ describe("Checkout — wallet (Apple Pay / Google Pay) native sheet flow", () =>
     expect(mockConfirmCardPayment).not.toHaveBeenCalled();
     expect(mockSetLocation).not.toHaveBeenCalled();
     expect(mockToast).not.toHaveBeenCalled();
+    expect(mockTrackFunnelEvent.mock.calls.some(([name]) => name === "payment_failed")).toBe(false);
   });
 
   // ── 3. Wallet PaymentIntent creation fails server-side ─────────────────

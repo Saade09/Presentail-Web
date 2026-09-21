@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Product } from "@/lib/queries";
 import { trackFbEvent } from "@/lib/fbPixel";
-import { trackWebEvent, umamiTrack } from "@/lib/analytics";
+import { trackWebEvent, trackFunnelEvent, funnelValueBucket } from "@/lib/analytics";
 import { fireGtagEvent } from "@/lib/gtag";
 import { AuthOverrideContext } from "@/contexts/AuthContext";
 import { LocationContext } from "@/contexts/LocationContext";
@@ -140,15 +140,24 @@ export function CartProvider({ children }: { children: ReactNode }) {
            } }
          : {}),
     });
-    umamiTrack("add_to_cart", {
-      product_name: product.name,
-      price: effectivePrice(product),
+    trackFunnelEvent("cart_item_added", {
+      product_id: product.id,
       quantity,
+      value_bucket: funnelValueBucket(effectivePrice(product)),
     });
   };
 
   const removeItem = (productId: string) => {
-    setItems(current => current.filter(i => i.product.id !== productId));
+    setItems(current => {
+      const removed = current.find(i => i.product.id === productId);
+      if (removed) {
+        trackFunnelEvent("cart_item_removed", {
+          product_id: productId,
+          quantity: removed.quantity,
+        });
+      }
+      return current.filter(i => i.product.id !== productId);
+    });
   };
 
   const updateQuantity = (productId: string, quantity: number) => {

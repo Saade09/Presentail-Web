@@ -17,7 +17,7 @@ import { ProductCard } from "@/components/ProductCard";
 import { useSearch, useLocation, useParams, Link } from "wouter";
 import { useEffect, useRef } from "react";
 import { useLcpImagePreload } from "@/hooks/useLcpImagePreload";
-import { trackEvent, umamiTrack } from "@/lib/analytics";
+import { trackEvent, trackFunnelEvent } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -376,7 +376,7 @@ export default function Shop() {
     : "all";
 
   function handleAnniversaryGenderSelect(key: string) {
-    umamiTrack("product_filter", { filter_type: "anniversary_gender", filter_value: key });
+    trackFunnelEvent("filter_applied", { category: "anniversary_gender", source: key });
     const params = new URLSearchParams(searchString);
     if (key === "all") {
       params.delete("gender");
@@ -392,7 +392,7 @@ export default function Shop() {
     : "all";
 
   function handleLoveRomanceGenderSelect(key: string) {
-    umamiTrack("product_filter", { filter_type: "love_romance_gender", filter_value: key });
+    trackFunnelEvent("filter_applied", { category: "love_romance_gender", source: key });
     const params = new URLSearchParams(searchString);
     if (key === "all") {
       params.delete("gender");
@@ -410,7 +410,7 @@ export default function Shop() {
     : "all";
 
   function handleNewbornGenderSelect(key: string) {
-    umamiTrack("product_filter", { filter_type: "newborn_gender", filter_value: key });
+    trackFunnelEvent("filter_applied", { category: "newborn_gender", source: key });
     const params = new URLSearchParams(searchString);
     if (key === "all") {
       params.delete("gender");
@@ -434,7 +434,7 @@ export default function Shop() {
     usePlantClassificationMap(isPlants);
 
   function handleBearSizeSelect(key: string) {
-    umamiTrack("product_filter", { filter_type: "bear_size", filter_value: key });
+    trackFunnelEvent("filter_applied", { category: "bear_size", source: key });
     const params = new URLSearchParams(searchString);
     if (key === "all") {
       params.delete("size");

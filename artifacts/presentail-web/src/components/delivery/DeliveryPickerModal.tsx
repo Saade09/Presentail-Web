@@ -12,7 +12,7 @@ import { useLocationSelection, type DeliveryCity } from "@/contexts/LocationCont
 import { useLocale } from "@/contexts/LocaleContext";
 import type { KeyboardEvent, ReactNode } from "react";
 import { useNow } from "@/lib/useNow";
-import { trackEvent, umamiTrack } from "@/lib/analytics";
+import { trackEvent, trackFunnelEvent, umamiTrack } from "@/lib/analytics";
 import { FormattedPrice } from "@/components/FormattedPrice";
 import {
   dayLabels,
@@ -673,6 +673,7 @@ export function DeliveryPickerModal({ open, onOpenChange, onConfirm, timeSlots: 
     // Confirming in the picker is always an explicit shopper choice.
     deliverySelection.setSelection({ ...selection, source: "user_selected" });
     umamiTrack("delivery_slot_selected", { delivery_type: nextType });
+    trackFunnelEvent("delivery_selected", { delivery_type: nextType });
     onConfirm?.(selection);
     onOpenChange(false);
   };

@@ -45,6 +45,9 @@ vi.mock("@/lib/fbPixel", () => ({
 vi.mock("@/lib/analytics", () => ({
   trackEvent: vi.fn(),
   trackWebEvent: vi.fn(),
+  trackFunnelEvent: vi.fn(),
+  trackFunnelEventOnce: vi.fn(),
+  funnelValueBucket: () => "under_50",
 }));
 
 vi.mock("wouter", () => ({

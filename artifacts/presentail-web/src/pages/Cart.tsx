@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useCart, effectivePrice } from "@/contexts/CartContext";
 import { Link, useLocation } from "wouter";
-import { trackEvent, trackWebEvent, umamiTrack } from "@/lib/analytics";
+import { trackEvent, trackWebEvent, trackFunnelEvent, umamiTrack } from "@/lib/analytics";
 import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1061,6 +1061,9 @@ export default function Cart() {
         ? { deliveryMethod: deliveryPromise.type, deliveryPromise: deliveryPromise.summary }
         : {}),
     });
+    // Preserve the historical click event. The canonical checkout milestone is
+    // emitted after the checkout page actually renders, avoiding a duplicate
+    // when navigation succeeds and avoiding false starts when auth blocks it.
     umamiTrack("checkout_started", { item_count: items.length });
     // Frictionless checkout flag: everyone goes straight to /checkout — no
     // popup interception, no ?guest=1 (the checkout page no longer gates).
@@ -1081,9 +1084,14 @@ export default function Cart() {
   // Emit one cart_viewed event when the standalone cart page mounts.
   // This is the entry point of the purchase funnel evaluated by the
   // server-side checkoutPurchaseFunnelMonitor.
+  const cartViewedRef = useRef(false);
   useEffect(() => {
+    if (!isHydrated) return;
+    if (cartViewedRef.current) return;
+    cartViewedRef.current = true;
     trackEvent({ name: "cart_viewed", surface: "cart-screen" });
-  }, []);
+    trackFunnelEvent("cart_viewed", { item_count: itemCount });
+  }, [isHydrated, itemCount]);
 
   // Emit order_summary_viewed once per cart visit, after the cart hydrates
   // with items (not on every pricing rerender).

@@ -1,9 +1,9 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ShimUser } from "@/contexts/AuthContext";
-import { trackWebEvent } from "@/lib/analytics";
+import { trackWebEvent, trackFunnelEvent } from "@/lib/analytics";
 import {
   signInWithApplePopup,
   signInWithGooglePopup,
@@ -53,6 +53,13 @@ export function CheckoutSignInCard({
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const emailTriggerRef = useRef<HTMLButtonElement | null>(null);
 
+  const promptViewedRef = useRef(false);
+  useEffect(() => {
+    if (promptViewedRef.current) return;
+    promptViewedRef.current = true;
+    trackFunnelEvent("checkout_auth_prompt_viewed", { surface: "checkout" });
+  }, []);
+
   const handleSignedIn = (token: string, user: ShimUser, provider: string) => {
     // Updates AuthContext state in place — no navigation, no remount. The
     // checkout page's own effects prefill only-empty sender/recipient fields.
@@ -72,10 +79,12 @@ export function CheckoutSignInCard({
       const result = await fn();
       if (result.ok) {
         trackWebEvent({ type: "checkout_auth_completed", properties: { method } });
+        trackFunnelEvent("checkout_auth_action", { method, result: "success" });
         handleSignedIn(result.token, result.user, result.provider);
         return;
       }
       if (result.cancelled) {
+        trackFunnelEvent("checkout_auth_action", { method, result: "cancelled" });
         trackWebEvent({ type: "checkout_auth_cancelled", properties: { method } });
         return;
       }
@@ -83,6 +92,7 @@ export function CheckoutSignInCard({
         type: "checkout_auth_failed",
         properties: { method, error_category: result.errorCategory },
       });
+      trackFunnelEvent("checkout_auth_action", { method, result: "failure", reason: "provider" });
       setInlineError(t("checkoutSignIn.error"));
     } finally {
       setOauthBusy(null);
@@ -168,6 +178,7 @@ export function CheckoutSignInCard({
               type: "checkout_sign_in_method_selected",
               properties: { method: "email" },
             });
+            trackFunnelEvent("checkout_auth_action", { method: "email" });
             setInlineError(null);
             setEmailModalOpen(true);
           }}
@@ -199,6 +210,7 @@ export function CheckoutSignInCard({
           onContinueAsGuest?.();
         }}
         onBack={() => {
+          trackFunnelEvent("checkout_auth_action", { method: "email", result: "cancelled" });
           setEmailModalOpen(false);
           // Radix returns focus to the trigger automatically; make it explicit
           // so "back to other sign-in options" reliably lands on the card.

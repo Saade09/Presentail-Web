@@ -43,9 +43,14 @@ vi.mock("@/lib/fbPixel", () => ({
   initPixel: vi.fn(),
 }));
 
+const mockTrackFunnelEvent = vi.hoisted(() => vi.fn());
+const mockTrackFunnelEventOnce = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/analytics", () => ({
   trackEvent: vi.fn(),
   trackWebEvent: vi.fn(),
+  trackFunnelEvent: (...args: unknown[]) => mockTrackFunnelEvent(...args),
+  trackFunnelEventOnce: (...args: unknown[]) => mockTrackFunnelEventOnce(...args),
+  funnelValueBucket: () => "under_50",
 }));
 
 vi.mock("wouter", () => ({
@@ -140,6 +145,8 @@ let mockGtag: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockTrackFunnelEvent.mockClear();
+  mockTrackFunnelEventOnce.mockClear();
   mockGtag = vi.fn();
   (window as unknown as Record<string, unknown>).gtag = mockGtag;
 });
@@ -170,6 +177,8 @@ describe("OrderConfirmed — inline-payment path (?ref= on URL)", () => {
     await waitFor(() => {
       expect(conversionCalls(mockGtag).length).toBeGreaterThan(0);
     });
+    expect(mockTrackFunnelEventOnce.mock.calls.filter(([name]) => name === "payment_completed")).toHaveLength(1);
+    expect(mockTrackFunnelEventOnce.mock.calls.filter(([name]) => name === "order_confirmed")).toHaveLength(1);
 
     const [, , params] = conversionCalls(mockGtag)[0] as [unknown, unknown, Record<string, unknown>];
     expect(params.send_to).toBe(EXPECTED_SEND_TO);
@@ -183,6 +192,8 @@ describe("OrderConfirmed — inline-payment path (?ref= on URL)", () => {
     await waitFor(() => {
       expect(conversionCalls(mockGtag).length).toBeGreaterThan(0);
     });
+    expect(mockTrackFunnelEventOnce.mock.calls.filter(([name]) => name === "payment_completed")).toHaveLength(1);
+    expect(mockTrackFunnelEventOnce.mock.calls.filter(([name]) => name === "order_confirmed")).toHaveLength(1);
 
     const [, , params] = conversionCalls(mockGtag)[0] as [unknown, unknown, Record<string, unknown>];
     expect(params.transaction_id).toBe("order-abc-123");
@@ -241,6 +252,7 @@ describe("OrderConfirmed — inline-payment path (?ref= on URL)", () => {
 
     await new Promise<void>((resolve) => setTimeout(resolve, 60));
     expect(conversionCalls(mockGtag).length).toBe(0);
+    expect(mockTrackFunnelEventOnce).not.toHaveBeenCalled();
   });
 
   it("fires exactly once even if the component re-renders", async () => {
@@ -365,6 +377,7 @@ describe("OrderConfirmed — redirect/finalizing path (createOrder.mutate)", () 
 
     await new Promise<void>((resolve) => setTimeout(resolve, 60));
     expect(conversionCalls(mockGtag).length).toBe(0);
+    expect(mockTrackFunnelEventOnce).not.toHaveBeenCalled();
   });
 
   it("does NOT fire the conversion when mutate calls onError", async () => {
