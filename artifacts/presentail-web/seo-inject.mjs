@@ -231,7 +231,6 @@ const WISHLIST_SEO = {
 const ROUTE_KEYS = [
   { test: (r) => r === "" || r === "/", key: "home" },
   { test: (r) => r === "/shop", key: "shop" },
-  { test: (r) => r === "/best-sellers", key: "bestSellers" },
   { test: (r) => r.startsWith("/product"), key: "product" },
   { test: (r) => r === "/brands", key: "brands" },
   { test: (r) => r.startsWith("/brand/"), key: "brand" },
@@ -781,14 +780,6 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
 
   const lines = [];
   lines.push(`<meta name="description" content="${escapeAttr(description)}" />`);
-  // Satellite-city best-sellers use noindex,follow while hub-city pages
-  // (/en-lb/beirut/best-sellers, /en-ae/dubai/best-sellers, etc.) remain
-  // fully indexed. Both retain an in-document canonical: noindex controls
-  // indexability, while canonical consolidates duplicate signals.
-  const _isSatelliteBestSellers =
-    routeKey === "bestSellers" &&
-    Boolean(parsed.city) && Boolean(parsed.country) &&
-    parsed.city !== HUB_CITY[parsed.country];
   // Policy pages at satellite cities redirect 301 to the hub city in serve.mjs;
   // belt-and-suspenders noindex here guards against any request that bypasses
   // the redirect (direct calls, curl, tests) so duplicate policy pages are never
@@ -803,7 +794,7 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
   // confirmation) must not be indexed, but their links may still be followed.
   // Filter-parameterised non-curated URLs also get noindex so Googlebot does
   // not spend crawl budget on duplicate pages like /shop?sort=price-asc.
-  if (NONINDEX_ROUTE_KEYS.has(routeKey) || (hasFilterParamsInSearch && !isCuratedFilterPage) || _isSatelliteBestSellers || _isSatellitePolicyPage) {
+  if (NONINDEX_ROUTE_KEYS.has(routeKey) || (hasFilterParamsInSearch && !isCuratedFilterPage) || _isSatellitePolicyPage) {
     lines.push(`<meta name="robots" content="noindex, follow" />`);
   }
   lines.push(`<meta property="og:title" content="${escapeAttr(ogTitle)}" />`);
@@ -1132,15 +1123,7 @@ function computeSeoHead(pathname, { origin = "", basePath = "", search = "" } = 
     lines.push(jsonLdGraphTag(jsonLdNodes));
   }
 
-  // Satellite best-sellers pages (_isSatelliteBestSellers) are excluded from
-  // the hreflang block entirely: they carry noindex,follow + no canonical, so
-  // emitting hreflang would create a cluster with no matching self-referencing
-  // canonical — exactly the "conflicting hreflang / canonical" Semrush flag.
-  // Google ignores noindexed pages in hreflang clusters anyway, so suppressing
-  // hreflang here is both correct and prevents the cross-page conflict that
-  // would otherwise appear on every other city's best-sellers page that
-  // references this satellite URL as one of its alternates.
-  if (inLocale && !NONINDEX_ROUTE_KEYS.has(routeKey) && !_isSatelliteBestSellers) {
+  if (inLocale && !NONINDEX_ROUTE_KEYS.has(routeKey)) {
     // Build the intra-city hreflang cluster: en/ar/fr variants of the SAME
     // city plus x-default pointing at the en variant of that city. No
     // cross-country links — each city's cluster stays self-contained so
@@ -6129,6 +6112,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         const siteUrl = `${siteOrigin}${cleanBase}`;
         const indexLines = [
           `<meta name="description" content="${escapeAttr(blogSeo.description)}" />`,
+          `<meta name="robots" content="noindex, follow" />`,
           `<link rel="canonical" href="${escapeAttr(blogIndexHref)}" />`,
           ...["en", "ar", "fr"].map((alternateLang) =>
             `<link rel="alternate" hreflang="${alternateLang}" href="${escapeAttr(alternateHref(alternateLang))}" />`),
@@ -6635,8 +6619,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
       // Satellite-city product pages: noindex,follow.  Canonical already points
       // at the hub city via remapCityToHub; explicit noindex makes the policy
       // consistent with satellite occasion/category pages and eliminates Semrush
-      // "only one internal link" flags for products reachable only through a
-      // satellite-city best-sellers page.  Hub-city product pages are unaffected.
+      // duplicate satellite-city product URLs. Hub-city product pages are unaffected.
       if (parsed.city && parsed.country && parsed.city !== HUB_CITY[parsed.country]) {
         result = applyEligibilityNoindex(result);
       }

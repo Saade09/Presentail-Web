@@ -95,7 +95,6 @@ export function generateLlmsTxt(origin, basePath) {
     `- [Homepage — Dubai (UAE)](${base}/en-ae/dubai.md)\n` +
     `- [Homepage — Nicosia (Cyprus)](${base}/en-cy/nicosia.md)\n` +
     `- [Shop — Beirut (Lebanon)](${base}/en-lb/beirut/shop.md)\n` +
-    `- [Best Sellers — Beirut (Lebanon)](${base}/en-lb/beirut/best-sellers.md)\n` +
     `- Example product page: \`${base}/en-lb/beirut/product/<slug>.md\`\n` +
     `- Example brand page: \`${base}/en-lb/beirut/brand/<slug>.md\`\n` +
     (blogMdLinks ? `${blogMdLinks}\n` : "");
@@ -182,7 +181,6 @@ export function buildLlmsFullTxt({
     `- [Homepage — Dubai (UAE)](${base}/en-ae/dubai.md)\n` +
     `- [Homepage — Nicosia (Cyprus)](${base}/en-cy/nicosia.md)\n` +
     `- [Shop — Beirut (Lebanon)](${base}/en-lb/beirut/shop.md)\n` +
-    `- [Best Sellers — Beirut (Lebanon)](${base}/en-lb/beirut/best-sellers.md)\n` +
     (firstProduct?.slug
       ? `- [${firstProduct.name} (product example)](${base}/en-lb/beirut/product/${encodeURIComponent(firstProduct.slug)}.md)\n`
       : `- Example product page: \`${base}/en-lb/beirut/product/<slug>.md\`\n`) +

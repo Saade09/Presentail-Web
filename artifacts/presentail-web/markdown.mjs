@@ -169,7 +169,6 @@ export function isMirroredPath(pathname) {
   if (subroute === "/faqs") return true;
   if (subroute === "/weddings") return true;
   if (subroute === "/corporate") return true;
-  if (subroute === "/best-sellers") return true;
   if (subroute.startsWith("/product/") && subroute.length > "/product/".length) return true;
   if (subroute.startsWith("/brand/") && subroute.length > "/brand/".length) return true;
   if (subroute.startsWith("/category/") && subroute.length > "/category/".length) return true;
@@ -722,53 +721,6 @@ function buildBrandMarkdown({
   return `${frontmatter}\n\n${body}`;
 }
 
-function buildBestSellersMarkdown({
-  lang, country, city, origin, cleanBase, products,
-}) {
-  const cityLbl = getCityLabel(lang, country, city);
-  const countryLbl = getCountryLabel(lang, country);
-  const localePath = `/${lang}-${country}/${city}`;
-  const canonicalUrl = `${origin}${cleanBase}${localePath}/best-sellers`;
-  const markdownUrl = `${canonicalUrl}.md`;
-
-  const description = fmt(
-    DESCRIPTIONS.en?.shop ??
-      "Browse Presentail's curated bouquets, cakes and luxury gifts for delivery in {city}, {country}.",
-    { city: cityLbl, country: countryLbl }
-  );
-
-  const frontmatter = buildFrontmatter({
-    title: `Best Sellers — Flowers & Gifts in ${cityLbl} | Presentail`,
-    description,
-    canonical_url: canonicalUrl,
-    markdown_url: markdownUrl,
-    language: lang,
-    locale: `${lang}-${country}`,
-    page_type: "best_sellers",
-    site_name: "Presentail",
-  });
-
-  const topProducts = products
-    .filter(isListableProduct)
-    .sort(byRelevance)
-    .slice(0, MAX_PRODUCTS_IN_LIST);
-
-  const productLines = topProducts.map((p) => productLine(p, { origin, cleanBase, localePath }));
-
-  const body = [
-    `# Best Sellers in ${cityLbl}`,
-    "",
-    description,
-    "",
-    ...(productLines.length > 0
-      ? ["## Top Products", "", ...productLines, "", `[See all best sellers](${canonicalUrl})`, ""]
-      : [`[Browse best-selling products](${canonicalUrl})`, ""]),
-    `[Back to ${cityLbl}](${origin}${cleanBase}${localePath})`,
-  ].join("\n");
-
-  return `${frontmatter}\n\n${body}`;
-}
-
 function buildStaticPageMarkdown({
   lang, country, city, pageKey, origin, cleanBase,
 }) {
@@ -907,13 +859,11 @@ export function buildSitemapMd({
     .sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0))
     .map((p) => `- [${p.name}](${origin}${cleanBase}/en-lb/beirut/product/${encodeURIComponent(productSlugOf(p))}.md)`);
 
-  // Enumerate all per-city best-sellers + shop pages for canonical cities.
+  // Enumerate shop pages for canonical cities.
   const shopLines = [];
-  const bestSellersLines = [];
   for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
     const cityLbl = getCityLabel("en", country, city);
     shopLines.push(`- [Shop — ${cityLbl} (${COUNTRY_LABELS[country]})](${origin}${cleanBase}/en-${country}/${city}/shop.md)`);
-    bestSellersLines.push(`- [Best Sellers — ${cityLbl} (${COUNTRY_LABELS[country]})](${origin}${cleanBase}/en-${country}/${city}/best-sellers.md)`);
   }
 
   const lines = [
@@ -945,10 +895,6 @@ export function buildSitemapMd({
     "## Shop Pages",
     "",
     ...shopLines,
-    "",
-    "## Best-Sellers Pages",
-    "",
-    ...bestSellersLines,
     "",
     ...(categoryLines.length > 0 ? ["## Categories", "", ...categoryLines, ""] : []),
     ...(occasionLines.length > 0 ? ["## Occasions", "", ...occasionLines, ""] : []),
@@ -1040,9 +986,6 @@ export async function getMarkdownForPath(
   }
   if (subroute === "/corporate") {
     return buildStaticPageMarkdown({ ...baseArgs, pageKey: "corporate" });
-  }
-  if (subroute === "/best-sellers") {
-    return buildBestSellersMarkdown(baseArgs);
   }
   if (subroute.startsWith("/category/")) {
     const categorySlug = decodeURIComponent(subroute.slice("/category/".length));

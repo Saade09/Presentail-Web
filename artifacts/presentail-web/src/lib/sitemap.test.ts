@@ -186,17 +186,12 @@ describe("buildSitemapXml — per-locale generation", () => {
     expect(xml).not.toContain("%23");
   });
 
-  it("the blog index appears in the en/ar/fr locale sitemaps as a lang-only canonical URL", () => {
-    // Blog content exists in EN/AR/FR only — the Greek child sitemap carries
-    // no blog URLs (SITEMAP_BLOG_LANGS excludes "el").
+  it("excludes the noindex blog indexes from every locale sitemap", () => {
     for (const lang of ["en", "ar", "fr"]) {
-      // Blog content is city-independent; each locale sitemap emits the
-      // lang-only canonical (/{lang}/blog) instead of a city-prefixed variant.
-      expect(xmlByLocale[lang]).toContain(
+      expect(xmlByLocale[lang]).not.toContain(
         `<loc>${ORIGIN}/${lang}/blog</loc>`,
       );
     }
-    // el emits no blog index.
     expect(xmlByLocale.el).not.toContain(`<loc>${ORIGIN}/el/blog</loc>`);
   });
 
@@ -1035,17 +1030,17 @@ describe("buildSitemapXml — excluded / noindex paths", () => {
     });
   }
 
-  it("includes the blog index as a lang-only canonical URL (not city-prefixed)", () => {
-    // xmlFull is built for the default locale (en), so <loc> carries /en/blog.
-    // The ar and fr variants appear as hreflang alternates in the same <url> block.
-    expect(xmlFull).toContain(`${ORIGIN}/en/blog<`);
-    // hreflang alternates for the other languages must also be present.
-    expect(xmlFull).toContain(`href="${ORIGIN}/ar/blog"`);
-    expect(xmlFull).toContain(`href="${ORIGIN}/fr/blog"`);
-    // Old city-prefixed blog index URLs must NOT appear (they 301-redirect here).
+  it("does not include canonical or old city-prefixed blog indexes", () => {
+    expect(xmlFull).not.toContain(`${ORIGIN}/en/blog<`);
+    expect(xmlFull).not.toContain(`href="${ORIGIN}/ar/blog"`);
+    expect(xmlFull).not.toContain(`href="${ORIGIN}/fr/blog"`);
     expect(xmlFull).not.toContain(`${ORIGIN}/en-lb/beirut/blog<`);
     expect(xmlFull).not.toContain(`${ORIGIN}/en-ae/dubai/blog<`);
     expect(xmlFull).not.toContain(`${ORIGIN}/en-cy/nicosia/blog<`);
+  });
+
+  it("does not include removed best-sellers URLs", () => {
+    expect(xmlFull).not.toContain("/best-sellers");
   });
 
   it("does not include llms.txt or llms-full.txt", () => {

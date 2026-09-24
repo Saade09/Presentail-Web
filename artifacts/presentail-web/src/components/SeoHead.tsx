@@ -43,7 +43,6 @@ const ROUTE_KEYS: Array<{ test: (rest: string) => boolean; key: string }> = [
   { test: (r) => r === "/terms", key: "terms" },
   { test: (r) => r === "/privacy", key: "privacy" },
   { test: (r) => r === "/account-deletion", key: "account-deletion" },
-  { test: (r) => r === "/best-sellers", key: "bestSellers" },
 ];
 
 function detectRouteKey(rest: string): string {
@@ -149,14 +148,6 @@ export function SeoHead() {
       routeKey === "home" &&
       parsed.rest !== "" &&
       parsed.rest !== "/";
-    // Satellite best-sellers pages (/en-lb/tripoli/best-sellers etc.) mirror
-    // the server-side noindex + no-canonical + no-hreflang treatment defined
-    // in seo-inject.mjs. Hub-city best-sellers remain fully indexed.
-    const _isSatelliteBestSellers =
-      routeKey === "bestSellers" &&
-      Boolean(parsed.city) &&
-      Boolean(parsed.country) &&
-      parsed.city !== HUB_CITY[parsed.country as keyof typeof HUB_CITY];
     const isLanding = routeKey === "landing";
     const isHome = routeKey === "home" && Boolean(inLocale) && !isUnknownSubRoute;
     // Generic browse routes (Shop, Brands, All Occasions) also get dedicated,
@@ -282,8 +273,7 @@ export function SeoHead() {
 
     // Non-public routes (cart, checkout, account, auth, favorites, order
     // confirmation) must not be indexed; mirror the server-injected directive.
-    // Satellite best-sellers also get noindex to match seo-inject.mjs.
-    if (NONINDEX_ROUTE_KEYS.has(routeKey) || _isSatelliteBestSellers) {
+    if (NONINDEX_ROUTE_KEYS.has(routeKey)) {
       setMeta(
         'meta[name="robots"]',
         { name: "robots", content: "noindex, follow" },
@@ -301,8 +291,7 @@ export function SeoHead() {
     // (which may differ from window.location.origin in production). Skip the
     // client-side rewrite so we don't accidentally revert the canonical to the
     // deployment hostname after hydration. The server-rendered value is correct.
-    // Satellite best-sellers intentionally omit canonical (matches seo-inject.mjs).
-    if (!isLanding && !_isSatelliteBestSellers) {
+    if (!isLanding) {
       // Mirror the server's isUnknownSubRoute guard: soft-404 locale URLs
       // (routeKey fell back to "home" with a non-empty unrecognised rest)
       // must canonicalize to the locale home, not self-canonicalize the
@@ -383,8 +372,7 @@ export function SeoHead() {
     // locale routes. Entity pages bail out early above — their hreflang is
     // already server-injected and must not be overwritten here. Noindex
     // routes (cart, checkout, auth, etc.) also skip hreflang.
-    // Satellite best-sellers skip hreflang (server emits none for these).
-    if (inLocale && !NONINDEX_ROUTE_KEYS.has(routeKey) && !_isSatelliteBestSellers) {
+    if (inLocale && !NONINDEX_ROUTE_KEYS.has(routeKey)) {
       // Mirror the server's isUnknownSubRoute guard so soft-404 alternates
       // point at locale homes rather than the unknown path.
       const entityPathForHreflang = isUnknownSubRoute

@@ -15,7 +15,7 @@ import {
 export const CART_RETURN_HISTORY_KEY = "presentail_cart_return_history_v1";
 
 const SHOPPING_REST_RE =
-  /^\/(?:shop|product(?:\/|$)|category(?:\/|$)|occasion(?:\/|$)|brand(?:\/|$)|brands(?:\/|$)|occasions(?:\/|$)|best-sellers(?:\/|$))/;
+  /^\/(?:shop|product(?:\/|$)|category(?:\/|$)|occasion(?:\/|$)|brand(?:\/|$)|brands(?:\/|$)|occasions(?:\/|$))/;
 
 /**
  * A cart entry is useful when the browser can take the shopper back to a

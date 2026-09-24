@@ -274,13 +274,19 @@ describe("serve.mjs — blog post pages are indexable (not noindex)", () => {
     expect(robotsHeader).toBe("index, follow");
   });
 
-  it("emits X-Robots-Tag: index, follow for the blog listing page (canonical /{lang}/blog)", async () => {
-    const { status, robotsHeader } = await get(serverPort, "/en/blog", {
-      host: "presentail.com",
-    });
-    expect(status).toBe(200);
-    expect(robotsHeader).toBe("index, follow");
-  });
+  it.each(["en", "ar", "fr"])(
+    "noindexes the canonical %s blog listing in both headers and HTML",
+    async (lang) => {
+      const { status, robotsHeader, body } = await get(
+        serverPort,
+        `/${lang}/blog`,
+        { host: "presentail.com" },
+      );
+      expect(status).toBe(200);
+      expect(robotsHeader).toBe("noindex, follow");
+      expect(body).toContain('<meta name="robots" content="noindex, follow"');
+    },
+  );
 
   it("redirects old city-prefixed blog post URL to canonical (301)", async () => {
     const { status } = await get(
@@ -291,11 +297,47 @@ describe("serve.mjs — blog post pages are indexable (not noindex)", () => {
     expect(status).toBe(301);
   });
 
-  it("redirects old city-prefixed blog listing URL to canonical (301)", async () => {
-    const { status } = await get(serverPort, "/en-lb/beirut/blog", {
+  it.each([
+    ["/en-lb/beirut/blog", "/en/blog"],
+    ["/ar-ae/dubai/blog/?utm_source=legacy&ref=journal", "/ar/blog/?ref=journal"],
+    ["/fr-lb/tripoli/blog?gclid=legacy", "/fr/blog"],
+  ])("redirects old city-prefixed blog listing %s without an index directive", async (urlPath, target) => {
+    const { status, location, robotsHeader } = await get(serverPort, urlPath, {
       host: "presentail.com",
     });
     expect(status).toBe(301);
+    expect(location).toBe(target);
+    expect(robotsHeader).toBeUndefined();
+  });
+});
+
+describe("serve.mjs — removed city best-sellers routes", () => {
+  it.each([
+    "/en-lb/beirut/best-sellers",
+    "/en-lb/tripoli/best-sellers/",
+    "/ar-ae/dubai/best-sellers?ref=nav",
+    "/fr-ae/abu-dhabi/best-sellers/",
+    "/el-cy/nicosia/best-sellers?utm_source=legacy",
+  ])("returns a real noindex 404 for %s", async (urlPath) => {
+    const { status, robotsHeader, body } = await get(serverPort, urlPath, {
+      host: "presentail.com",
+    });
+    expect(status).toBe(404);
+    expect(robotsHeader).toBe("noindex");
+    expect(body).toContain('<meta name="robots" content="noindex, follow">');
+    expect(body).toContain("<h1>Page Not Found</h1>");
+  });
+
+  it.each([
+    ["/en-lb/beirut/shop", "index, follow"],
+    ["/en-lb/beirut/cart", "noindex"],
+    ["/en-lb/beirut/checkout", "noindex"],
+  ])("keeps %s behavior unchanged", async (urlPath, robots) => {
+    const { status, robotsHeader } = await get(serverPort, urlPath, {
+      host: "presentail.com",
+    });
+    expect(status).toBe(200);
+    expect(robotsHeader).toBe(robots);
   });
 });
 

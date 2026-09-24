@@ -71,7 +71,7 @@ export function BestSellersRail() {
   return (
     <ProductCollectionCarousel
       title={t("bestSellers.title")}
-      viewAllHref="/best-sellers"
+      viewAllHref="/shop"
       viewAllLabel={t("bestSellers.viewAll")}
       products={data ?? []}
       isLoading={showSkeleton}

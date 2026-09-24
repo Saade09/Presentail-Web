@@ -138,7 +138,6 @@ const AccountDeletion = lazy(() => import("@/pages/AccountDeletion"));
 const ShippingPolicy = lazy(() => import("@/pages/ShippingPolicy"));
 const ReturnPolicy = lazy(() => import("@/pages/ReturnPolicy"));
 const SharedFavorites = lazy(() => import("@/pages/SharedFavorites"));
-const BestSellers = lazy(() => import("@/pages/BestSellers"));
 const CampaignLanding = lazy(() => import("@/pages/CampaignLanding"));
 const BeirutLateNightLanding = lazy(() => import("@/pages/BeirutLateNightLanding"));
 const NotFound = lazy(() => import("@/pages/not-found"));
@@ -173,7 +172,6 @@ const PrivacyRoute = withSuspense(Privacy, PageLoader);
 const AccountDeletionRoute = withSuspense(AccountDeletion, PageLoader);
 const ShippingPolicyRoute = withSuspense(ShippingPolicy, PageLoader);
 const ReturnPolicyRoute = withSuspense(ReturnPolicy, PageLoader);
-const BestSellersRoute = withSuspense(BestSellers, ShopPageSkeleton);
 const CampaignLandingRoute = withSuspense(CampaignLanding, ShopPageSkeleton);
 const BeirutLateNightLandingRoute = withSuspense(BeirutLateNightLanding, ShopPageSkeleton);
 const NotFoundRoute = withSuspense(NotFound, PageLoader);
@@ -413,7 +411,6 @@ function ShopShell() {
           <Switch>
             <Route path="/" component={HomeRoute} />
             <Route path="/shop" component={ShopRoute} />
-            <Route path="/best-sellers" component={BestSellersRoute} />
             <Route path="/flower-delivery" component={CampaignLandingRoute} />
             <Route
               path="/late-night-flower-delivery"
@@ -929,4 +926,4 @@ function isShoppingRoute(path: string): boolean {
 }
 
 const SHOPPING_ROUTE_RE =
-  /^\/(?:shop|product(?:\/|$)|category(?:\/|$)|occasion(?:\/|$)|brand(?:\/|$)|brands(?:\/|$)|occasions(?:\/|$)|best-sellers(?:\/|$))/;
+  /^\/(?:shop|product(?:\/|$)|category(?:\/|$)|occasion(?:\/|$)|brand(?:\/|$)|brands(?:\/|$)|occasions(?:\/|$))/;

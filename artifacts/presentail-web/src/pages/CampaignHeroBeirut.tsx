@@ -337,7 +337,7 @@ export function CampaignHeroBeirut({
             className="w-full sm:w-auto h-12 px-8 bg-white text-neutral-900 hover:bg-white/90 focus-visible:ring-white"
             data-testid="button-campaign-hero-cta"
           >
-            <Link href="/best-sellers" onClick={onCtaClick}>
+            <Link href="/shop" onClick={onCtaClick}>
               {t("campaign.v2.cta.shop")}
             </Link>
           </Button>
@@ -563,7 +563,7 @@ export function CampaignStickyBarBeirut({
     >
       <div className="flex items-stretch gap-3">
         <Link
-          href="/best-sellers"
+          href="/shop"
           onClick={onCtaClick}
           className="flex-1 min-w-0 rounded-md bg-white/15 text-white flex flex-col items-center justify-center px-4 py-2 hover:bg-white/20 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           data-testid="button-campaign-sticky-cta"

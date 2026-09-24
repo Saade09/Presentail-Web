@@ -6935,6 +6935,7 @@ describe("JSON-LD — required-field guardrail over representative routes", () =
     const out = await injectSeoTagsAsync(HTML, "/fr/blog", OPTS);
 
     expect(fetchMock).not.toHaveBeenCalled();
+    expect(out).toContain('<meta name="robots" content="noindex, follow"');
     expect(out).toContain('"@graph"');
     const blocks = assertAllJsonLdValid(out, "French blog index");
     const blog = byType(blocks, "Blog");
@@ -10287,31 +10288,6 @@ describe("Batroun internal links & /shop canonicalization", () => {
       categoryMatches,
       `categorySeoContent.mjs still contains Batroun hrefs: ${categoryMatches.join(", ")}`,
     ).toHaveLength(0);
-  });
-});
-
-describe("best-sellers canonical and hreflang policy", () => {
-  it("keeps a self-canonical and one intra-city hreflang cluster on the hub page", () => {
-    const { headSnippet } = buildSeoHead("/en-lb/beirut/best-sellers", OPTS);
-
-    expect(headSnippet).toContain(
-      'rel="canonical" href="https://presentail.test/en-lb/beirut/best-sellers"',
-    );
-    expect(headSnippet.match(/rel="canonical"/g)).toHaveLength(1);
-    expect(headSnippet).toContain('hreflang="en-LB"');
-    expect(headSnippet).toContain('hreflang="fr-LB"');
-    expect(headSnippet).toContain('hreflang="x-default"');
-    expect(headSnippet).not.toContain('name="robots" content="noindex, follow"');
-  });
-
-  it("noindexes satellite pages while retaining a canonical and no hreflang tags", () => {
-    const { headSnippet } = buildSeoHead("/en-lb/tripoli/best-sellers", OPTS);
-
-    expect(headSnippet).toContain('name="robots" content="noindex, follow"');
-    expect(headSnippet).toContain(
-      'rel="canonical" href="https://presentail.test/en-lb/tripoli/best-sellers"',
-    );
-    expect(headSnippet).not.toContain("hreflang=");
   });
 });
 

@@ -234,7 +234,7 @@ export function CampaignLandingLegacy() {
 
             {promoEligible && (
               <Link
-                href="/best-sellers"
+                href="/shop"
                 onClick={() => fireCampaignEvent("campaign_promo_click")}
                 className="inline-flex flex-col items-start gap-0.5 rounded-xl border border-primary/40 bg-white/70 px-4 py-3 w-fit focus-visible:outline-2 focus-visible:outline-primary"
                 data-testid="banner-first-order-promo"
@@ -254,7 +254,7 @@ export function CampaignLandingLegacy() {
                 data-testid="button-campaign-hero-cta"
               >
                 <Link
-                  href="/best-sellers"
+                  href="/shop"
                   onClick={() => fireCampaignEvent("campaign_hero_cta_click", "shop-best-sellers")}
                 >
                   {t("campaign.hero.cta")}
@@ -333,7 +333,7 @@ export function CampaignLandingLegacy() {
           <div className="flex items-end justify-between mb-4">
             <h2 className="font-serif text-2xl md:text-3xl">{t("campaign.bestSellers.title")}</h2>
             <Link
-              href="/best-sellers"
+              href="/shop"
               onClick={() => fireCampaignEvent("campaign_view_all_click")}
               className="text-sm text-primary hover:underline whitespace-nowrap py-2"
               data-testid="link-campaign-view-all"

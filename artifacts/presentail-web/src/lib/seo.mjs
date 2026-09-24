@@ -933,8 +933,6 @@ export const ENTITY_DESCRIPTIONS_NO_CITY = {
 //   city-specific content and must not be indexed at the per-city level.
 export const STATIC_PAGE_GROUP = {
   A: new Set(["contact", "faqs", "corporate", "weddings"]),
-  // "blog" (the Journal index) was moved out of Group B: it is indexable and
-  // acts as the hub page linking to the individual articles.
   B: new Set(["privacy", "terms", "careers", "partner"]),
 };
 
@@ -946,6 +944,7 @@ export function isGroupAStaticPage(routeKey) {
 // Route keys that must never be indexed (transactional / private / auth /
 // Group B static pages that carry no city-specific content).
 export const NONINDEX_ROUTE_KEYS = new Set([
+  "blog",
   "cart",
   "checkout",
   "orderConfirmed",

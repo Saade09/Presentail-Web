@@ -294,7 +294,7 @@ export default function Home() {
           <BestSellersPreview
             titleKey="bestSellers.title"
             railKey="best-sellers"
-            viewAllHref="/best-sellers"
+            viewAllHref="/shop"
             viewAllLabel={t("bestSellers.viewAll")}
             products={bestSellerProducts}
             isLoadingExternal={isBestSellersLoading}

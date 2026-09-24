@@ -213,7 +213,7 @@ export function CampaignGridBeirut({
           {t("campaign.v2.grid.title")}
         </h2>
         <Link
-          href="/best-sellers"
+          href="/shop"
           onClick={() => {
             trackEvent({ name: "campaign_view_all_click", sectionKey: CAMPAIGN_SECTION_KEY });
             fireGtagEvent("campaign_view_all_click", { section: CAMPAIGN_SECTION_KEY });

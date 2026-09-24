@@ -1033,7 +1033,7 @@ function resolveRouteKeyForPreload(pathname) {
   if (
     rest === "shop" || rest.startsWith("shop?") ||
     rest.startsWith("category/") || rest.startsWith("occasion/") ||
-    rest === "occasions" || rest === "best-sellers"
+    rest === "occasions"
   ) return "shop";
   if (rest.startsWith("product/")) return "product";
   // cart, checkout, account, sign-in, blog, etc. — no preload
@@ -1265,7 +1265,7 @@ setInterval(() => {
 // ---------------------------------------------------------------------------
 const LOCALE_PATH_RE = /^\/([a-z]{2})-([a-z]{2})\/([^/]+)(\/.*)?$/;
 const KNOWN_LOCALE_SUBROUTES_EXACT = new Set([
-  "/shop", "/best-sellers", "/brands", "/occasions", "/cart", "/checkout",
+  "/shop", "/brands", "/occasions", "/cart", "/checkout",
   "/order-confirmed", "/careers", "/blog", "/partner",
   "/weddings", "/corporate", "/contact", "/faqs", "/terms", "/privacy",
   "/shipping-policy", "/return-policy", "/refund-policy", "/account-deletion",
@@ -2149,6 +2149,36 @@ const server = http.createServer(async (req, res) => {
       });
       res.end();
       return;
+    }
+
+    // Removed city-scoped best-sellers pages are real 404s. Keep this after
+    // the bare legacy vanity redirect above so /best-sellers still preserves
+    // its established redirect, but reject every valid locale+city variant
+    // before Markdown negotiation or SPA/SEO rendering.
+    {
+      const bestSellersMatch = pathname.match(
+        /^\/(en|ar|fr|el)-(lb|ae|cy)\/([^/]+)\/best-sellers\/?$/,
+      );
+      if (bestSellersMatch) {
+        const [, lang, country, city] = bestSellersMatch;
+        const localeSupported = lang !== "el" || country === "cy";
+        const citySupported = SITEMAP_CITIES[country]?.includes(city);
+        if (localeSupported && citySupported) {
+          res.writeHead(404, {
+            "content-type": "text/html; charset=utf-8",
+            "x-robots-tag": "noindex",
+            "cache-control": "no-cache",
+            "expires": "0",
+          });
+          res.end(
+            `<!doctype html><html lang="${lang}"><head><title>404 Not Found – Presentail</title>` +
+            `<meta name="robots" content="noindex, follow"></head>` +
+            `<body><h1>Page Not Found</h1><p>The requested page does not exist.</p>` +
+            `<p><a href="${BASE_PATH}/${lang}-${country}/${city}/shop">Browse the shop</a></p></body></html>`,
+          );
+          return;
+        }
+      }
     }
 
     // Section 8: Legacy WordPress country-prefix redirects (301) ---------------

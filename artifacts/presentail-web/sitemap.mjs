@@ -48,8 +48,8 @@ export const SITEMAP_CANONICAL_CITIES = HUB_CITY;
 //   Includes policy pages: /shipping-policy, /return-policy, /account-deletion.
 // Group B pages (privacy, terms, careers, partner) are noindex and
 // excluded from the sitemap entirely to avoid wasting crawl budget.
-// The blog index (/blog) is indexable but emitted separately below at the
-// canonical hub cities only (like blog posts) rather than per city.
+// The noindex blog index (/blog) is excluded; published articles are emitted
+// separately below at their language-only canonical URLs.
 // Policy pages (shipping/return/account-deletion) are listed separately as
 // hub-city-only entries so there is one canonical per language×country rather
 // than one per language×country×city (which creates hundreds of duplicate-title
@@ -503,14 +503,14 @@ export function buildSitemapXml({
   // 301-redirect to these canonical paths (serve.mjs § 7c), so emitting
   // them in the sitemap would waste crawl budget and re-introduce duplication.
   //
-  // Format: /en/blog, /ar/blog, /fr/blog and /en/blog/:slug, etc.
+  // Format: /en/blog/:slug, /ar/blog/:slug, /fr/blog/:slug, etc.
   // hreflang alternates link the three language variants together.
   // Uses the module-level BLOG_POSTS source unless overridden via blogPostsArg
   // (useful in unit tests with mock data).
   const blogPostsSource = blogPostsArg ?? BLOG_POSTS ?? {};
 
   /**
-   * Build a /{lang}/blog or /{lang}/blog/:slug sitemap entry with hreflang.
+   * Build a /{lang}/blog/:slug sitemap entry with hreflang.
    * Article entries list only languages with dedicated editorial content; a
    * missing translation renders as an English fallback with noindex and must
    * never be advertised to crawlers in a sitemap.
@@ -520,7 +520,7 @@ export function buildSitemapXml({
     lastmod = generatedAt,
     alternateLangs = SITEMAP_BLOG_LANGS,
   ) => {
-    // `rest` is either "" (blog index) or "/:slug" (article).
+    // `rest` is "/:slug" for an article.
     const loc = `${origin}${cleanBase}/${lang}/blog${rest}`;
     const alternates = alternateLangs.map((altLang) => {
       const href = `${origin}${cleanBase}/${altLang}/blog${rest}`;
@@ -538,9 +538,6 @@ export function buildSitemapXml({
 
   // Blog URLs exist in EN/AR/FR only — skip the section for the Greek child.
   if (SITEMAP_BLOG_LANGS.includes(lang)) {
-    // Blog index: /{lang}/blog
-    urls.push(urlEntryBlog(""));
-
     // Blog articles: /{lang}/blog/:slug
     for (const [slug, langs] of Object.entries(blogPostsSource)) {
       if (!slug) continue;
