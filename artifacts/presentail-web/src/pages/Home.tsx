@@ -144,34 +144,39 @@ export default function Home() {
   const homepageTaxonomy =
     canLinkCityTaxonomy && catalogMetadata === undefined ? ssrHomepageTaxonomy : undefined;
 
-  // Server-rendered products (SSR-enabled city homes, e.g. Tripoli): adopted
-  // from the initial document on first mount so we skip the redundant
-  // best-sellers fetch on hydration. Lazy useState initializer — runs during
-  // the first render, before React replaces the server-rendered #root children.
+  // Server-rendered products (SSR-enabled city homes, e.g. Tripoli) provide
+  // immediate first-paint content while the live Best Sellers request runs.
+  // Lazy useState initializer — runs before React replaces the server-rendered
+  // #root children.
   const [ssrProducts] = useState<Product[] | null>(readSsrProducts);
+  const BEST_SELLERS_DISPLAY_LIMIT = 30;
 
   const bestSellersParams = {
     ...(countryCode ? { countryCode } : {}),
     ...(cityId ? { cityId } : {}),
     lang: language,
   };
-  const { data: bestSellersData, isLoading: isBestSellersLoading } = useGetHomepageBestSellers(
+  const {
+    data: bestSellersData,
+    isLoading: isBestSellersLoading,
+    isFetching: isBestSellersFetching,
+    isError: isBestSellersError,
+  } = useGetHomepageBestSellers(
     bestSellersParams,
-    // Skip the network round-trip when the server already embedded products.
+    // Revalidate even when SSR or persisted query data is available; the API
+    // response is market-specific and the rail should not stay on a stale list.
     {
       query: {
         queryKey: getGetHomepageBestSellersQueryKey(bestSellersParams),
-        enabled: !ssrProducts,
+        enabled: true,
+        staleTime: 0,
+        refetchOnMount: "always",
       },
     },
   );
-  // Only pass products when the API has resolved with real data.
-  // When undefined (loading, error, or empty cache), BestSellersPreview falls
-  // back to its default seeded-shuffle hand-bouquets path so the rail is never blank.
-  const bestSellerProducts: Product[] | undefined = ssrProducts
-    ? ssrProducts
-    : bestSellersData !== undefined && bestSellersData.products.length > 0
-      ? bestSellersData.products.map((p) => ({
+  const bestSellerApiProductCount = bestSellersData?.products.length ?? 0;
+  const hasSsrBestSellerProducts = (ssrProducts?.length ?? 0) > 0;
+  const bestSellerApiProducts: Product[] = (bestSellersData?.products ?? []).map((p) => ({
           id: p.id,
           name: p.name,
           price: p.price,
@@ -187,8 +192,20 @@ export default function Home() {
           category: "",
           categories: [],
           occasions: [],
-        }))
-      : undefined;
+        }));
+  // A short cached response is not shown while a fresh request is in flight.
+  // A complete 30-item cache remains useful during background revalidation.
+  const canUseBestSellerApiProducts =
+    bestSellerApiProductCount > 0 &&
+    (bestSellerApiProductCount >= BEST_SELLERS_DISPLAY_LIMIT ||
+      (!isBestSellersFetching && !isBestSellersError));
+  const bestSellerProducts: Product[] = canUseBestSellerApiProducts
+    ? bestSellerApiProducts
+    : ssrProducts ?? [];
+  const isBestSellersRailLoading =
+    !hasSsrBestSellerProducts &&
+    (isBestSellersLoading ||
+      (isBestSellersFetching && !canUseBestSellerApiProducts));
 
   // ── Cyprus: fetch all products for the Flower Collection rail ─────────────
   const { data: allProductsData, isLoading: isAllProductsLoading } = useProducts(
@@ -297,8 +314,8 @@ export default function Home() {
             viewAllHref="/shop"
             viewAllLabel={t("bestSellers.viewAll")}
             products={bestSellerProducts}
-            isLoadingExternal={isBestSellersLoading}
-            limit={10}
+            isLoadingExternal={isBestSellersRailLoading}
+            limit={BEST_SELLERS_DISPLAY_LIMIT}
           />
 
           <HomepageCollections />

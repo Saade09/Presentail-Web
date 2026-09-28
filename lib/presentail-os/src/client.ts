@@ -689,10 +689,21 @@ export async function fetchOsProducts(
       Array.from({ length: totalPages - 1 }, (_, i) => fetchPage(path, i + 2)),
     );
     const allProducts: NormalisedProduct[] = [...normalisedFirst];
-    for (const res of remaining) {
-      if (!res.ok) break; // stop collecting on any error; use what we have
+    for (let i = 0; i < remaining.length; i++) {
+      const res = remaining[i]!;
+      const page = i + 2;
+      if (!res.ok) {
+        throw new Error(
+          `Presentail OS products API returned HTTP ${res.status} on page ${page}`,
+        );
+      }
       const body = (await res.json()) as RawOSProductsResponse;
-      if (Array.isArray(body.products)) allProducts.push(...body.products.map(normaliseProduct));
+      if (!Array.isArray(body.products)) {
+        throw new Error(
+          `Presentail OS products API returned an invalid products list on page ${page}`,
+        );
+      }
+      allProducts.push(...body.products.map(normaliseProduct));
     }
     return { ...firstBody, products: deduplicateSlugs(allProducts) };
   }

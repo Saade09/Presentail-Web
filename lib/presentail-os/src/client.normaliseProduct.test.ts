@@ -213,3 +213,38 @@ describe("normaliseProduct — snake_case availability field extraction", () => 
     expect(product!.deliverableCountries).toBeUndefined();
   });
 });
+
+describe("fetchOsProducts — pagination completeness", () => {
+  it("rejects a partial catalog instead of returning page one when a later page fails", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = new URL(input.toString());
+      if (url.searchParams.get("page") === "1") {
+        return Promise.resolve(jsonResponse({ products: [], totalPages: 2 }));
+      }
+      return Promise.resolve(jsonResponse({}, false, 503));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchOsProducts(config)).rejects.toThrow(
+      "Presentail OS products API returned HTTP 503 on page 2",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects a malformed later page instead of silently omitting it", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = new URL(input.toString());
+      return Promise.resolve(
+        url.searchParams.get("page") === "1"
+          ? jsonResponse({ products: [], totalPages: 2 })
+          : jsonResponse({ products: null }),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchOsProducts(config)).rejects.toThrow(
+      "Presentail OS products API returned an invalid products list on page 2",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});

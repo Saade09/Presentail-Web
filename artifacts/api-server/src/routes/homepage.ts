@@ -757,7 +757,9 @@ export function resolveProductPricing(
 // price data from the order line items and a null image.
 
 router.get("/homepage/best-sellers", async (req, res) => {
-  setHomepageCacheHeaders(res);
+  // This list is revalidated by the homepage on mount. Do not let browser or
+  // shared HTTP caches keep a short/older market-specific response around.
+  res.setHeader("Cache-Control", "private, no-store");
   const store = resolveStoreFromRequest(req);
 
   const countryCode =
@@ -959,10 +961,12 @@ router.get("/homepage/best-sellers", async (req, res) => {
     .map(({ blendedScore: _, totalSales: __, ...rest }) => rest);
 
   const body = { ok: true, products, rankingScoreVersion: RANKING_SCORE_VERSION };
-  // Only cache when we have products (avoid caching empty cold-start responses).
+  // Cache complete lists only. Short lists may be caused by an incomplete
+  // upstream catalog refresh, so let the next request recompute from the
+  // current catalog rather than pinning that result for the full TTL.
   // Cache stores English names — translation is applied per-request below so
   // the lang-neutral cache can be reused for all locales.
-  if (products.length > 0) {
+  if (products.length === BEST_SELLERS_LIMIT) {
     bestSellersCache.set(cacheKey, { fetchedAt: now, body });
   }
 

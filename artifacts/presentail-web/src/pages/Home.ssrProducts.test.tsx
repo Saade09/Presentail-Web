@@ -2,7 +2,8 @@
 //
 // SSR product adoption test (Tripoli city home): when the server embedded a
 // product grid (data-ssr-products="true") in the initial HTML, Home must
-// (a) skip the redundant best-sellers fetch on first hydration, and
+// (a) revalidate best sellers on first hydration while retaining the SSR cards
+//     as immediate content, and
 // (b) adopt the embedded products WITH their sale-pricing fields so
 // ProductCard/SalePrice keeps showing discounted prices after hydration.
 
@@ -42,15 +43,42 @@ vi.mock("@/hooks/use-mobile", () => ({ useIsMobile: vi.fn(() => false) }));
 
 // Capture the products passed to the Best Sellers rail so we can assert the
 // adopted SSR data (including sale pricing) reaches the card layer intact.
-const capturedRailProps: Array<{ railKey?: string; products?: Product[] }> = [];
+const capturedRailProps: Array<{
+  railKey?: string;
+  products?: Product[];
+  limit?: number;
+  isLoadingExternal?: boolean;
+}> = [];
 vi.mock("@/components/homepage/BestSellersPreview", () => ({
-  BestSellersPreview: (props: { railKey?: string; products?: Product[] }) => {
+  BestSellersPreview: (props: {
+    railKey?: string;
+    products?: Product[];
+    limit?: number;
+    isLoadingExternal?: boolean;
+  }) => {
     capturedRailProps.push(props);
     return null;
   },
 }));
 
-const useGetHomepageBestSellersMock = vi.fn(() => ({ data: undefined, isLoading: false }));
+type BestSellersResponseForTest = {
+  products: Array<{
+    id: string;
+    name: string;
+    price: string;
+    priceValue: number;
+    image: { uri: string } | null;
+    images: { uri: string }[];
+    inStock: boolean;
+    popularity: number;
+  }>;
+};
+const useGetHomepageBestSellersMock = vi.fn(() => ({
+  data: undefined as BestSellersResponseForTest | undefined,
+  isLoading: false,
+  isFetching: false,
+  isError: false,
+}));
 vi.mock("@workspace/api-client-react", () => ({
   useGetHomepageBestSellers: (
     ...args: Parameters<typeof useGetHomepageBestSellersMock>
@@ -111,18 +139,23 @@ describe("Home — SSR product adoption on hydration", () => {
       .forEach((el) => el.remove());
   });
 
-  it("adopts SSR products (preserving sale pricing) and disables the best-sellers fetch", () => {
+  it("keeps SSR products for first paint and revalidates the best-sellers fetch", () => {
     seedSsrBlock();
     renderWithProviders(<Home />, { locale: EN_LOCALE });
 
-    // Fetch suppressed: the hook was invoked with enabled: false.
+    // SSR is provisional: always issue a fresh market-specific request.
     const callArgs = useGetHomepageBestSellersMock.mock.calls[0] as unknown[];
-    const options = callArgs?.[1] as { query?: { enabled?: boolean } };
-    expect(options?.query?.enabled).toBe(false);
+    const options = callArgs?.[1] as {
+      query?: { enabled?: boolean; staleTime?: number; refetchOnMount?: string };
+    };
+    expect(options?.query?.enabled).toBe(true);
+    expect(options?.query?.staleTime).toBe(0);
+    expect(options?.query?.refetchOnMount).toBe("always");
 
     // The best-sellers rail received the adopted SSR products.
     const rail = capturedRailProps.find((p) => p.railKey === "best-sellers");
     expect(rail?.products).toHaveLength(2);
+    expect(rail?.limit).toBe(30);
     const [full, sale] = rail!.products!;
     expect(full.id).toBe("roses-bouquet");
     expect(full.discountPriceValue).toBeNull();
@@ -142,6 +175,61 @@ describe("Home — SSR product adoption on hydration", () => {
     const options = callArgs?.[1] as { query?: { enabled?: boolean } };
     expect(options?.query?.enabled).toBe(true);
     const rail = capturedRailProps.find((p) => p.railKey === "best-sellers");
-    expect(rail?.products).toBeUndefined();
+    // Do not let the undefined-props path switch the main rail to a separate,
+    // potentially shorter hand-bouquets collection while its request loads.
+    expect(rail?.products).toEqual([]);
+    expect(rail?.limit).toBe(30);
+  });
+
+  it("shows a loading state instead of a short cached list during revalidation", () => {
+    useGetHomepageBestSellersMock.mockReturnValue({
+      data: {
+        products: Array.from({ length: 3 }, (_, index) => ({
+          id: `cached-${index}`,
+          name: `Cached product ${index}`,
+          price: "$10",
+          priceValue: 10,
+          image: { uri: `https://cdn.test/cached-${index}.jpg` },
+          images: [],
+          inStock: true,
+          popularity: 3 - index,
+        })),
+      },
+      isLoading: false,
+      isFetching: true,
+      isError: false,
+    });
+
+    renderWithProviders(<Home />, { locale: EN_LOCALE });
+
+    const rail = capturedRailProps.find((p) => p.railKey === "best-sellers");
+    expect(rail?.products).toEqual([]);
+    expect(rail?.isLoadingExternal).toBe(true);
+  });
+
+  it("passes all 30 products from the API into the homepage rail", () => {
+    useGetHomepageBestSellersMock.mockReturnValue({
+      data: {
+        products: Array.from({ length: 30 }, (_, index) => ({
+          id: `product-${index}`,
+          name: `Product ${index}`,
+          price: "$10",
+          priceValue: 10,
+          image: { uri: `https://cdn.test/${index}.jpg` },
+          images: [],
+          inStock: true,
+          popularity: 30 - index,
+        })),
+      },
+      isLoading: false,
+      isFetching: false,
+      isError: false,
+    });
+
+    renderWithProviders(<Home />, { locale: EN_LOCALE });
+
+    const rail = capturedRailProps.find((p) => p.railKey === "best-sellers");
+    expect(rail?.products).toHaveLength(30);
+    expect(rail?.limit).toBe(30);
   });
 });
