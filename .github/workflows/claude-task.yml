@@ -1,0 +1,135 @@
+# Lets a Presentail Hive agent hand a coding task to Claude Code (the "claude_code" tool,
+# server/claudeCode.js in adnanammache/presentail-hive): Claude Code checks out this repo,
+# makes the change, and opens a pull request against main. It never merges or publishes
+# anything — a person reviews and merges.
+#
+# Commit this file to Saade09/Presentail-Web as .github/workflows/claude-task.yml
+#
+# Prerequisites in THIS repository (Settings):
+#   1. Secrets and variables → Actions → New repository secret:
+#        ANTHROPIC_API_KEY = <an Anthropic API key>
+#      (separate from the ANTHROPIC_API_KEY Railway variable Hive itself runs on)
+#   2. Actions → General → Workflow permissions → tick
+#        "Allow GitHub Actions to create and approve pull requests"
+#      Without it the job cannot open the PR.
+#   3. Secrets and variables → Actions → New repository secret:
+#        CLAUDE_PR_TOKEN_2 = <fine-grained PAT, this repo only:
+#                           Contents read/write, Pull requests read/write, Issues read/write.
+#                           Do NOT grant Workflows — see the note at the end of this header.>
+#      (In this repository the secret is named CLAUDE_PR_TOKEN_2, because a token of that
+#      name was created for it separately from the one used by Saade09/presentail-os. The
+#      steps below accept either name: CLAUDE_PR_TOKEN_2 first, then CLAUDE_PR_TOKEN,
+#      then the repository's own GITHUB_TOKEN.)
+#      Required in practice here, not optional. GitHub never starts a workflow run from an
+#      event created by a repository's own GITHUB_TOKEN, and main in this repo has required
+#      status checks registered (configure-branch-protection.yml registers the translation,
+#      api-server, mobile and web checks). With GITHUB_TOKEN alone a Claude-opened PR
+#      reports no checks, the required checks sit at "Expected — waiting for status to be
+#      reported", and GitHub hides the merge button entirely — which looks like a
+#      permissions problem but is not. With CLAUDE_PR_TOKEN_2 set, the checks run and the PR
+#      is mergeable normally. The line below falls back to GITHUB_TOKEN if the secret is
+#      absent, so the workflow still works either way.
+#
+# Adapted from adnanammache/presentail-hive's claude-task.yml for this repo's stack:
+# pnpm workspace (packageManager pnpm@10.26.1) + Node 24, install steps copied from this
+# repo's own web-check.yml.
+#
+# Node version: this repo pins nothing (no .nvmrc, no `engines` field). Its workflows use
+# Node 24 for web/api/lib checks (20 of them) and Node 20 only for the mobile store, sitemap
+# and translation jobs. Node 24 is therefore the right version for code work here — but the
+# real fix is to add .nvmrc or `engines` to the repo so this file and CI cannot drift apart.
+#
+# Deliberately NOT granted: `workflows: write` — and for the same reason, do not tick
+# "Workflows" when creating CLAUDE_PR_TOKEN_2. A PAT's permissions override the
+# `permissions:` block below, so a PAT with Workflows would let Claude Code rewrite
+# this repo's CI and deployment workflows.
+# Claude Code therefore cannot add or edit
+# anything under .github/workflows/. That matters more here than anywhere else: this repo's
+# workflows include db-migrate-prod.yml, ios-app-store.yml, android-play-store.yml and
+# configure-branch-protection.yml. Production deployment, database migration and store
+# releases stay human-only.
+name: Claude Code task
+
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: 'What to build or fix'
+        required: true
+      title:
+        description: 'Short title (used in the pull request)'
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      HUSKY: 0 # this repo installs husky git hooks via `prepare`; they must not block the commit
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          # A PAT here means the branch push and the pull request are NOT authored by the
+          # repository's own GITHUB_TOKEN, so this repo's CI actually runs on them.
+          token: ${{ secrets.CLAUDE_PR_TOKEN_2 || secrets.CLAUDE_PR_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'pnpm'
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.CLAUDE_PR_TOKEN_2 || secrets.CLAUDE_PR_TOKEN || secrets.GITHUB_TOKEN }}
+          base_branch: main
+          prompt: |
+            ${{ github.event.inputs.title && format('# {0}', github.event.inputs.title) || '' }}
+            ${{ github.event.inputs.task }}
+
+            About this repository:
+            - It is a pnpm workspace (pnpm 10.26.1, Node 24). Use `pnpm`, never `npm` or
+              `yarn`: the root `preinstall` script refuses any other package manager and
+              `npm ci` will fail.
+            - Install with `pnpm install --frozen-lockfile`.
+            - Build shared libs before type-checking a package: `pnpm run typecheck:libs`.
+            - Checks to run for code you touch:
+                pnpm run test
+                pnpm --filter @workspace/presentail-web run typecheck
+                pnpm --filter @workspace/presentail-web run lint
+            - If you changed build configuration, dependencies or anything shared under lib/,
+              also run the production build and report the result in the pull request:
+                pnpm run build
+              `pnpm run typecheck` runs the full gate (libs, tests, lint, translations) and is
+              slow — prefer the targeted commands above, and read AGENTS.md first.
+            - Read AGENTS.md at the repo root before starting: it holds this repo's own
+              conventions and they take precedence over general habits.
+            - Do not edit anything under .github/workflows/ — the token has no permission to
+              push it and the push will be rejected. Several of those workflows deploy to
+              production, migrate the production database or publish to the app stores. If CI
+              needs changing, say so in the pull request description instead.
+            - Do not change pnpm-lock.yaml by hand; if a dependency is genuinely needed, let
+              pnpm update the lockfile and call it out clearly in the pull request.
+            - Never touch live data, Stripe configuration or anything under patches/ without
+              saying so prominently in the pull request description.
+
+            How to deliver this:
+            1. Create a new branch off main named `hive/<short-slug>-${{ github.run_id }}`.
+            2. Make the change, run the relevant checks above, and commit.
+            3. Push the branch and open a pull request against main with
+               `gh pr create --base main --title "<title>" --body "<what changed and why, and which checks you ran>"`.
+            Do not merge it — a person reviews and merges every change here.
+          claude_args: |
+            --max-turns 100
+            --permission-mode acceptEdits
+            --allowedTools "Read,Grep,Glob,Bash(git:*),Bash(gh pr create:*),Bash(gh pr view:*),Bash(pnpm install:*),Bash(pnpm run:*),Bash(pnpm --filter:*),Bash(pnpm exec:*),Bash(node:*),Bash(ls:*),Bash(cat:*),Bash(grep:*),Bash(find:*)"
