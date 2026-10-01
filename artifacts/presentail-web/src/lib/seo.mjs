@@ -1222,7 +1222,11 @@ export function buildProductSeo({
   // No guardrail is applied to the no-city fallback (shorter by design).
   let title = formatTemplate(titleTpl, params);
   if (city && cleanVariant && title.length > PRODUCT_TITLE_HARD_MAX) {
-    title = formatTemplate(titleTpl, { ...params, name });
+    // Drop the qualifier only when the name alone already overflows. When the
+    // name fits on its own, keep the qualifier and let the truncation below
+    // shorten the name, so same-name variants keep distinct titles.
+    const nameOnlyTitle = formatTemplate(titleTpl, { ...params, name });
+    if (nameOnlyTitle.length > PRODUCT_TITLE_HARD_MAX) title = nameOnlyTitle;
   }
   if (city && title.length > PRODUCT_TITLE_HARD_MAX) {
     // Suffix that always follows the name in the city-qualified template.
