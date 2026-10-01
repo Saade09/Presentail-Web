@@ -7,7 +7,7 @@
 // categories) and delegates to the pure builder.
 
 import { BLOG_POSTS, getBlogPostLanguages } from "@workspace/blog-content";
-import { isPageEligible, MIN_PRODUCTS_BY_TYPE } from "./scripts/pageEligibility.mjs";
+import { isPageEligible } from "./scripts/pageEligibility.mjs";
 import { getOccasionSeoContent } from "./src/data/occasionSeoContent.mjs";
 import { getCategorySeoContent, CATEGORY_SEO_CONTENT } from "./src/data/categorySeoContent.mjs";
 import { buildProductImageAlt } from "./imageAlt.mjs";
@@ -115,6 +115,14 @@ export function buildSitemapXml({
    */
   productsByCountry = null,
   brands = [],
+  /**
+   * Per-hub-city brand lists keyed by country code ("lb", "ae", "cy"), each
+   * entry `{ slug, count }` where `count` is the number of products
+   * deliverable in that hub city carrying that brand. When provided, a city's
+   * brand URLs are only emitted when that city's count passes the eligibility
+   * check. Falls back to the flat `brands` list for any absent country key.
+   */
+  brandsByCountry = null,
   occasions = [],
   /**
    * Per-hub-city occasion lists keyed by country code ("lb", "ae", "cy"),
@@ -140,21 +148,11 @@ export function buildSitemapXml({
    * Shape: { counts: { [pageType]: { eligible: number, ineligible: number } } }
    */
   reportRef = null,
-  /**
-   * Total product count across the full catalog (e.g. `products.length` from
-   * the /api/woo/products response). Used as `parentProductCount` in
-   * brand/occasion/category eligibility checks so the uniqueness-ratio and
-   * identical-inventory rules can fire at sitemap build time.
-   *
-   * Per-city product counts are not available at sitemap build time for
-   * brands/occasions/categories, so we use this global total as a conservative
-   * proxy: if the collection represents a very small or identical fraction of
-   * the whole catalog, the city page is treated as thin/duplicate and excluded.
-   *
-   * null = unknown (ratio rules are skipped — callers should always supply this
-   * when productsData is available to ensure ratio checks are enforced).
-   */
-  totalProductCount = null,
+  // Note: a former `totalProductCount` argument (full catalog size, used as
+  // the brand `parentProductCount`) is no longer read. The ratio vs. catalog
+  // total wrongly rejected every brand, so like occasions and categories the
+  // brand gate is now the absolute minimum count only. Callers that still
+  // pass it are unaffected.
   /**
    * ISO-8601 date string (YYYY-MM-DD) representing when this sitemap was
    * generated. Used as <lastmod> for all static and catalog entries where
@@ -318,33 +316,31 @@ export function buildSitemapXml({
     }
   }
 
-  // 3. Brand pages — same canonical-city pattern.
-  for (const brand of brands) {
-    if (!brand?.slug) continue;
-    const encoded = encodeURIComponent(brand.slug);
-    for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
-      if (skipCountryForLang(country)) continue;
-      // At sitemap build time per-city product counts are unavailable without
-      // O(brands×cities) extra API calls. We use brand.count (global brand total)
-      // as productCount and totalProductCount (full catalog size) as the parent
-      // so the ratio and identical-inventory rules can enforce some signal:
-      //  - ratio: brand.count / totalProductCount < 0.15 → thin/niche brand page excluded
-      //  - identical: brand covers entire catalog → no city-specific value added
-      // This is a conservative proxy — any false positives are prevented by
-      // the min-count check, and false negatives (thin per-city pages that pass)
-      // are caught at request time by seo-inject which has the real per-city count.
-      const parentEligibleBrand =
-        totalProductCount !== null
-          ? totalProductCount >= MIN_PRODUCTS_BY_TYPE["city-brand"]
-          : null;
+  // 3. Brand pages — canonical city per country × all languages. Skip any
+  // brand that fails the eligibility check (thin/empty pages).
+  //
+  // Per-city filtering: when `brandsByCountry` is supplied each hub city uses
+  // its own brand list, whose `count` is the real number of products
+  // deliverable in that hub city carrying the brand. generateSitemap derives
+  // it from the `brandNames` of the city-filtered products it already fetches,
+  // so no extra API calls are needed. This is the same per-city count
+  // seo-inject gates noindex on, so no emitted brand URL is served noindex.
+  for (const [country, city] of Object.entries(SITEMAP_CANONICAL_CITIES)) {
+    if (skipCountryForLang(country)) continue;
+    const cityBrands = brandsByCountry?.[country] ?? brands;
+    for (const brand of cityBrands) {
+      if (!brand?.slug) continue;
+      const encoded = encodeURIComponent(brand.slug);
+      // parentProductCount intentionally omitted — see occasion section below
+      // for the same reasoning: ratio vs. global catalog total incorrectly
+      // rejects small-but-real brands (apple: 8/377 = 0.021 < 0.15). The
+      // absolute minimum-count check (Rule 3, ≥3 products) is the correct gate.
       const eligibility = isPageEligible({
         pageType: "city-brand",
         country,
         city,
         brandSlug: brand.slug,
         productCount: brand.count ?? 0,
-        parentProductCount: totalProductCount,
-        parentEligible: parentEligibleBrand,
       });
       recordEligibility("city-brand", eligibility.eligible);
       if (!eligibility.eligible) continue;
@@ -641,9 +637,8 @@ export async function generateSitemap(origin, basePath, fetchJson, apiBaseUrl, l
   const cityProducts = HUB_CITY_FETCH.map((_, i) => perCityData[i * 2]);
   const cityMetas   = HUB_CITY_FETCH.map((_, i) => perCityData[i * 2 + 1]);
 
-  // Primary (LB) data used for backward-compat fallback and totalProductCount
-  // (LB typically has the largest catalog, so it's the best proxy for the
-  // brand eligibility ratio checks).
+  // Primary (LB) data used for the backward-compat flat fallback lists and
+  // the catalog-outage guard below.
   const lbData = cityProducts[0] ?? null;
   const lbMeta = cityMetas[0] ?? null;
 
@@ -667,6 +662,7 @@ export async function generateSitemap(origin, basePath, fetchJson, apiBaseUrl, l
       inStock: p.inStock,
       status: p.status ?? null,
       tags: Array.isArray(p.tags) ? p.tags : [],
+      brandNames: Array.isArray(p.brandNames) ? p.brandNames : [],
     }));
 
   // Build per-country product maps for city-aware product URL filtering.
@@ -685,8 +681,42 @@ export async function generateSitemap(origin, basePath, fetchJson, apiBaseUrl, l
     HUB_CITY_FETCH.map(({ country }, i) => [country, cityMetas[i]?.categories ?? []]),
   );
 
-  // Keep flat fallback lists from LB metadata for any backward-compat path
-  // (and for the brands list which is not per-city filtered here).
+  // Build per-country brand counts by tallying the `brandNames` (display
+  // names) of each hub city's deliverable products. /api/woo/brands carries
+  // no count, and the metadata endpoint's brand counts are not country-aware
+  // (LB/AE/CY return identical values), so this is the only source that
+  // matches the per-city count seo-inject gates noindex on. Names with no
+  // matching brand slug are dropped — notably the house name
+  // "Presentail Flowers & Gifts" that every product carries. When no brand
+  // name→slug list is available at all, brandsByCountry stays null so the
+  // flat `brands` fallback applies.
+  const brandKey = (name) => (typeof name === "string" ? name.trim().toLowerCase() : "");
+  const brandNameSource =
+    brandsData !== null
+      ? brandsData?.brands ?? []
+      : cityMetas.find((m) => Array.isArray(m?.brands))?.brands ?? null;
+  let brandsByCountry = null;
+  if (brandNameSource) {
+    const slugByName = new Map();
+    for (const b of brandNameSource) {
+      const key = brandKey(b?.name);
+      if (key && b?.slug) slugByName.set(key, b.slug);
+    }
+    brandsByCountry = Object.fromEntries(
+      HUB_CITY_FETCH.map(({ country }) => {
+        const counts = new Map();
+        for (const product of productsByCountry[country]) {
+          const slugs = new Set(
+            product.brandNames.map((n) => slugByName.get(brandKey(n))).filter(Boolean),
+          );
+          for (const slug of slugs) counts.set(slug, (counts.get(slug) ?? 0) + 1);
+        }
+        return [country, [...counts].map(([slug, count]) => ({ slug, count }))];
+      }),
+    );
+  }
+
+  // Keep flat fallback lists from LB metadata for any backward-compat path.
   const products = normalizeProducts(lbData);
 
   return buildSitemapXml({
@@ -696,13 +726,11 @@ export async function generateSitemap(origin, basePath, fetchJson, apiBaseUrl, l
     products,
     productsByCountry,
     brands: brandsData?.brands ?? [],
+    brandsByCountry,
     occasions: lbMeta?.occasions ?? [],
     occasionsByCountry,
     categories: lbMeta?.categories ?? [],
     categoriesByCountry,
-    // Pass the LB total as the totalProductCount proxy for brand eligibility
-    // ratio checks (see buildSitemapXml JSDoc).
-    totalProductCount: lbData?.products?.length ?? null,
     generatedAt,
   });
 }
