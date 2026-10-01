@@ -1,0 +1,199 @@
+From 384403d8220cfa0e109301dbe6de41d9d93412e2 Mon Sep 17 00:00:00 2001
+From: "claude[bot]" <41898282+claude[bot]@users.noreply.github.com>
+Date: Thu, 1 Oct 2026 11:24:56 +0000
+Subject: [PATCH] ci: generate blog hero variants, build dist before serve
+ tests, unblock the env guard
+
+- web-serve-check: run generate-blog-hero-variants before
+  check-blog-hero-variants (the -480/-768 outputs are gitignored).
+- web-serve-check / web-lint: restore-or-build the verified web dist
+  (shared web-dist-v3 node24 cache key) before the unit tests, since the
+  serve-*.test.ts suites spawn serve.mjs, which needs dist/public/index.html.
+- Supply inert, empty VITE_FB_PIXEL_ID_* / VITE_GTAG_* values to every CI
+  web build and provenance-verify step so the env-placeholder guard passes
+  without secrets. Empty IDs initialise no analytics; this artefact is
+  never deployed (production is built by Replit Autoscale).
+
+Workflow edits authorised by the repository owner for this task.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .github/workflows/seo-regression.yml  | 17 ++++++++++
+ .github/workflows/web-lint.yml        | 36 ++++++++++++++++++++
+ .github/workflows/web-serve-check.yml | 49 ++++++++++++++++++++++-----
+ 3 files changed, 93 insertions(+), 9 deletions(-)
+
+diff --git a/.github/workflows/seo-regression.yml b/.github/workflows/seo-regression.yml
+index b75ecb3d..280eec8c 100644
+--- a/.github/workflows/seo-regression.yml
++++ b/.github/workflows/seo-regression.yml
+@@ -183,6 +183,16 @@ jobs:
+       - name: Build web app
+         id: web-build
+         if: steps.preview.outputs.use_local == 'true' && steps.web-dist-cache.outputs.cache-hit != 'true'
++        # Inert CI-only values so the env-placeholder guard in vite.config.ts can
++        # pass. Empty IDs disable analytics (no Meta pixel or gtag property is
++        # initialised). Production values come from Replit secrets at deploy
++        # time; this build artefact is never deployed.
++        env:
++          VITE_FB_PIXEL_ID_LB: ""
++          VITE_FB_PIXEL_ID_AE: ""
++          VITE_GTAG_ADS_ID: ""
++          VITE_GTAG_GA4_ID: ""
++          VITE_GTAG_ADS_ID_UAE: ""
+         run: |
+           started=$(date +%s%3N)
+           pnpm --filter @workspace/presentail-web run build
+@@ -196,6 +206,13 @@ jobs:
+         if: steps.preview.outputs.use_local == 'true'
+         env:
+           BUILD_CACHE_HIT: ${{ steps.web-dist-cache.outputs.cache-hit }}
++          # The provenance cache key hashes VITE_* vars, so these must match
++          # the inert values given to the build step above.
++          VITE_FB_PIXEL_ID_LB: ""
++          VITE_FB_PIXEL_ID_AE: ""
++          VITE_GTAG_ADS_ID: ""
++          VITE_GTAG_GA4_ID: ""
++          VITE_GTAG_ADS_ID_UAE: ""
+         run: pnpm --filter @workspace/presentail-web run verify-build
+ 
+       - name: Report web build reuse
+diff --git a/.github/workflows/web-lint.yml b/.github/workflows/web-lint.yml
+index 39614d25..5fe3742b 100644
+--- a/.github/workflows/web-lint.yml
++++ b/.github/workflows/web-lint.yml
+@@ -70,5 +70,41 @@ jobs:
+       - name: Build shared libs
+         run: pnpm run typecheck:libs
+ 
++      # The serve-*.test.ts suites spawn serve.mjs, which exits at startup
++      # without dist/public/index.html. Same key as web-serve-check.yml, so a
++      # verified build from either workflow is reused instead of rebuilt.
++      - name: Restore verified web build
++        id: web-dist-cache
++        uses: actions/cache@v4
++        with:
++          path: artifacts/presentail-web/dist
++          key: web-dist-v3-${{ runner.os }}-node24-${{ hashFiles('artifacts/presentail-web/src/**', 'artifacts/presentail-web/public/**', '!artifacts/presentail-web/public/blog/*-480.webp', '!artifacts/presentail-web/public/blog/*-768.webp', 'artifacts/presentail-web/index.html', 'artifacts/presentail-web/package.json', 'artifacts/presentail-web/tsconfig.json', 'artifacts/presentail-web/vite.config.ts', 'artifacts/presentail-web/*.mjs', 'artifacts/presentail-web/scripts/generate-blog-hero-variants.mjs', 'artifacts/presentail-web/scripts/pageEligibility.mjs', 'lib/**', 'attached_assets/Elegant-dark-teal-stationery-design_1778742277420.avif', 'attached_assets/Presentail-Arabic-Logo*', 'attached_assets/Presentail_PNG-01*', 'scripts/build-artifact-provenance.mjs', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'tsconfig*.json') }}
++
++      - name: Build web app
++        if: steps.web-dist-cache.outputs.cache-hit != 'true'
++        # Inert CI-only values so the env-placeholder guard in vite.config.ts can
++        # pass. Empty IDs disable analytics (no Meta pixel or gtag property is
++        # initialised). Production values come from Replit secrets at deploy
++        # time; this build artefact is never deployed.
++        env:
++          VITE_FB_PIXEL_ID_LB: ""
++          VITE_FB_PIXEL_ID_AE: ""
++          VITE_GTAG_ADS_ID: ""
++          VITE_GTAG_GA4_ID: ""
++          VITE_GTAG_ADS_ID_UAE: ""
++        run: pnpm --filter @workspace/presentail-web run build
++
++      - name: Verify web provenance, integrity, and size budget
++        env:
++          BUILD_CACHE_HIT: ${{ steps.web-dist-cache.outputs.cache-hit }}
++          # The provenance cache key hashes VITE_* vars, so these must match
++          # the inert values given to the build step above.
++          VITE_FB_PIXEL_ID_LB: ""
++          VITE_FB_PIXEL_ID_AE: ""
++          VITE_GTAG_ADS_ID: ""
++          VITE_GTAG_GA4_ID: ""
++          VITE_GTAG_ADS_ID_UAE: ""
++        run: pnpm --filter @workspace/presentail-web run verify-build
++
+       - name: Run web unit tests
+         run: pnpm --filter @workspace/presentail-web run test
+diff --git a/.github/workflows/web-serve-check.yml b/.github/workflows/web-serve-check.yml
+index 86bd198b..04cd3c35 100644
+--- a/.github/workflows/web-serve-check.yml
++++ b/.github/workflows/web-serve-check.yml
+@@ -86,6 +86,10 @@ jobs:
+       - name: Check src/fonts/ woff2 budget (latin ≤30 kB, roboto-400 ≤50 kB, arabic ≤60 kB)
+         run: pnpm --filter @workspace/presentail-web run check-font-budget
+ 
++      # The -480/-768 variants are gitignored, so a fresh checkout has none.
++      - name: Generate blog hero responsive variants (480w/768w)
++        run: pnpm --filter @workspace/presentail-web run generate-blog-hero-variants
++
+       - name: Check blog hero responsive variants are present (480w/768w)
+         run: pnpm --filter @workspace/presentail-web run check-blog-hero-variants
+ 
+@@ -116,15 +120,8 @@ jobs:
+       - name: Check brand/occasion/category page SEO title lengths (30–65 chars)
+         run: pnpm --filter @workspace/presentail-web run check-static-entity-title-lengths
+ 
+-      - name: Run web unit tests
+-        run: pnpm --filter @workspace/presentail-web run test
+-
+-      - name: Run seo-inject unit tests (seo-inject.mjs regression gate)
+-        run: pnpm --filter @workspace/presentail-web exec vitest run src/lib/seo-inject.test.ts
+-
+-      - name: Check image alt text (no <img> missing alt or using empty alt without annotation)
+-        run: pnpm --filter @workspace/scripts run check-image-alt
+-
++      # Built before the unit tests: the serve-*.test.ts suites spawn serve.mjs,
++      # which exits at startup without dist/public/index.html.
+       - name: Restore verified web build
+         if: github.event_name != 'schedule' && inputs.clean_build != true
+         id: web-dist-cache
+@@ -136,6 +133,16 @@ jobs:
+       - name: Build web app (vite + compress-assets)
+         id: web-build
+         if: github.event_name == 'schedule' || inputs.clean_build == true || steps.web-dist-cache.outputs.cache-hit != 'true'
++        # Inert CI-only values so the env-placeholder guard in vite.config.ts can
++        # pass. Empty IDs disable analytics (no Meta pixel or gtag property is
++        # initialised). Production values come from Replit secrets at deploy
++        # time; this build artefact is never deployed.
++        env:
++          VITE_FB_PIXEL_ID_LB: ""
++          VITE_FB_PIXEL_ID_AE: ""
++          VITE_GTAG_ADS_ID: ""
++          VITE_GTAG_GA4_ID: ""
++          VITE_GTAG_ADS_ID_UAE: ""
+         run: |
+           started=$(date +%s%3N)
+           pnpm --filter @workspace/presentail-web run build
+@@ -144,8 +151,24 @@ jobs:
+       - name: Verify web provenance, integrity, and size budget
+         env:
+           BUILD_CACHE_HIT: ${{ steps.web-dist-cache.outputs.cache-hit }}
++          # The provenance cache key hashes VITE_* vars, so these must match
++          # the inert values given to the build step above.
++          VITE_FB_PIXEL_ID_LB: ""
++          VITE_FB_PIXEL_ID_AE: ""
++          VITE_GTAG_ADS_ID: ""
++          VITE_GTAG_GA4_ID: ""
++          VITE_GTAG_ADS_ID_UAE: ""
+         run: pnpm --filter @workspace/presentail-web run verify-build
+ 
++      - name: Run web unit tests
++        run: pnpm --filter @workspace/presentail-web run test
++
++      - name: Run seo-inject unit tests (seo-inject.mjs regression gate)
++        run: pnpm --filter @workspace/presentail-web exec vitest run src/lib/seo-inject.test.ts
++
++      - name: Check image alt text (no <img> missing alt or using empty alt without annotation)
++        run: pnpm --filter @workspace/scripts run check-image-alt
++
+       - name: Report web build reuse
+         env:
+           CACHE_HIT: ${{ steps.web-dist-cache.outputs.cache-hit }}
+@@ -287,6 +310,14 @@ jobs:
+           path: artifacts/presentail-web/dist/public
+ 
+       - name: Verify downloaded artifact provenance and size
++        # The provenance cache key hashes VITE_* vars, so these must match the
++        # inert CI-only values the web-serve-check job built with.
++        env:
++          VITE_FB_PIXEL_ID_LB: ""
++          VITE_FB_PIXEL_ID_AE: ""
++          VITE_GTAG_ADS_ID: ""
++          VITE_GTAG_GA4_ID: ""
++          VITE_GTAG_ADS_ID_UAE: ""
+         run: node scripts/build-artifact-provenance.mjs --name web --artifact-dir artifacts/presentail-web/dist/public --verify --max-bytes 30000000
+ 
+       - name: Web Vitals budget (no blocking scripts, font preload present)
+-- 
+2.55.0
+
