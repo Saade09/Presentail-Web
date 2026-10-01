@@ -1,10 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { JSDOM } from "jsdom";
 import { BLOG_POSTS } from "@workspace/blog-content";
 
 import {
   buildSitemapXml,
   buildSitemapIndexXml,
+  deriveBrandsByCountry,
   generateSitemap,
   resolveSitemap,
   SITEMAP_RETRY_WINDOW_MS,
@@ -542,8 +543,27 @@ describe("generateSitemap", () => {
     const fetched: string[] = [];
     const fakeFetch = async (url: string) => {
       fetched.push(url);
-      if (url.includes("/api/woo/products")) return { products: MOCK.products };
-      if (url.includes("/api/woo/brands")) return { brands: MOCK.brands };
+      // Brand counts are derived from each product's brandNames (the
+      // /api/woo/brands response carries no count), so give acme-flowers
+      // three deliverable products and empty-brand none.
+      if (url.includes("/api/woo/products")) {
+        return {
+          products: [
+            ...MOCK.products,
+            { slug: "acme-1", brandNames: ["Acme Flowers"] },
+            { slug: "acme-2", brandNames: ["Acme Flowers"] },
+            { slug: "acme-3", brandNames: ["Acme Flowers"] },
+          ],
+        };
+      }
+      if (url.includes("/api/woo/brands")) {
+        return {
+          brands: [
+            { slug: "acme-flowers", name: "Acme Flowers" },
+            { slug: "empty-brand", name: "Empty Brand" },
+          ],
+        };
+      }
       if (url.includes("/api/catalog/metadata")) {
         return { occasions: MOCK.occasions, categories: MOCK.categories };
       }
@@ -854,9 +874,9 @@ describe("buildSitemapXml — top-level route type coverage", () => {
         fr: { title: "Top 10 des fleurs", description: "Description française." },
       },
     },
-    // totalProductCount: 30 keeps every entity's ratio >= UNIQUENESS_RATIO_MIN (0.15):
-    // brand 5/30 = 0.167, occasion 5/30 = 0.167, category 12/30 = 0.40
-    totalProductCount: 30,
+    // No totalProductCount: buildSitemapXml no longer reads it. Brands, like
+    // occasions and categories, are gated on the absolute minimum count only
+    // (the old brand ratio vs. catalog total rejected every real brand).
   });
 
   it("includes the un-prefixed root URL /", () => {
@@ -892,7 +912,6 @@ describe("buildSitemapXml — top-level route type coverage", () => {
         { id: "tulips-bouquets", count: 12 },
       ],
       blogPosts: {},
-      totalProductCount: 30,
     });
 
     expect(xml).toContain("/category/bouquets");
@@ -1015,7 +1034,6 @@ describe("buildSitemapXml — excluded / noindex paths", () => {
         fr: { title: "Bonjour le monde", description: "Description française." },
       },
     },
-    totalProductCount: 30,
   });
 
   it("does not include /shop (canonical category/occasion clean paths used instead)", () => {
@@ -1325,5 +1343,274 @@ describe("generateSitemap — product availability fields passed to builder", ()
     expect(xml).toContain("/product/oos");
     const priorityMatch = xml.match(/product\/oos[\s\S]*?<priority>([^<]+)<\/priority>/);
     expect(priorityMatch?.[1]).toBe("0.4");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Brand pages — per-city counts
+//
+// /api/woo/brands carries no `count`, and the metadata endpoint's brand counts
+// are identical for every country, so generateSitemap derives per-city brand
+// counts from the `brandNames` of each hub city's deliverable products. The
+// fixture below mirrors production (2026-10) so the sitemap decision matches
+// the per-city noindex decision seo-inject makes for each brand page.
+// ---------------------------------------------------------------------------
+describe("brand pages — per-city brand counts", () => {
+  const HOUSE = "Presentail Flowers & Gifts";
+  const BRANDS = [
+    { id: 1, slug: "apple", name: "Apple" },
+    { id: 2, slug: "sables-gourmets", name: "Sables Gourmets" },
+    { id: 3, slug: "hallab-1881", name: "Hallab 1881" },
+    { id: 4, slug: "salma", name: "Salma" },
+    { id: 5, slug: "beesline", name: "Beesline" },
+    { id: 6, slug: "samsung", name: "Samsung" },
+    { id: 7, slug: "superheated-neurons", name: "Superheated Neurons" },
+  ];
+  // Per-city counts measured against live production.
+  const COUNTS: Record<string, Record<string, number>> = {
+    LB: { Apple: 8, "Sables Gourmets": 5, "Hallab 1881": 3, Salma: 2, Beesline: 1 },
+    AE: { Apple: 3, "Hallab 1881": 3, "Sables Gourmets": 2 },
+    CY: {},
+  };
+  const productsFor = (countryCode: string) => {
+    const prefix = countryCode.toLowerCase();
+    // Unbranded house products — every product carries the house name.
+    const products: Array<{ slug: string; brandNames: string[] }> = Array.from(
+      { length: 20 },
+      (_, i) => ({ slug: `${prefix}-house-${i}`, brandNames: [HOUSE] }),
+    );
+    for (const [name, n] of Object.entries(COUNTS[countryCode])) {
+      const nameSlug = name.replace(/\W+/g, "-").toLowerCase();
+      for (let i = 0; i < n; i++) {
+        products.push({ slug: `${prefix}-${nameSlug}-${i}`, brandNames: [HOUSE, name] });
+      }
+    }
+    return { products };
+  };
+  const fakeFetch = async (url: string) => {
+    if (url.includes("/api/woo/brands")) return { brands: BRANDS };
+    if (url.includes("/api/woo/products")) {
+      return productsFor(new URL(url).searchParams.get("countryCode") ?? "LB");
+    }
+    if (url.includes("/api/catalog/metadata")) {
+      // Country-agnostic counts — must NOT drive brand decisions.
+      return {
+        occasions: [],
+        categories: [],
+        brands: BRANDS.map((b) => ({ ...b, count: COUNTS.LB[b.name] ?? 0 })),
+      };
+    }
+    return null;
+  };
+  const brandLocs = (xml: string) =>
+    [...xml.matchAll(/<loc>([^<]*\/brand\/[^<]*)<\/loc>/g)].map((m) => m[1]);
+
+  it("emits only brands with ≥3 deliverable products in each hub city", async () => {
+    const xml = await generateSitemap(ORIGIN, "/", fakeFetch, "http://localhost:80", "en");
+    expect(brandLocs(xml).sort()).toEqual(
+      [
+        `${ORIGIN}/en-ae/dubai/brand/apple`,
+        `${ORIGIN}/en-ae/dubai/brand/hallab-1881`,
+        `${ORIGIN}/en-lb/beirut/brand/apple`,
+        `${ORIGIN}/en-lb/beirut/brand/hallab-1881`,
+        `${ORIGIN}/en-lb/beirut/brand/sables-gourmets`,
+      ].sort(),
+    );
+  });
+
+  it("does not emit AE sables-gourmets (2 products in Dubai) despite 5 in Beirut", async () => {
+    const xml = await generateSitemap(ORIGIN, "/", fakeFetch, "http://localhost:80", "en");
+    expect(xml).toContain("/en-lb/beirut/brand/sables-gourmets");
+    expect(xml).not.toContain("/en-ae/dubai/brand/sables-gourmets");
+    expect(xml).not.toContain("/en-cy/nicosia/brand/");
+  });
+
+  it("emits 5 brand URLs each for en/ar/fr and none for el", async () => {
+    const expected = [["en", 5], ["ar", 5], ["fr", 5], ["el", 0]] as const;
+    for (const [locale, n] of expected) {
+      const xml = await generateSitemap(ORIGIN, "/", fakeFetch, "http://localhost:80", locale);
+      expect(brandLocs(xml), locale).toHaveLength(n);
+    }
+  });
+
+  it("never emits a URL for the house brand name", async () => {
+    const xml = await generateSitemap(ORIGIN, "/", fakeFetch, "http://localhost:80", "en");
+    expect(xml).not.toMatch(/\/brand\/presentail/);
+    expect(xml).not.toContain(encodeURIComponent(HOUSE));
+  });
+
+  it("falls back to metadata brand names for slug mapping when /api/woo/brands is down", async () => {
+    const xml = await generateSitemap(
+      ORIGIN,
+      "/",
+      async (url: string) => (url.includes("/api/woo/brands") ? null : fakeFetch(url)),
+      "http://localhost:80",
+      "en",
+    );
+    // Still per-city: AE sables-gourmets excluded, Cyprus brand-free.
+    expect(brandLocs(xml)).toHaveLength(5);
+    expect(xml).not.toContain("/en-ae/dubai/brand/sables-gourmets");
+  });
+
+  it("applies brandsByCountry per country with a min-3 boundary", () => {
+    const xml = buildSitemapXml({
+      origin: ORIGIN,
+      basePath: "/",
+      brandsByCountry: {
+        lb: [
+          { slug: "zero", count: 0 },
+          { slug: "one", count: 1 },
+          { slug: "two", count: 2 },
+          { slug: "three", count: 3 },
+        ],
+        ae: [{ slug: "two", count: 2 }],
+        cy: [],
+      },
+      brands: [{ slug: "flat-only", count: 50 }],
+    });
+    expect(xml).toContain("/en-lb/beirut/brand/three");
+    for (const slug of ["zero", "one", "two"]) {
+      expect(xml).not.toContain(`/brand/${slug}<`);
+    }
+    expect(xml).not.toContain("/en-ae/dubai/brand/");
+    // The flat list is ignored for countries present in brandsByCountry.
+    expect(xml).not.toContain("/brand/flat-only");
+  });
+
+  it("emits a brand that is a small fraction of a large catalog (no ratio vs. catalog total)", () => {
+    const xml = buildSitemapXml({
+      origin: ORIGIN,
+      basePath: "/",
+      brandsByCountry: { lb: [{ slug: "apple", count: 8 }], ae: [], cy: [] },
+      // 8/377 = 0.021 < UNIQUENESS_RATIO_MIN — must not matter.
+      totalProductCount: 377,
+    });
+    expect(xml).toContain("/en-lb/beirut/brand/apple");
+  });
+
+  it("keeps working with only a flat brands list (backward compat)", () => {
+    const xml = buildSitemapXml({
+      origin: ORIGIN,
+      basePath: "/",
+      brands: [{ slug: "acme-flowers", count: 5 }, { slug: "thin", count: 2 }],
+      totalProductCount: 1000,
+    });
+    expect(xml).toContain("/en-lb/beirut/brand/acme-flowers");
+    expect(xml).toContain("/en-ae/dubai/brand/acme-flowers");
+    expect(xml).toContain("/en-cy/nicosia/brand/acme-flowers");
+    expect(xml).not.toContain("/brand/thin");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deriveBrandsByCountry — name→slug mapping behind the per-city brand counts
+// ---------------------------------------------------------------------------
+describe("deriveBrandsByCountry", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const HOUSE = "Presentail Flowers & Gifts";
+  const branded = (name: string, n: number) =>
+    Array.from({ length: n }, () => ({ brandNames: [HOUSE, name] }));
+
+  it("drops a display name shared by two brands instead of letting the last one win", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const result = deriveBrandsByCountry({
+      productsByCountry: { lb: [...branded("Apple", 8), ...branded("Hallab 1881", 3)] },
+      brandList: [
+        { slug: "apple", name: "Apple" },
+        { slug: "hallab-1881", name: "Hallab 1881" },
+        { slug: "dupe", name: "Apple" },
+      ],
+    });
+    expect(result).toEqual({ lb: [{ slug: "hallab-1881", count: 3 }] });
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toContain('"apple"');
+    expect(warn.mock.calls[0][0]).toContain("apple, dupe");
+  });
+
+  it("emits neither colliding slug in the sitemap", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fakeFetch = async (url: string) => {
+      if (url.includes("/api/woo/brands")) {
+        return {
+          brands: [
+            { slug: "apple", name: "Apple" },
+            { slug: "dupe", name: "Apple" },
+            { slug: "hallab-1881", name: "Hallab 1881" },
+          ],
+        };
+      }
+      if (url.includes("/api/woo/products")) {
+        return {
+          products: [...branded("Apple", 8), ...branded("Hallab 1881", 3)].map((p, i) => ({
+            slug: `p-${i}`,
+            ...p,
+          })),
+        };
+      }
+      if (url.includes("/api/catalog/metadata")) return { occasions: [], categories: [] };
+      return null;
+    };
+    const xml = await generateSitemap(ORIGIN, "/", fakeFetch, "http://localhost:80", "en");
+    expect(xml).not.toContain("/brand/apple<");
+    expect(xml).not.toContain("/brand/dupe<");
+    expect(xml).toContain("/en-lb/beirut/brand/hallab-1881<");
+  });
+
+  it("does not treat the same slug listed twice under one name as a collision", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const result = deriveBrandsByCountry({
+      productsByCountry: { lb: branded("Apple", 3) },
+      brandList: [
+        { slug: "apple", name: "Apple" },
+        { slug: "apple", name: "apple" },
+      ],
+    });
+    expect(result).toEqual({ lb: [{ slug: "apple", count: 3 }] });
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("matches names case- and whitespace-insensitively", () => {
+    const result = deriveBrandsByCountry({
+      productsByCountry: {
+        lb: [{ brandNames: ["apple"] }, { brandNames: ["  APPLE "] }, { brandNames: ["Apple"] }],
+      },
+      brandList: [{ slug: "apple", name: " Apple  " }],
+    });
+    expect(result).toEqual({ lb: [{ slug: "apple", count: 3 }] });
+  });
+
+  it("counts a product that lists the same brand twice once", () => {
+    const result = deriveBrandsByCountry({
+      productsByCountry: { lb: [{ brandNames: ["Apple", "apple", "Apple"] }] },
+      brandList: [{ slug: "apple", name: "Apple" }],
+    });
+    expect(result).toEqual({ lb: [{ slug: "apple", count: 1 }] });
+  });
+
+  it("drops the unmatched house name", () => {
+    const result = deriveBrandsByCountry({
+      productsByCountry: { lb: [{ brandNames: [HOUSE] }, { brandNames: [HOUSE] }], ae: [] },
+      brandList: [{ slug: "apple", name: "Apple" }],
+    });
+    expect(result).toEqual({ lb: [], ae: [] });
+  });
+
+  it("yields no counts for an empty or missing brand list", () => {
+    const productsByCountry = { lb: branded("Apple", 5), ae: [] };
+    expect(deriveBrandsByCountry({ productsByCountry, brandList: [] })).toEqual({ lb: [], ae: [] });
+    // No list at all → null, so buildSitemapXml falls back to the flat list.
+    expect(deriveBrandsByCountry({ productsByCountry, brandList: null })).toBeNull();
+    expect(deriveBrandsByCountry({ productsByCountry, brandList: undefined })).toBeNull();
+  });
+
+  it("tolerates products without brandNames", () => {
+    const result = deriveBrandsByCountry({
+      productsByCountry: { lb: [{}, { brandNames: null }, { brandNames: ["Apple"] }] },
+      brandList: [{ slug: "apple", name: "Apple" }],
+    });
+    expect(result).toEqual({ lb: [{ slug: "apple", count: 1 }] });
   });
 });
