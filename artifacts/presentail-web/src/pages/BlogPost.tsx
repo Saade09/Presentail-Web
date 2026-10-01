@@ -813,6 +813,7 @@ export default function BlogPost() {
                         width={relPost.ogImage.width}
                         height={relPost.ogImage.height}
                         alt=""
+                        aria-hidden="true"
                         loading="lazy"
                         decoding="async"
                         className="w-full h-full object-cover motion-safe:transition-transform motion-safe:duration-500 motion-safe:group-hover:scale-[1.03]"

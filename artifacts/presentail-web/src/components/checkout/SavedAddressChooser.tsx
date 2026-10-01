@@ -203,6 +203,7 @@ function AddressChooserBody({
           </div>
         ) : addresses.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border p-6 text-center" data-testid="saved-addresses-empty">
+            {/* contrast-ok: decorative aria-hidden empty-state icon; the message below conveys the meaning */}
             <MapPin className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden />
             <p className="mt-3 text-sm font-medium">{t("checkout.savedAddressesEmpty")}</p>
             <p className="mt-1 text-sm text-muted-foreground">{t("checkout.savedAddressesEmptyDesc")}</p>

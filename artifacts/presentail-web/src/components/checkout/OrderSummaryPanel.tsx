@@ -592,13 +592,13 @@ export function OrderSummaryPanel({
                 <div className="flex justify-between text-sm text-muted-foreground">
                   <span>
                     <span className="block">{t("checkout.deliveryLabel")}</span>
-                    <span className="block text-xs text-muted-foreground/80 mt-0.5">
+                    <span className="block text-xs text-muted-foreground mt-0.5">
                       {t("checkout.delivery.baseCharge")}
                     </span>
                   </span>
                   {isFreeDeliveryUnlocked && deliveryMode !== "express" ? (
                     <span className="flex items-start gap-1.5">
-                      <s className="text-muted-foreground/60">
+                      <s className="text-muted-foreground">
                         <FormattedPrice usdValue={originalCityFee} />
                       </s>
                       <span
@@ -627,7 +627,7 @@ export function OrderSummaryPanel({
                   <div className="flex justify-between text-sm text-muted-foreground" data-testid="row-express-fee">
                     <span>
                       <span className="block">{t("checkout.expressUpgradeLabel")}</span>
-                      <span className="block text-xs text-muted-foreground/80 mt-0.5">
+                      <span className="block text-xs text-muted-foreground mt-0.5">
                         {t("checkout.delivery.express90")}
                       </span>
                     </span>

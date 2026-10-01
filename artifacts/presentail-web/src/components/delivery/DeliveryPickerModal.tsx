@@ -315,7 +315,7 @@ function InlineCalendar({ selectedIso, todayIso, todaySelectable, onSelect, prev
                 isSelected
                   ? "bg-primary font-semibold text-primary-foreground"
                   : disabled
-                    ? "text-muted-foreground/40 cursor-not-allowed"
+                    ? "text-muted-foreground/40 cursor-not-allowed" // contrast-ok: disabled (past/unselectable) day button — WCAG 1.4.3 inactive UI exception
                     : isToday
                       ? "font-semibold text-foreground ring-1 ring-inset ring-primary/50 hover:bg-secondary/60"
                       : "text-foreground hover:bg-secondary/60"
