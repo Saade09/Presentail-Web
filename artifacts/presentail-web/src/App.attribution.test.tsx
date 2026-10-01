@@ -201,10 +201,13 @@ vi.mock("@/lib/fbPixel", () => ({
   trackFbPageView: vi.fn(),
 }));
 
-vi.mock("@/lib/analytics", () => ({
-  trackEvent: vi.fn(),
-  trackWebEvent: vi.fn(),
-}));
+vi.mock("@/lib/analytics", async (importOriginal) => {
+  const { mockAnalyticsModule } = await import("@/test/analytics-mock");
+  return mockAnalyticsModule(importOriginal, {
+    trackEvent: vi.fn(),
+    trackWebEvent: vi.fn(),
+  });
+});
 
 vi.mock("@workspace/clerk-types", () => ({
   isUserType: vi.fn(() => false),

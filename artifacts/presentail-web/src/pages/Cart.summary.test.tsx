@@ -26,12 +26,15 @@ Object.defineProperty(window, "matchMedia", {
   })),
 });
 
-vi.mock("@/lib/analytics", () => ({
-  trackEvent: vi.fn(),
-  trackWebEvent: vi.fn(),
-  trackWebEventOnce: vi.fn(),
-  umamiTrack: vi.fn(),
-}));
+vi.mock("@/lib/analytics", async (importOriginal) => {
+  const { mockAnalyticsModule } = await import("@/test/analytics-mock");
+  return mockAnalyticsModule(importOriginal, {
+    trackEvent: vi.fn(),
+    trackWebEvent: vi.fn(),
+    trackWebEventOnce: vi.fn(),
+    umamiTrack: vi.fn(),
+  });
+});
 
 const mockSetLocation = vi.fn();
 

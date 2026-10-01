@@ -161,10 +161,13 @@ vi.mock("@/lib/useNow", () => ({
   useNow: () => new Date("2025-06-05T10:00:00Z"),
 }));
 
-vi.mock("@/lib/analytics", () => ({
-  trackEvent: vi.fn(),
-  trackWebEvent: vi.fn(),
-}));
+vi.mock("@/lib/analytics", async (importOriginal) => {
+  const { mockAnalyticsModule } = await import("@/test/analytics-mock");
+  return mockAnalyticsModule(importOriginal, {
+    trackEvent: vi.fn(),
+    trackWebEvent: vi.fn(),
+  });
+});
 
 vi.mock("react-phone-number-input", async (importOriginal) => {
   const original = await importOriginal<typeof import("react-phone-number-input")>();

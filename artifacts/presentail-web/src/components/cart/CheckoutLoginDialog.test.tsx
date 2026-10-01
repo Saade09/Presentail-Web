@@ -13,9 +13,12 @@ vi.mock("@/hooks/use-toast", () => ({
   useToast: vi.fn(() => ({ toast: vi.fn() })),
 }));
 
-vi.mock("@/lib/analytics", () => ({
-  trackEvent: vi.fn(),
-}));
+vi.mock("@/lib/analytics", async (importOriginal) => {
+  const { mockAnalyticsModule } = await import("@/test/analytics-mock");
+  return mockAnalyticsModule(importOriginal, {
+    trackEvent: vi.fn(),
+  });
+});
 
 const mockSetLocation = vi.fn();
 vi.mock("wouter", () => ({

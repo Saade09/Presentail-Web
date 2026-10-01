@@ -175,12 +175,15 @@ vi.mock("@/lib/useNow", () => ({
 
 const mockTrackEvent = vi.fn();
 const mockTrackWebEvent = vi.fn();
-vi.mock("@/lib/analytics", () => ({
-  // Wrap in a thunk so the factory (hoisted to the top of the file) does not
-  // read mockTrackEvent before its const initialiser has run.
-  trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
-  trackWebEvent: (...args: unknown[]) => mockTrackWebEvent(...args),
-}));
+vi.mock("@/lib/analytics", async (importOriginal) => {
+  const { mockAnalyticsModule } = await import("@/test/analytics-mock");
+  return mockAnalyticsModule(importOriginal, {
+    // Wrap in a thunk so the factory (hoisted to the top of the file) does not
+    // read mockTrackEvent before its const initialiser has run.
+    trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
+    trackWebEvent: (...args: unknown[]) => mockTrackWebEvent(...args),
+  });
+});
 
 vi.mock("react-phone-number-input", async (importOriginal) => {
   const original = await importOriginal<typeof import("react-phone-number-input")>();

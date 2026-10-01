@@ -10,6 +10,7 @@ import {
   SITEMAP_RETRY_WINDOW_MS,
   SITEMAP_CITIES,
   SITEMAP_STATIC_PATHS,
+  SITEMAP_POLICY_PATHS,
   SITEMAP_CANONICAL_CITIES,
   SITEMAP_LANGS,
 // @ts-expect-error - mjs module without type declarations.
@@ -766,10 +767,24 @@ describe("SITEMAP_STATIC_PATHS — expected contents", () => {
     "/faqs",
     "/weddings",
     "/corporate",
+  ];
+
+  // Policy pages are deliberately NOT per-city static paths: they are emitted
+  // once per language × country at the hub city only (satellite-city variants
+  // 301 to the hub) to avoid hundreds of duplicate-title URLs. They live in
+  // SITEMAP_POLICY_PATHS instead — see sitemap.mjs.
+  const EXPECTED_POLICY_PATHS = [
     "/shipping-policy",
     "/return-policy",
     "/account-deletion",
   ];
+
+  it("keeps policy pages in SITEMAP_POLICY_PATHS, not SITEMAP_STATIC_PATHS", () => {
+    expect([...(SITEMAP_POLICY_PATHS as string[])].sort()).toEqual([...EXPECTED_POLICY_PATHS].sort());
+    for (const p of EXPECTED_POLICY_PATHS) {
+      expect(SITEMAP_STATIC_PATHS, `"${p}" must stay hub-city-only`).not.toContain(p);
+    }
+  });
 
   it("contains every expected static sub-path", () => {
     for (const p of EXPECTED_STATIC_PATHS) {

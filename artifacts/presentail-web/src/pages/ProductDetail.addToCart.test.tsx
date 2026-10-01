@@ -111,7 +111,10 @@ vi.mock("@/components/product/useDeliveryConfig", () => ({
 }));
 
 vi.mock("@/lib/fbPixel", () => ({ trackFbEvent: vi.fn() }));
-vi.mock("@/lib/analytics", () => ({ trackWebEvent: vi.fn(), trackEvent: vi.fn() }));
+vi.mock("@/lib/analytics", async (importOriginal) => {
+  const { mockAnalyticsModule } = await import("@/test/analytics-mock");
+  return mockAnalyticsModule(importOriginal, { trackWebEvent: vi.fn(), trackEvent: vi.fn() });
+});
 
 vi.mock("@/lib/useNow", () => ({
   useNow: vi.fn(() => new Date("2026-06-28T10:00:00Z")),

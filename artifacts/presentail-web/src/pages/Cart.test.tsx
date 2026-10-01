@@ -32,11 +32,14 @@ Object.defineProperty(window, "matchMedia", {
   })),
 });
 
-vi.mock("@/lib/analytics", () => ({
-  trackEvent: vi.fn(),
-  trackWebEvent: vi.fn(),
-  umamiTrack: vi.fn(),
-}));
+vi.mock("@/lib/analytics", async (importOriginal) => {
+  const { mockAnalyticsModule } = await import("@/test/analytics-mock");
+  return mockAnalyticsModule(importOriginal, {
+    trackEvent: vi.fn(),
+    trackWebEvent: vi.fn(),
+    umamiTrack: vi.fn(),
+  });
+});
 
 // Capture the mock setter so tests can assert it was called.
 const mockSetLocation = vi.fn();

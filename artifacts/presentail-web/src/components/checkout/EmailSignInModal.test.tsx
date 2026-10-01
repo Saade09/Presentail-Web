@@ -10,10 +10,13 @@ import { renderWithProviders } from "@/test-utils";
 // ---------------------------------------------------------------------------
 
 const trackWebEvent = vi.fn();
-vi.mock("@/lib/analytics", () => ({
-  trackWebEvent: (...args: unknown[]) => trackWebEvent(...args),
-  trackEvent: vi.fn(),
-}));
+vi.mock("@/lib/analytics", async (importOriginal) => {
+  const { mockAnalyticsModule } = await import("@/test/analytics-mock");
+  return mockAnalyticsModule(importOriginal, {
+    trackWebEvent: (...args: unknown[]) => trackWebEvent(...args),
+    trackEvent: vi.fn(),
+  });
+});
 
 const mockSetLocation = vi.fn();
 vi.mock("wouter", () => ({

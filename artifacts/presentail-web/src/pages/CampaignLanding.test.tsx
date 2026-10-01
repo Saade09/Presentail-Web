@@ -98,10 +98,13 @@ vi.mock("@/lib/api", () => ({
   }),
 }));
 
-vi.mock("@/lib/analytics", () => ({
-  trackEvent: mocks.trackEvent,
-  trackWebEvent: mocks.trackWebEvent,
-}));
+vi.mock("@/lib/analytics", async (importOriginal) => {
+  const { mockAnalyticsModule } = await import("@/test/analytics-mock");
+  return mockAnalyticsModule(importOriginal, {
+    trackEvent: mocks.trackEvent,
+    trackWebEvent: mocks.trackWebEvent,
+  });
+});
 
 vi.mock("@/lib/gtag", () => ({
   fireGtagEvent: vi.fn(),

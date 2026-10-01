@@ -26,10 +26,13 @@ vi.mock("wouter", () => ({
 
 const trackWebEventMock = vi.fn();
 const trackEventMock = vi.fn();
-vi.mock("@/lib/analytics", () => ({
-  trackWebEvent: (...args: unknown[]) => trackWebEventMock(...args),
-  trackEvent: (...args: unknown[]) => trackEventMock(...args),
-}));
+vi.mock("@/lib/analytics", async (importOriginal) => {
+  const { mockAnalyticsModule } = await import("@/test/analytics-mock");
+  return mockAnalyticsModule(importOriginal, {
+    trackWebEvent: (...args: unknown[]) => trackWebEventMock(...args),
+    trackEvent: (...args: unknown[]) => trackEventMock(...args),
+  });
+});
 
 vi.mock("@workspace/delivery", () => ({
   freeDeliveryThresholdUsd: () => 0,

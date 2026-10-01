@@ -35,10 +35,13 @@ vi.mock("@/components/product/FrequentlyBoughtTogether", () => ({
 }));
 
 const trackWebEventMock = vi.fn();
-vi.mock("@/lib/analytics", () => ({
-  trackWebEvent: (...args: unknown[]) => trackWebEventMock(...args),
-  getOrCreateSessionId: () => "test-session",
-}));
+vi.mock("@/lib/analytics", async (importOriginal) => {
+  const { mockAnalyticsModule } = await import("@/test/analytics-mock");
+  return mockAnalyticsModule(importOriginal, {
+    trackWebEvent: (...args: unknown[]) => trackWebEventMock(...args),
+    getOrCreateSessionId: () => "test-session",
+  });
+});
 
 const toastMock = vi.fn();
 vi.mock("@/hooks/use-toast", () => ({

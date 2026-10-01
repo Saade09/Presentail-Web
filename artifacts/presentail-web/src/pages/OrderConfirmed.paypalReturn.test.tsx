@@ -43,13 +43,16 @@ vi.mock("@/lib/fbPixel", () => ({
   initPixel: vi.fn(),
 }));
 
-vi.mock("@/lib/analytics", () => ({
-  trackEvent: vi.fn(),
-  trackWebEvent: vi.fn(),
-  trackFunnelEvent: vi.fn(),
-  trackFunnelEventOnce: vi.fn(),
-  funnelValueBucket: () => "under_50",
-}));
+vi.mock("@/lib/analytics", async (importOriginal) => {
+  const { mockAnalyticsModule } = await import("@/test/analytics-mock");
+  return mockAnalyticsModule(importOriginal, {
+    trackEvent: vi.fn(),
+    trackWebEvent: vi.fn(),
+    trackFunnelEvent: vi.fn(),
+    trackFunnelEventOnce: vi.fn(),
+    funnelValueBucket: () => "under_50",
+  });
+});
 
 vi.mock("wouter", () => ({
   useSearch: () => mockUseSearch(),

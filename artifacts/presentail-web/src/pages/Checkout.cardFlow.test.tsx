@@ -202,15 +202,18 @@ vi.mock("@/lib/useNow", () => ({
 const mockTrackEvent = vi.hoisted(() => vi.fn());
 const mockTrackFunnelEvent = vi.hoisted(() => vi.fn());
 const mockTrackFunnelEventOnce = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/analytics", () => ({
-  // Wrap in a thunk so the factory (hoisted to the top of the file) does not
-  // read mockTrackEvent before its const initialiser has run.
-  trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
-  trackWebEvent: vi.fn(),
-  trackFunnelEvent: (...args: unknown[]) => mockTrackFunnelEvent(...args),
-  trackFunnelEventOnce: (...args: unknown[]) => mockTrackFunnelEventOnce(...args),
-  funnelValueBucket: () => "under_50",
-}));
+vi.mock("@/lib/analytics", async (importOriginal) => {
+  const { mockAnalyticsModule } = await import("@/test/analytics-mock");
+  return mockAnalyticsModule(importOriginal, {
+    // Wrap in a thunk so the factory (hoisted to the top of the file) does not
+    // read mockTrackEvent before its const initialiser has run.
+    trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
+    trackWebEvent: vi.fn(),
+    trackFunnelEvent: (...args: unknown[]) => mockTrackFunnelEvent(...args),
+    trackFunnelEventOnce: (...args: unknown[]) => mockTrackFunnelEventOnce(...args),
+    funnelValueBucket: () => "under_50",
+  });
+});
 
 vi.mock("react-phone-number-input", async (importOriginal) => {
   const original = await importOriginal<typeof import("react-phone-number-input")>();
