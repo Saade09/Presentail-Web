@@ -55,7 +55,7 @@ describe("generateLlmsTxt", () => {
   });
 
   it("includes .md twin links for every blog article in the Markdown Pages section", () => {
-    for (const [slug, byLang] of Object.entries(BLOG_POSTS) as [string, any][]) {
+    for (const [slug] of Object.entries(BLOG_POSTS) as [string, any][]) {
       expect(txt).toContain(`${ORIGIN}/en/blog/${slug}.md`);
     }
   });
@@ -197,7 +197,7 @@ describe("buildLlmsFullTxt", () => {
 
   it("includes .md twin links for every blog article in the Markdown Pages section", () => {
     const txt = buildLlmsFullTxt({ origin: ORIGIN, basePath: "/", ...MOCK });
-    for (const [slug, byLang] of Object.entries(BLOG_POSTS) as [string, any][]) {
+    for (const [slug] of Object.entries(BLOG_POSTS) as [string, any][]) {
       expect(txt).toContain(`${ORIGIN}/en/blog/${slug}.md`);
     }
   });

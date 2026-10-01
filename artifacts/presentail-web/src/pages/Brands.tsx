@@ -64,7 +64,7 @@ function BrandCard({ brand, index }: BrandCardProps) {
 export default function Brands() {
   const { t, language, cityName } = useLocale();
   const { data: catalogMetadata, isLoading } = useCatalogMetadata();
-  const { countryCode, cityId, city } = useLocationSelection();
+  const { countryCode, city } = useLocationSelection();
 
   // Only show brands that actually have products in the current city/country
   // context. Zero-count brands (e.g. retired or region-unavailable brands)

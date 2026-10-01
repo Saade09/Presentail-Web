@@ -431,14 +431,6 @@ const PAYMENT_INTENT_RES = {
   currency: "USD",
 };
 
-// Default createOrder response — WC accepted the order.
-const ORDER_SUCCESS_RES = {
-  ok: true,
-  wcOrderId: 42,
-  orderKey: "wc_order_key",
-  couponDiscount: 0,
-};
-
 // ---------------------------------------------------------------------------
 // Test helpers
 // ---------------------------------------------------------------------------

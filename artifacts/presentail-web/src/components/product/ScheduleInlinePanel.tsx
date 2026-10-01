@@ -71,7 +71,6 @@ export function ScheduleInlinePanel({
   initialSlotId,
   timeSlots: propTimeSlots,
   slotsByDay: propSlotsByDay,
-  freeDeliveryMet = false,
   onChange,
   onUserInteracted,
 }: Props) {

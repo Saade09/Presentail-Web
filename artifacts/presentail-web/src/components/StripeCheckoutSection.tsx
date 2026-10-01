@@ -1,4 +1,4 @@
-import { Elements, useStripe, useElements, PaymentElement } from "@stripe/react-stripe-js";
+import { Elements, useStripe, useElements } from "@stripe/react-stripe-js";
 import type { Stripe, StripeElements, StripeElementsOptions } from "@stripe/stripe-js";
 import { useEffect } from "react";
 import { StripeCardFields, type SavedPaymentMethod } from "@/components/StripeCardFields";
