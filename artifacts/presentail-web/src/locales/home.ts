@@ -8,8 +8,6 @@ export const homeStrings: Dict = {
   "bestSellers.viewAll": { en: "View all Best Sellers →", ar: "عرض كل الأكثر مبيعاً →" },
   "bestSellers.empty": { en: "No products available right now.", ar: "لا توجد منتجات متاحة الآن." },
 
-  "collections.summer.title": { en: "Summer Picks", ar: "مختارات الصيف" },
-  "collections.summer.viewAll": { en: "View all Summer Picks →", ar: "عرض كل مختارات الصيف →" },
   "collections.boxes.title": { en: "Flower Boxes", ar: "صناديق الزهور" },
   "collections.boxes.viewAll": { en: "View all Flower Boxes →", ar: "عرض كل صناديق الزهور →" },
   "collections.balloons.title": { en: "Balloons", ar: "البالونات" },
@@ -31,8 +29,6 @@ export const homeStrings: Dict = {
   },
   "occasions.viewAll": { en: "View All Occasions", ar: "عرض كل المناسبات" },
   "home.flowerCollection": { en: "Flower Collection", ar: "تشكيلة الزهور" },
-  "home.breadcrumb.nav": { en: "Breadcrumb", ar: "مسار التنقل" },
-  "home.breadcrumb.home": { en: "Home", ar: "الرئيسية" },
   "home.siblingCities.heading": { en: "We also deliver to", ar: "نوصّل أيضاً إلى" },
   "home.lower.reviews.heading": { en: "Loved by our customers", ar: "محبوب من عملائنا", fr: "Adoré par nos clients" },
   "home.lower.reviews.readAll": { en: "Read all reviews →", ar: "اقرأ كل التقييمات ←", fr: "Lire tous les avis →" },
@@ -59,19 +55,25 @@ export const homeStrings: Dict = {
   "home.lower.shopLinks": { en: "Shop links", ar: "روابط التسوق", fr: "Liens shopping" },
   "home.lower.categories": { en: "Shop by category", ar: "تسوّق حسب الفئة", fr: "Acheter par catégorie" },
   "home.lower.occasions": { en: "Shop by occasion", ar: "تسوّق حسب المناسبة", fr: "Acheter par occasion" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via OCCASIONS key map (component unmounted since c149143c, still under test) at components/homepage/ShopByOccasion.tsx:18
   "occasions.birthday":   { en: "Birthday",     ar: "عيد الميلاد" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via OCCASIONS key map (component unmounted since c149143c, still under test) at components/homepage/ShopByOccasion.tsx:19
   "occasions.romance":    { en: "Romance",       ar: "رومانسية" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via OCCASIONS key map (component unmounted since c149143c, still under test) at components/homepage/ShopByOccasion.tsx:20
   "occasions.anniversary":{ en: "Anniversary",   ar: "ذكرى سنوية" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via OCCASIONS key map (component unmounted since c149143c, still under test) at components/homepage/ShopByOccasion.tsx:21
   "occasions.congrats":   { en: "Congrats",      ar: "تهاني" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via OCCASIONS key map (component unmounted since c149143c, still under test) at components/homepage/ShopByOccasion.tsx:22
   "occasions.newborn":    { en: "New Born",      ar: "مولود جديد" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via OCCASIONS key map (component unmounted since c149143c, still under test) at components/homepage/ShopByOccasion.tsx:23
   "occasions.thankYou":   { en: "Thank You",     ar: "شكراً" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via OCCASIONS key map (component unmounted since c149143c, still under test) at components/homepage/ShopByOccasion.tsx:24
   "occasions.sympathy":   { en: "Sympathy",      ar: "تعازي" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via OCCASIONS key map (component unmounted since c149143c, still under test) at components/homepage/ShopByOccasion.tsx:25
   "occasions.justBecause":{ en: "Just Because",  ar: "بلا مناسبة" },
   "allOccasions.empty": { en: "No occasions available.", ar: "لا توجد مناسبات متاحة." },
   "brands.eyebrow": { en: "Maison Partners", ar: "شركاؤنا" },
   "brands.featuredEyebrow": { en: "Featured Brands", ar: "العلامات المميزة" },
-  "home.trustpilot.titleLB": { en: "The Modern Flower Delivery Company", ar: "شركة توصيل الزهور العصرية" },
-  "home.trustpilot.titleExpat": { en: "Made For Lebanese Expats, By Lebanese Expats", ar: "صُنعت للمغتربين اللبنانيين، من المغتربين اللبنانيين" },
   "brands.title": { en: "Brands We Love", ar: "علامات نحبّها" },
   "brands.subtitle": {
     en: "Hand-selected ateliers and chocolatiers, paired with our florals.",
@@ -122,8 +124,6 @@ export const homeStringsFr: Record<string, string> = {
   "bestSellers.viewAll": "Voir tous les Best Sellers →",
   "bestSellers.empty": "Aucun produit disponible pour le moment.",
 
-  "collections.summer.title": "Sélections estivales",
-  "collections.summer.viewAll": "Voir toutes les sélections estivales →",
   "collections.boxes.title": "Coffrets de fleurs",
   "collections.boxes.viewAll": "Voir tous les coffrets de fleurs →",
   "collections.balloons.title": "Ballons",
@@ -139,8 +139,6 @@ export const homeStringsFr: Record<string, string> = {
   "occasions.subtitle": "Trouvez le geste parfait pour les jours les plus précieux de la vie.",
   "occasions.viewAll": "Voir toutes les occasions",
   "home.flowerCollection": "Collection florale",
-  "home.breadcrumb.nav": "Fil d'Ariane",
-  "home.breadcrumb.home": "Accueil",
   "home.siblingCities.heading": "Nous livrons aussi à",
   "home.lower.reviews.heading": "Adoré par nos clients",
   "home.lower.reviews.readAll": "Lire tous les avis →",
@@ -177,8 +175,6 @@ export const homeStringsFr: Record<string, string> = {
   "allOccasions.empty": "Aucune occasion disponible.",
   "brands.eyebrow": "Maisons partenaires",
   "brands.featuredEyebrow": "Marques en vedette",
-  "home.trustpilot.titleLB": "La société de livraison de fleurs moderne",
-  "home.trustpilot.titleExpat": "Fait pour les expatriés libanais, par les expatriés libanais",
   "brands.title": "Marques que nous aimons",
   "brands.subtitle": "Ateliers et chocolatiers triés sur le volet, associés à nos compositions florales.",
   "brands.viewAll": "Découvrir toutes les marques",
@@ -210,8 +206,6 @@ export const homeStringsEl: Record<string, string> = {
   "bestSellers.viewAll": "Δείτε όλα τα Ευπώλητα →",
   "bestSellers.empty": "Δεν υπάρχουν διαθέσιμα προϊόντα αυτή τη στιγμή.",
 
-  "collections.summer.title": "Καλοκαιρινές επιλογές",
-  "collections.summer.viewAll": "Δείτε όλες τις καλοκαιρινές επιλογές →",
   "collections.boxes.title": "Κουτιά με λουλούδια",
   "collections.boxes.viewAll": "Δείτε όλα τα κουτιά με λουλούδια →",
   "collections.balloons.title": "Μπαλόνια",
@@ -227,8 +221,6 @@ export const homeStringsEl: Record<string, string> = {
   "occasions.subtitle": "Βρείτε την τέλεια χειρονομία για τις πιο σημαντικές ημέρες της ζωής.",
   "occasions.viewAll": "Δείτε όλες τις περιστάσεις",
   "home.flowerCollection": "Συλλογή Λουλουδιών",
-  "home.breadcrumb.nav": "Ιχνηλάτης",
-  "home.breadcrumb.home": "Αρχική",
   "home.siblingCities.heading": "Παραδίδουμε επίσης σε",
   "occasions.birthday": "Γενέθλια",
   "occasions.romance": "Ρομαντισμός",
@@ -241,8 +233,6 @@ export const homeStringsEl: Record<string, string> = {
   "allOccasions.empty": "Δεν υπάρχουν διαθέσιμες περιστάσεις.",
   "brands.eyebrow": "Συνεργαζόμενοι οίκοι",
   "brands.featuredEyebrow": "Προτεινόμενες μάρκες",
-  "home.trustpilot.titleLB": "Η σύγχρονη εταιρεία παράδοσης λουλουδιών",
-  "home.trustpilot.titleExpat": "Φτιαγμένο για Λιβανέζους ομογενείς, από Λιβανέζους ομογενείς",
   "brands.title": "Μάρκες που αγαπάμε",
   "brands.subtitle": "Προσεκτικά επιλεγμένα εργαστήρια και σοκολατοποιοί, σε συνδυασμό με τις ανθοσυνθέσεις μας.",
   "brands.viewAll": "Ανακαλύψτε όλες τις μάρκες",

@@ -83,9 +83,13 @@ export const checkoutStrings: Dict = {
   },
   "delivery.picker.prevMonth": { en: "Previous month", ar: "الشهر السابق" },
   "delivery.picker.nextMonth": { en: "Next month", ar: "الشهر التالي" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via key returned by slot-hour helper at components/delivery/DeliveryPickerModal.tsx:143
   "delivery.slot.morning": { en: "Morning", ar: "صباحاً" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via key returned by slot-hour helper at components/delivery/DeliveryPickerModal.tsx:144
   "delivery.slot.afternoon": { en: "Afternoon", ar: "بعد الظهر" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via key returned by slot-hour helper at components/delivery/DeliveryPickerModal.tsx:145
   "delivery.slot.evening": { en: "Evening", ar: "مساءً" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via key returned by slot-hour helper at components/delivery/DeliveryPickerModal.tsx:142
   "delivery.slot.lateNight": { en: "Late night", ar: "وقت متأخر" },
   "delivery.picker.confirm": { en: "Confirm delivery", ar: "تأكيد التوصيل" },
   "delivery.picker.cancel": { en: "Cancel", ar: "إلغاء" },
@@ -112,13 +116,21 @@ export const checkoutStrings: Dict = {
   "suggestedMessages.lang.fr": { en: "French", ar: "الفرنسية" },
   "suggestedMessages.langLabel": { en: "Message language", ar: "لغة الرسالة" },
   "suggestedMessages.catLabel": { en: "Message category", ar: "فئة الرسالة" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via category labelKey map at components/checkout/SuggestedMessagesDialog.tsx:31
   "suggestedMessages.cat.general": { en: "General", ar: "عام" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via category labelKey map at components/checkout/SuggestedMessagesDialog.tsx:32
   "suggestedMessages.cat.love": { en: "Love", ar: "حب" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via category labelKey map at components/checkout/SuggestedMessagesDialog.tsx:33
   "suggestedMessages.cat.birthday": { en: "Birthday", ar: "عيد ميلاد" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via category labelKey map at components/checkout/SuggestedMessagesDialog.tsx:34
   "suggestedMessages.cat.graduation": { en: "Graduation", ar: "تخرج" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via category labelKey map at components/checkout/SuggestedMessagesDialog.tsx:35
   "suggestedMessages.cat.getWellSoon": { en: "Get Well Soon", ar: "تعافَ بسرعة" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via category labelKey map at components/checkout/SuggestedMessagesDialog.tsx:36
   "suggestedMessages.cat.newBabyBorn": { en: "New Baby", ar: "مولود جديد" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via category labelKey map at components/checkout/SuggestedMessagesDialog.tsx:37
   "suggestedMessages.cat.thankYou": { en: "Thank You", ar: "شكراً" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via category labelKey map at components/checkout/SuggestedMessagesDialog.tsx:38
   "suggestedMessages.cat.sympathy": { en: "Sympathy", ar: "تعازي" },
   "checkout.sendingAs": { en: "Sending as {summary}", ar: "الإرسال باسم {summary}" },
   "checkout.emailAddress": { en: "Email address", ar: "البريد الإلكتروني" },
@@ -210,7 +222,9 @@ export const checkoutStrings: Dict = {
   "checkout.toast.walletUnavailable": { en: "Wallet payment unavailable", ar: "الدفع بالمحفظة غير متوفر" },
   "checkout.toast.walletUnavailableDesc": { en: "Apple Pay / Google Pay could not be opened on this device. Please choose another payment method.", ar: "تعذّر فتح Apple Pay / Google Pay على هذا الجهاز. يرجى اختيار طريقة دفع أخرى." },
   "checkout.toast.walletPrepareFailTitle": { en: "Unable to prepare payment", ar: "تعذّر تجهيز الدفع" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via ternary t(cond ? a : b) at pages/Checkout.tsx:2877
   "checkout.toast.walletPrepareFailDesc": { en: "Unable to prepare Apple Pay — please try again or use a different payment method.", ar: "تعذّر تجهيز Apple Pay — يرجى المحاولة مرة أخرى أو اختيار طريقة دفع أخرى." },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via ternary t(cond ? a : b) at pages/Checkout.tsx:2877
   "checkout.toast.walletPrepareFailDescGoogle": { en: "Unable to prepare Google Pay — please try again or use a different payment method.", ar: "تعذّر تجهيز Google Pay — يرجى المحاولة مرة أخرى أو اختيار طريقة دفع أخرى." },
   "checkout.toast.errorTitle": { en: "Checkout Error", ar: "خطأ في الدفع" },
   // eslint-disable-next-line presentail/no-orphan-translation-key -- used dynamically via t(isNetworkFailure ? "checkout.toast.networkTimeout" : "checkout.toast.networkError") in Checkout.tsx
@@ -352,11 +366,17 @@ export const checkoutStrings: Dict = {
 
   // District-change revalidation notice (inline, under the district dropdown)
   "checkout.districtChange.updatedFor": { en: "Delivery options updated for {district}", ar: "تم تحديث خيارات التوصيل لـ {district}" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via ternary t(cond ? a : b) at components/checkout/DistrictChangeNotice.tsx:75
   "checkout.districtChange.expressUnavailableDistrict": { en: "Express delivery isn't available in this district. Please choose a new delivery time.", ar: "التوصيل السريع غير متوفر في هذه المنطقة. يرجى اختيار وقت توصيل جديد." },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via ternary t(cond ? a : b) at components/checkout/DistrictChangeNotice.tsx:62
   "checkout.districtChange.expressUnavailableEmirate": { en: "Express delivery isn't available in this emirate. Please choose a new delivery time.", ar: "التوصيل السريع غير متوفر في هذه الإمارة. يرجى اختيار وقت توصيل جديد." },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via ternary t(cond ? a : b) at components/checkout/DistrictChangeNotice.tsx:69
   "checkout.districtChange.expressUnavailableGovernorate": { en: "Express delivery isn't available in this governorate. Please choose a new delivery time.", ar: "التوصيل السريع غير متوفر في هذه المحافظة. يرجى اختيار وقت توصيل جديد." },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via ternary t(cond ? a : b) at components/checkout/DistrictChangeNotice.tsx:76
   "checkout.districtChange.slotUnavailableDistrict": { en: "Your selected delivery time isn't available in this district. Please choose a new delivery time.", ar: "وقت التوصيل الذي اخترته غير متوفر في هذه المنطقة. يرجى اختيار وقت توصيل جديد." },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via ternary t(cond ? a : b) at components/checkout/DistrictChangeNotice.tsx:63
   "checkout.districtChange.slotUnavailableEmirate": { en: "Your selected delivery time isn't available in this emirate. Please choose a new delivery time.", ar: "وقت التوصيل الذي اخترته غير متوفر في هذه الإمارة. يرجى اختيار وقت توصيل جديد." },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via ternary t(cond ? a : b) at components/checkout/DistrictChangeNotice.tsx:70
   "checkout.districtChange.slotUnavailableGovernorate": { en: "Your selected delivery time isn't available in this governorate. Please choose a new delivery time.", ar: "وقت التوصيل الذي اخترته غير متوفر في هذه المحافظة. يرجى اختيار وقت توصيل جديد." },
   "checkout.districtChange.feeUpdatedTitle": { en: "Delivery fee updated for {district}", ar: "تم تحديث رسوم التوصيل لـ {district}" },
   "checkout.districtChange.feeUpdatedBody": { en: "The delivery fee changed from {oldFee} to {newFee}. Your delivery time is unchanged.", ar: "تغيّرت رسوم التوصيل من {oldFee} إلى {newFee}. وقت التوصيل الخاص بك لم يتغيّر." },

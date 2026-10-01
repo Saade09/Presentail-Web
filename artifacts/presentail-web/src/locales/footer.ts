@@ -62,20 +62,6 @@ export const footerStrings: Dict = {
     en: "Al Nahyan, East 19, Mina Ahmed Mohammed Khalifa Building, Abu Dhabi, UAE",
     ar: "النهيان، شرق 19، بناية مينا أحمد محمد خليفة، أبوظبي، الإمارات العربية المتحدة",
   },
-  // eslint-disable-next-line presentail/no-orphan-translation-key
-  "footer.allRightsReservedCyprus": {
-    en: "All rights reserved © {year} Presentail LTD",
-    ar: "جميع الحقوق محفوظة © {year} Presentail LTD",
-  },
-  "footer.ownedOperatedCyprus": {
-    en: "This website is owned and operated by Presentail LTD",
-    ar: "هذا الموقع مملوك ويُدار من قِبل Presentail LTD",
-  },
-  // eslint-disable-next-line presentail/no-orphan-translation-key
-  "footer.addressCyprus": {
-    en: "Agapinoros & Arch. Makariou III, 2 IRIS TOWER, 4th Floor, Flat.Office 403-405 1076, Nicosia, Cyprus",
-    ar: "أغابينوروس وأرش. ماكاريوس الثالث، 2 IRIS TOWER، الطابق الرابع، مكتب 403-405 1076، نيقوسيا، قبرص",
-  },
   "footer.cyprusCompanyDetails": {
     en: "All rights reserved © {year} Presentail Ltd — Registration number HE422991 — Registered in the Republic of Cyprus. Agapinoros & Arch. Makariou III, 2 IRIS TOWER, 4th Floor, Flat.Office 403-405 1076, Nicosia, Cyprus. hello@presentail.com",
     ar: "جميع الحقوق محفوظة © {year} Presentail Ltd — رقم التسجيل HE422991 — مسجلة في جمهورية قبرص. Agapinoros & Arch. Makariou III, 2 IRIS TOWER, 4th Floor, Flat.Office 403-405 1076, Nicosia, Cyprus. hello@presentail.com",
@@ -118,9 +104,6 @@ export const footerStringsFr: Record<string, string> = {
   "footer.addressUrl": "https://www.google.com/maps/place/Presentail/@33.8882424,35.5092743,17z/data=!3m1!4b1!4m6!3m5!1s0x151f17196515b7b1:0x196123d8742c1e15!8m2!3d33.8882424!4d35.5118492!16s%2Fg%2F11h1mlbb_h?entry=ttu&g_ep=EgoyMDI2MDcyNi4wIKXMDSoASAFQAw%3D%3D",
   "footer.addressDubai": "Boutique 41, Al Barsha 1, Al Attar Business Center, Dubaï, Émirats arabes unis",
   "footer.addressAbuDhabi": "Al Nahyan, Est 19, Immeuble Mina Ahmed Mohammed Khalifa, Abu Dhabi, Émirats arabes unis",
-  "footer.allRightsReservedCyprus": "Tous droits réservés © {year} Presentail LTD",
-  "footer.ownedOperatedCyprus": "Ce site est détenu et exploité par Presentail LTD",
-  "footer.addressCyprus": "Agapinoros & Arch. Makariou III, 2 IRIS TOWER, 4ème étage, Bureau 403-405 1076, Nicosie, Chypre",
   "footer.cyprusCompanyDetails": "Tous droits réservés © {year} Presentail Ltd — Numéro d'immatriculation HE422991 — Enregistrée en République de Chypre. Agapinoros & Arch. Makariou III, 2 IRIS TOWER, 4th Floor, Flat.Office 403-405 1076, Nicosia, Cyprus. hello@presentail.com",
   "footer.terms": "Conditions d'utilisation",
   "footer.privacy": "Politique de confidentialité",
@@ -160,9 +143,6 @@ export const footerStringsEl: Record<string, string> = {
   "footer.addressUrl": "https://www.google.com/maps/place/Presentail/@33.8882424,35.5092743,17z/data=!3m1!4b1!4m6!3m5!1s0x151f17196515b7b1:0x196123d8742c1e15!8m2!3d33.8882424!4d35.5118492!16s%2Fg%2F11h1mlbb_h?entry=ttu&g_ep=EgoyMDI2MDcyNi4wIKXMDSoASAFQAw%3D%3D",
   "footer.addressDubai": "Κατάστημα 41, Al Barsha 1, Al Attar Business Center, Ντουμπάι, ΗΑΕ",
   "footer.addressAbuDhabi": "Al Nahyan, East 19, κτίριο Mina Ahmed Mohammed Khalifa, Άμπου Ντάμπι, ΗΑΕ",
-  "footer.allRightsReservedCyprus": "Με την επιφύλαξη παντός δικαιώματος © {year} Presentail LTD",
-  "footer.ownedOperatedCyprus": "Αυτός ο ιστότοπος ανήκει και λειτουργεί από την Presentail LTD",
-  "footer.addressCyprus": "Agapinoros & Arch. Makariou III, 2 IRIS TOWER, 4ος όροφος, Γραφείο 403-405 1076, Λευκωσία, Κύπρος",
   "footer.cyprusCompanyDetails": "Με την επιφύλαξη παντός δικαιώματος © {year} Presentail Ltd — Αριθμός εγγραφής HE422991 — Εγγεγραμμένη στη Δημοκρατία της Κύπρου. Agapinoros & Arch. Makariou III, 2 IRIS TOWER, 4th Floor, Flat.Office 403-405 1076, Nicosia, Cyprus. hello@presentail.com",
   "footer.terms": "Όροι χρήσης",
   "footer.privacy": "Πολιτική απορρήτου",
