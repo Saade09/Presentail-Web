@@ -22,20 +22,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-
-// Dynamic import because serve-robots.mjs is an ES module with no TypeScript
-// declarations.  Vitest handles .mjs via its native ESM support.
-const { isPrivatePath, resolveXRobotsTag } = await import(
-  /* @vite-ignore */ "../../serve-robots.mjs"
-) as {
-  isPrivatePath: (pathname: string) => boolean;
-  resolveXRobotsTag: (
-    host: string,
-    pathname: string,
-    search?: string,
-    curatedFilterPages?: Array<{ path: string; params?: Record<string, string | number> }>,
-  ) => string | null;
-};
+import { isPrivatePath, resolveXRobotsTag } from "../../serve-robots.mjs";
 
 // ---------------------------------------------------------------------------
 // isPrivatePath — bare paths

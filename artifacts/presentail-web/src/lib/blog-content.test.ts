@@ -126,7 +126,7 @@ describe("bouquet-delivery-dubai — part two content", () => {
 
   it("has seven visible FAQ pairs and matching FAQPage JSON-LD", () => {
     const faqSection = article.sections.find((section) => section.heading === "Frequently asked questions");
-    const faqSchema = article.extraJsonLd?.find((schema) => schema["@type"] === "FAQPage") as {
+    const faqSchema = article.extraJsonLd?.find((schema) => "@type" in schema && schema["@type"] === "FAQPage") as {
       mainEntity?: Array<{ name: string; acceptedAnswer: { text: string } }>;
     } | undefined;
 
@@ -353,7 +353,7 @@ describe("teddy-bear-gifts-lebanon — part one content", () => {
     const faqSection = article.sections.find(
       (section) => section.heading === "Frequently asked questions",
     );
-    const faqSchema = article.extraJsonLd?.find((schema) => schema["@type"] === "FAQPage") as {
+    const faqSchema = article.extraJsonLd?.find((schema) => "@type" in schema && schema["@type"] === "FAQPage") as {
       mainEntity?: Array<{ name: string; acceptedAnswer: { text: string } }>;
     } | undefined;
 
@@ -498,7 +498,7 @@ describe("balloon-arrangement-ideas content", () => {
       (section) => section.heading === "Frequently asked questions",
     );
     const faqSchema = article.extraJsonLd?.find(
-      (schema) => schema["@type"] === "FAQPage",
+      (schema) => "@type" in schema && schema["@type"] === "FAQPage",
     ) as { mainEntity?: Array<{ name: string; acceptedAnswer: { text: string } }> } | undefined;
     expect(faqSection?.faqItems).toHaveLength(7);
     expect(faqSchema?.mainEntity).toHaveLength(7);
@@ -588,7 +588,7 @@ describe("cake-for-proposal content", () => {
       (section) => section.heading === "Frequently asked questions",
     );
     const faqSchema = article.extraJsonLd?.find(
-      (schema) => schema["@type"] === "FAQPage",
+      (schema) => "@type" in schema && schema["@type"] === "FAQPage",
     ) as { mainEntity?: Array<{ name: string; acceptedAnswer: { text: string } }> } | undefined;
 
     expect(article.sections.map((section) => section.heading).filter(Boolean)).toEqual([

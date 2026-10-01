@@ -18,7 +18,7 @@ describe("weekly crawl SEO regressions", () => {
     const xml = buildSitemapXml({
       origin: "https://presentail.com",
       locale: "fr",
-      blogPostsArg: { "english-only": article },
+      blogPosts: { "english-only": article },
     });
 
     expect(xml).not.toContain("/fr/blog/english-only");

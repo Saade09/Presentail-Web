@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import type { TimeSlot } from "@workspace/delivery";
 import { apiFetch } from "./api";
 import { fetchOsProducts, fetchOsProductPricing, isValidOsNumericId } from "./osClient";
 import { mapOsProduct, isVisibleOsProduct, isDeliverableOsProduct } from "./osProductMapper";
@@ -87,12 +88,12 @@ export type DeliveryCity = {
   /** True only when current OS data explicitly supplied campaign operations fields. */
   operationsConfigVerified?: boolean;
   /** Per-city delivery time slots from Presentail OS. Empty means use hardcoded defaults. */
-  timeSlots?: Array<{ label: string; startHour?: number; endHour?: number; cutoffHour: number; extraFee?: number }>;
+  timeSlots?: TimeSlot[];
   /**
    * Per-day-of-week slots from OS. Keys are lowercase English weekday names (e.g. "monday").
    * When present, use slotsByDay[dayOfWeek] for the selected date instead of the flat timeSlots array.
    */
-  slotsByDay?: Record<string, Array<{ label: string; startHour?: number; endHour?: number; cutoffHour: number; extraFee?: number }>>;
+  slotsByDay?: Record<string, TimeSlot[]>;
   localizedNames?: { ar?: string; fr?: string };
   /** Per-city free-delivery threshold in USD from Presentail OS. Overrides the country-level threshold when present. */
   freeDeliveryThresholdUsd?: number;

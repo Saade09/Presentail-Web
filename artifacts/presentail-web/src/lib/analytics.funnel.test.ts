@@ -6,10 +6,10 @@ describe("privacy-safe web funnel analytics", () => {
     vi.stubGlobal("window", {
       umami: { track: vi.fn() },
     });
+    const values = new Map<string, string>();
     vi.stubGlobal("sessionStorage", {
-      values: new Map<string, string>(),
-      getItem(key: string) { return this.values.get(key) ?? null; },
-      setItem(key: string, value: string) { this.values.set(key, value); },
+      getItem(key: string) { return values.get(key) ?? null; },
+      setItem(key: string, value: string) { values.set(key, value); },
     });
   });
 

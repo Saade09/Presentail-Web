@@ -306,7 +306,7 @@ describe("resolveLlmsFullTxt — cache policy", () => {
       ttlMs: 3_600_000,
       generateFull: async () => { throw new Error("catalog down"); },
       generateIndex: () => "index fallback",
-      onError: (err) => errors.push(err),
+      onError: (err: unknown) => errors.push(err),
     });
     expect(result.mode).toBe("stale");
     expect(result.value).toBe("stale content");

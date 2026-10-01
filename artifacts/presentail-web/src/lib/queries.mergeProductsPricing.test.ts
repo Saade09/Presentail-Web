@@ -104,7 +104,7 @@ describe("mergeProductsPricing — modern regular_price / sale_price scheme", ()
   });
 
   it("carries exact native AED regular and active sale strings into hydrated list products", () => {
-    const result = merge([makeProduct({ osNumericId: 103 })], {
+    const result = merge([makeProduct({ id: "aed-rose", osNumericId: 103 })], {
       "103": {
         discountPriceUsd: 40, discountPriceAed: 140.125, regularPriceUsd: 65,
         priceAed: 241.750, priceAedExact: "0241.750", discountPriceAedExact: "0140.125",

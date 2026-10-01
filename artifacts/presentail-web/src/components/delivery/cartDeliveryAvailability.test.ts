@@ -128,6 +128,8 @@ describe("classifyCartDeliverySelection", () => {
       slotId: "overnight",
       startHour: 22,
       endHour: 6,
+      // The API defaults a missing OS cutoff to the start hour.
+      cutoffHour: 22,
       sameDayEnabled: true,
       nextDayEnabled: false,
     };
