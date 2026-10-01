@@ -10350,7 +10350,7 @@ describe("pre-hydration fallback critical CSS", () => {
     );
     const fallback = out.match(/<div data-seo-fallback>([\s\S]*?)<\/div><\/div>/)?.[1] ?? "";
     expect(fallback).toContain("<h1>Visible Merchant Rose</h1>");
-    expect(fallback).toMatch(/<img src="https:\/\/presentail\.test\/api\/og-image\/product\/visible-merchant-rose[^"]*"/);
+    expect(fallback).toMatch(/<img src="https:\/\/presentail\.test\/api\/og-image\/product\/visible-merchant-rose[^"]*" alt="Visible Merchant Rose"/);
     expect(fallback).toContain("From 42.00 USD — In Stock");
     expect(fallback).toContain("A visible product description for crawler checks.");
     expect(fallback).toContain("<h2>Product Details</h2>");

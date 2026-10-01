@@ -132,7 +132,7 @@ export function LocationCombobox({
         )}
         {o.inactive && (
           <Lock
-            className="ms-auto h-3.5 w-3.5 shrink-0 text-muted-foreground/80"
+            className="ms-auto h-3.5 w-3.5 shrink-0 text-muted-foreground/80" // contrast-ok: non-text aria-hidden lock icon on a disabled (inactive) option
             aria-hidden="true"
             data-testid={`icon-district-lock-${o.id}`}
           />

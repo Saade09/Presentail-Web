@@ -7,7 +7,8 @@ export default function NotFound() {
   return (
     <div className="min-h-screen flex items-center justify-center px-4 pt-24 pb-24 bg-background">
       <div className="max-w-md text-center space-y-6">
-        <p className="text-8xl font-serif text-foreground/20 leading-none select-none">404</p>
+        {/* contrast-ok: decorative numeral, aria-hidden; the <h1> and description below convey the error */}
+        <p className="text-8xl font-serif text-foreground/20 leading-none select-none" aria-hidden="true">404</p>
         <div className="space-y-3">
           <h1 className="text-3xl font-serif">{t("notFound.title")}</h1>
           <p className="text-muted-foreground">{t("notFound.desc")}</p>

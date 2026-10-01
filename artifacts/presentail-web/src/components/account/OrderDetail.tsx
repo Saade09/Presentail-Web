@@ -140,7 +140,8 @@ export function OrderDetail({
                         />
                       ) : (
                         <div className="w-12 h-12 rounded-lg border border-border/50 bg-secondary/40 flex items-center justify-center shrink-0">
-                          <Package className="w-5 h-5 text-muted-foreground/50" />
+                          {/* contrast-ok: decorative no-image placeholder icon, aria-hidden; the item name beside it conveys the content */}
+                          <Package className="w-5 h-5 text-muted-foreground/50" aria-hidden="true" />
                         </div>
                       )}
                       <div className="min-w-0 flex-1">
