@@ -101,7 +101,7 @@ function resolveInternalApiBaseUrl() {
 }
 const INTERNAL_API_BASE_URL = resolveInternalApiBaseUrl();
 
-// Canonical-domain redirect. Requests arriving on www.* or new.presentail.com
+// Canonical-domain redirect. Requests arriving on www.* or new.presentail.com // allow-legacy-domain
 // are hard-redirected to the apex unconditionally (cannot be disabled by env
 // vars — see request handler guards below).
 //
@@ -1414,12 +1414,12 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    // Hard guard: the retired new.presentail.com subdomain is permanently
+    // Hard guard: the retired new.presentail.com subdomain is permanently // allow-legacy-domain
     // redirected to the canonical apex. This must fire unconditionally — no env
     // var controls it — so the redirect cannot be accidentally disabled.
     const isNewSubdomain =
-      normalizedHost === "new.presentail.com" ||
-      normalizedFwdHost === "new.presentail.com";
+      normalizedHost === "new.presentail.com" || // allow-legacy-domain
+      normalizedFwdHost === "new.presentail.com"; // allow-legacy-domain
     if (isNewSubdomain) {
       const apexOrigin = WWW_REDIRECT_TARGET_ORIGIN || "https://presentail.com";
       res.writeHead(301, { location: `${apexOrigin}${stripTrackingParamsFromReqUrl(req.url)}` });

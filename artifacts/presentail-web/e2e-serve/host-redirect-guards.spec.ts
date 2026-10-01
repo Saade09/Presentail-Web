@@ -5,7 +5,7 @@
  * any SPA fallback or legacy-WP redirect:
  *
  *   1. www.presentail.com  → https://presentail.com/<path>  (301, path-preserving)
- *   2. new.presentail.com  → https://presentail.com/<path>  (301, path-preserving)
+ *   2. new.presentail.com  → https://presentail.com/<path>  (301, path-preserving) // allow-legacy-domain
  *   3. lb/ae/cy.presentail.com → fixed city-root on apex    (301, fixed target)
  *
  * These guards are triggered by the incoming Host header (or X-Forwarded-Host,
@@ -141,10 +141,10 @@ test.describe("301 redirect — www.presentail.com guard (via x-forwarded-host h
 });
 
 // ---------------------------------------------------------------------------
-// Guard 2: new.presentail.com → https://presentail.com/<path>  (path-preserving)
+// Guard 2: new.presentail.com → https://presentail.com/<path>  (path-preserving) // allow-legacy-domain
 // ---------------------------------------------------------------------------
 
-test.describe("301 redirect — new.presentail.com guard (via host header)", () => {
+test.describe("301 redirect — new.presentail.com guard (via host header)", () => { // allow-legacy-domain
   const cases: Array<{ path: string; expectedLocation: string }> = [
     { path: "/", expectedLocation: "https://presentail.com/" },
     {
@@ -158,40 +158,40 @@ test.describe("301 redirect — new.presentail.com guard (via host header)", () 
   ];
 
   for (const { path, expectedLocation } of cases) {
-    test(`new.presentail.com${path} → 301 ${expectedLocation}`, async ({
+    test(`new.presentail.com${path} → 301 ${expectedLocation}`, async ({ // allow-legacy-domain
       request,
     }) => {
-      const response = await getWithHost(request, path, "new.presentail.com");
+      const response = await getWithHost(request, path, "new.presentail.com"); // allow-legacy-domain
       expect(
         response.status(),
-        `new.presentail.com${path} must return 301 (retired-subdomain guard)`,
+        `new.presentail.com${path} must return 301 (retired-subdomain guard)`, // allow-legacy-domain
       ).toBe(301);
       const location = response.headers()["location"];
       expect(
         location,
-        `new.presentail.com${path} must redirect to ${expectedLocation}`,
+        `new.presentail.com${path} must redirect to ${expectedLocation}`, // allow-legacy-domain
       ).toBe(expectedLocation);
     });
   }
 });
 
-test.describe("301 redirect — new.presentail.com guard (via x-forwarded-host header)", () => {
-  test(`x-forwarded-host: new.presentail.com, path / → 301 https://presentail.com/`, async ({
+test.describe("301 redirect — new.presentail.com guard (via x-forwarded-host header)", () => { // allow-legacy-domain
+  test(`x-forwarded-host: new.presentail.com, path / → 301 https://presentail.com/`, async ({ // allow-legacy-domain
     request,
   }) => {
     const response = await getWithXForwardedHost(
       request,
       "/",
-      "new.presentail.com",
+      "new.presentail.com", // allow-legacy-domain
     );
     expect(
       response.status(),
-      "x-forwarded-host: new.presentail.com must return 301",
+      "x-forwarded-host: new.presentail.com must return 301", // allow-legacy-domain
     ).toBe(301);
     const location = response.headers()["location"];
     expect(
       location,
-      "x-forwarded-host: new.presentail.com must redirect to apex",
+      "x-forwarded-host: new.presentail.com must redirect to apex", // allow-legacy-domain
     ).toBe("https://presentail.com/");
   });
 });

@@ -47,10 +47,10 @@ const testServer = http.createServer((req, res) => {
     return;
   }
 
-  // Branch 2: new.presentail.com redirect (mirrors serve.mjs lines ~1060–1065)
+  // Branch 2: new.presentail.com redirect (mirrors serve.mjs lines ~1060–1065) // allow-legacy-domain
   const isNewSubdomain =
-    normalizedHost === "new.presentail.com" ||
-    normalizedFwdHost === "new.presentail.com";
+    normalizedHost === "new.presentail.com" || // allow-legacy-domain
+    normalizedFwdHost === "new.presentail.com"; // allow-legacy-domain
   if (isNewSubdomain) {
     res.writeHead(301, {
       location: `${WWW_REDIRECT_TARGET_ORIGIN}${stripTrackingParamsFromReqUrl(req.url)}`,
@@ -167,12 +167,12 @@ describe("www-redirect — real HTTP Location header", () => {
 });
 
 // ---------------------------------------------------------------------------
-// new.presentail.com redirect: same stripping requirement
+// new.presentail.com redirect: same stripping requirement // allow-legacy-domain
 // ---------------------------------------------------------------------------
-describe("new.presentail.com redirect — real HTTP Location header", () => {
-  const newSubdomain = { host: "new.presentail.com" };
+describe("new.presentail.com redirect — real HTTP Location header", () => { // allow-legacy-domain
+  const newSubdomain = { host: "new.presentail.com" }; // allow-legacy-domain
 
-  it("strips utm_* from Location on new.presentail.com redirect", async () => {
+  it("strips utm_* from Location on new.presentail.com redirect", async () => { // allow-legacy-domain
     const { statusCode, location } = await getRedirect(
       "/en-lb/beirut/product/tulips?utm_source=newsletter&utm_campaign=eid",
       newSubdomain,
@@ -182,7 +182,7 @@ describe("new.presentail.com redirect — real HTTP Location header", () => {
     expect(location).not.toContain("utm_");
   });
 
-  it("strips srsltid from Location on new.presentail.com redirect", async () => {
+  it("strips srsltid from Location on new.presentail.com redirect", async () => { // allow-legacy-domain
     const { statusCode, location } = await getRedirect(
       "/en-lb/beirut/shop?srsltid=AItRST&ref=home",
       newSubdomain,

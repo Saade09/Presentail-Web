@@ -114,9 +114,16 @@ describe("buildLocalBusinessSchema", () => {
     cityUrl: "https://presentail.com/en-lb/tripoli",
   };
 
-  it("returns @type Florist", () => {
+  // LocalBusiness, deliberately not Florist or OnlineStore: OnlineStore (an
+  // Organization subtype) made openingHours/hasMap/priceRange/
+  // currenciesAccepted/paymentAccepted invalid, and Florist was dropped because
+  // Presentail has no walk-in storefronts. Keep in sync with
+  // artifacts/presentail-web/src/lib/seo-inject.test.ts,
+  // artifacts/presentail-web/scripts/check-nonproduct-jsonld-schema.mjs and
+  // artifacts/presentail-web/e2e-serve/jsonld-schema.spec.ts.
+  it("returns @type LocalBusiness", () => {
     const schema = buildLocalBusinessSchema(OPTS);
-    expect(schema["@type"]).toBe("Florist");
+    expect(schema["@type"]).toBe("LocalBusiness");
   });
 
   it("includes telephone from LOCATION_DATA", () => {
@@ -156,19 +163,17 @@ describe("buildLocalBusinessSchema", () => {
     expect(schema.url).toBe("https://presentail.com");
   });
 
-  it("areaServed is an array of AdministrativeArea objects", () => {
+  // A single country-level string: the former 26-entry AdministrativeArea
+  // array, repeated across city pages, read as a false multi-location claim.
+  it("areaServed is a single country-level string, not an AdministrativeArea array", () => {
     const schema = buildLocalBusinessSchema(OPTS);
-    const areaServed = schema.areaServed as { "@type": string; name: string }[];
-    expect(Array.isArray(areaServed)).toBe(true);
-    expect(areaServed.length).toBeGreaterThan(1);
-    expect(areaServed[0]["@type"]).toBe("AdministrativeArea");
-    expect(typeof areaServed[0].name).toBe("string");
+    expect(Array.isArray(schema.areaServed)).toBe(false);
+    expect(typeof schema.areaServed).toBe("string");
   });
 
-  it("areaServed for lb includes Tripoli", () => {
+  it("areaServed for a Tripoli (lb) page is the country, not the city", () => {
     const schema = buildLocalBusinessSchema(OPTS);
-    const names = (schema.areaServed as { "@type": string; name: string }[]).map((a) => a.name);
-    expect(names).toContain("Tripoli");
+    expect(schema.areaServed).toBe("Lebanon");
   });
 
   it("address contains addressLocality and addressCountry", () => {
@@ -203,9 +208,11 @@ describe("buildLocalBusinessSchema", () => {
 
 // ── buildCityFaqSchema ──────────────────────────────────────────────────────
 describe("buildCityFaqSchema", () => {
-  it("returns 3 FAQ items for Beirut EN", () => {
+  // City FAQ JSON-LD mirrors the six visible homepage FAQ rows
+  // (HOMEPAGE_FAQ_COUNT in src/lib/homepageFaqs.mjs).
+  it("returns 6 FAQ items for Beirut EN", () => {
     const faqs = buildCityFaqSchema("Beirut", "LB", "en");
-    expect(faqs).toHaveLength(3);
+    expect(faqs).toHaveLength(6);
   });
 
   it("each item has question and answer strings", () => {
@@ -233,16 +240,25 @@ describe("buildCityFaqSchema", () => {
     expect(faqs[0].question).toMatch(/livre|fleurs|Presentail/i);
   });
 
-  it("LB answer mentions Cash on Delivery", () => {
-    const faqs = buildCityFaqSchema("Sidon", "LB", "en");
-    const paymentFaq = faqs.find((f) => f.question.toLowerCase().includes("payment"));
-    expect(paymentFaq?.answer).toContain("Cash on Delivery");
+  // The homepage FAQ no longer has a payment question (FAQPage schema must
+  // match the visible FAQ rows). LB Cash on Delivery is advertised through
+  // LocalBusiness.paymentAccepted instead.
+  it("LB Cash on Delivery is carried by LocalBusiness.paymentAccepted", () => {
+    const schema = buildLocalBusinessSchema({
+      siteUrl: "https://presentail.com",
+      cityName: "Sidon",
+      countryName: "Lebanon",
+      countryCode: "lb",
+    });
+    expect(schema.paymentAccepted as string).toContain("Cash on Delivery");
   });
 
-  it("AE answer does NOT mention Cash on Delivery", () => {
+  it("AE FAQ answers do NOT mention Cash on Delivery", () => {
     const faqs = buildCityFaqSchema("Dubai", "AE", "en");
-    const paymentFaq = faqs.find((f) => f.question.toLowerCase().includes("payment"));
-    expect(paymentFaq?.answer).not.toContain("Cash on Delivery");
+    expect(faqs.length).toBeGreaterThan(0);
+    for (const faq of faqs) {
+      expect(faq.answer).not.toContain("Cash on Delivery");
+    }
   });
 
   it("different city names produce different questions", () => {

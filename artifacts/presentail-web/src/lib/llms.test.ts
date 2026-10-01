@@ -4,7 +4,7 @@ import { describe, it, expect } from "vitest";
 import { generateLlmsTxt, buildLlmsFullTxt, buildJournalSection, buildBlogMdLinks, generateLlmsFullTxt, resolveLlmsFullTxt, LLMS_FULL_TXT_RETRY_WINDOW_MS, FEATURED_LIMIT } from "../../llms.mjs";
 import { BLOG_POSTS } from "@workspace/blog-content";
 
-const ORIGIN = "https://new.presentail.com";
+const ORIGIN = "https://presentail.com";
 
 const MOCK = {
   brands: [{ name: "Acme Flowers" }, { name: "" }, { name: null }],

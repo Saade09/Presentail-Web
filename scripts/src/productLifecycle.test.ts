@@ -3,7 +3,7 @@
  *
  * Covers:
  *   - getProductAvailabilityState — maps OS product shape to lifecycle state
- *   - buildProductHead — title suffix, schema.org availability, returnPolicy
+ *   - buildProductHead — title suffix, schema.org availability, hasMerchantReturnPolicy
  */
 
 import { describe, it, expect } from "vitest";
@@ -144,24 +144,32 @@ describe("buildProductHead — schema.org availability", () => {
   });
 });
 
-// ── buildProductHead — returnPolicy ─────────────────────────────────────────
+// ── buildProductHead — return policy ────────────────────────────────────────
+// The return policy is a nested MerchantReturnPolicy under
+// hasMerchantReturnPolicy. The flat `returnPolicy` URL string is not a
+// recognised Product property and was removed after it caused Google
+// structured-data validation errors, so it must stay absent.
 
-describe("buildProductHead — returnPolicy", () => {
-  it("includes returnPolicy URL on the Product schema", () => {
+describe("buildProductHead — return policy", () => {
+  it("includes hasMerchantReturnPolicy (and no flat returnPolicy) on the Product schema", () => {
     const result = buildProductHead({ product: makeProduct(), ...BASE_HEAD_OPTS });
     const productSchema = findSchema(result.headSnippet, "Product");
-    expect(productSchema?.returnPolicy).toBe(
-      "https://presentail.com/en-lb/beirut/return-policy",
-    );
+    expect(productSchema?.hasMerchantReturnPolicy).toMatchObject({
+      "@type": "MerchantReturnPolicy",
+      applicableCountry: "LB",
+    });
+    expect(productSchema).not.toHaveProperty("returnPolicy");
   });
 
-  it("includes returnPolicy for sold-out products too", () => {
+  it("includes hasMerchantReturnPolicy for sold-out products too", () => {
     const product = makeProduct({ inStock: false, tags: [] });
     const result = buildProductHead({ product, ...BASE_HEAD_OPTS });
     const productSchema = findSchema(result.headSnippet, "Product");
-    expect(productSchema?.returnPolicy).toBe(
-      "https://presentail.com/en-lb/beirut/return-policy",
-    );
+    expect(productSchema?.hasMerchantReturnPolicy).toMatchObject({
+      "@type": "MerchantReturnPolicy",
+      applicableCountry: "LB",
+    });
+    expect(productSchema).not.toHaveProperty("returnPolicy");
   });
 });
 
