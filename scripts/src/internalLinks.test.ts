@@ -49,7 +49,10 @@ describe("buildInternalLinks", () => {
     expect(hrefs).toContain("/en-lb/beirut/");
   });
 
-  it("returns max 5 links even when product has many categories and occasions", () => {
+  // Budget raised deliberately from 5 links / 2 related products to 8 / 4 in
+  // "Strengthen localized product page SEO" (MAX_LINKS / MAX_RELATED in both
+  // src/lib/internalLinks.ts and src/lib/internalLinks.mjs).
+  it("returns max 8 links even when product has many categories and occasions", () => {
     const bigProduct: InternalLinksProduct = {
       id: "big",
       name: "Big Product",
@@ -71,7 +74,7 @@ describe("buildInternalLinks", () => {
       ...CONTEXT_FULL,
       allProducts: manyProducts,
     });
-    expect(links.length).toBeLessThanOrEqual(5);
+    expect(links.length).toBeLessThanOrEqual(8);
   });
 
   it("no duplicate hrefs in result", () => {
@@ -103,7 +106,7 @@ describe("buildInternalLinks", () => {
     expect(cityLink).toBeDefined();
   });
 
-  it("related products capped at 2", () => {
+  it("related products capped at 4", () => {
     const manyRelated: InternalLinksProduct[] = Array.from({ length: 8 }, (_, i) => ({
       id: `related-${i}`,
       name: `Related ${i}`,
@@ -117,7 +120,7 @@ describe("buildInternalLinks", () => {
       allProducts: manyRelated,
     });
     const relatedLinks = links.filter((l) => l.href.includes("/product/"));
-    expect(relatedLinks.length).toBeLessThanOrEqual(2);
+    expect(relatedLinks.length).toBeLessThanOrEqual(4);
   });
 
   it("uses category name from context when available", () => {
@@ -126,10 +129,12 @@ describe("buildInternalLinks", () => {
     expect(catLink?.anchorText).toBe("Flower Boxes");
   });
 
-  it("falls back to capitalised slug when category not in context", () => {
+  // A product's category slug alone is not proof the public route exists, so
+  // no category link (and no slug-derived anchor) is emitted without a live
+  // catalog entry.
+  it("omits the category link when category not in context", () => {
     const links = buildInternalLinks(PRODUCT_FULL, EN_BEIRUT, {});
-    const catLink = links.find((l) => l.href.includes("/category/"));
-    expect(catLink?.anchorText).toBe("Flower Boxes");
+    expect(links.some((l) => l.href.includes("/category/"))).toBe(false);
   });
 
   it("returns no nofollow rel on any link", () => {

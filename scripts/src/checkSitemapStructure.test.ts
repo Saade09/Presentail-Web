@@ -161,7 +161,7 @@ describe("checkSitemapContent — canonical origin", () => {
   });
 
   it("fails when all <loc> values use a wrong origin", () => {
-    const wrongOrigin = "https://new.presentail.com";
+    const wrongOrigin = "https://new.presentail.com"; // allow-legacy-domain
     const xml = buildValidSitemap(MIN_URL_COUNT, wrongOrigin);
     const { errors, wrongOriginLocs } = checkSitemapContent(
       xml,
@@ -180,7 +180,7 @@ describe("checkSitemapContent — canonical origin", () => {
   });
 
   it("fails when the origin is the retired new. subdomain", () => {
-    const retiredOrigin = "https://new.presentail.com";
+    const retiredOrigin = "https://new.presentail.com"; // allow-legacy-domain
     const xml = buildValidSitemap(MIN_URL_COUNT, retiredOrigin);
     const { errors, wrongOriginLocs } = checkSitemapContent(
       xml,
