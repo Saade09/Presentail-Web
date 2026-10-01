@@ -162,10 +162,13 @@ vi.mock("@/lib/useNow", () => ({
 }));
 
 const mockTrackEvent = vi.fn();
-vi.mock("@/lib/analytics", () => ({
-  trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
-  trackWebEvent: (...args: unknown[]) => mockTrackEvent(...args),
-}));
+vi.mock("@/lib/analytics", async (importOriginal) => {
+  const { mockAnalyticsModule } = await import("@/test/analytics-mock");
+  return mockAnalyticsModule(importOriginal, {
+    trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
+    trackWebEvent: (...args: unknown[]) => mockTrackEvent(...args),
+  });
+});
 
 vi.mock("@/lib/fbPixel", () => ({
   trackFbEvent: vi.fn(),

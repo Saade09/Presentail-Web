@@ -29,7 +29,10 @@ const { apiFetchMock, trackWebEventMock } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/api", () => ({ apiFetch: apiFetchMock }));
-vi.mock("@/lib/analytics", () => ({ trackWebEvent: trackWebEventMock }));
+vi.mock("@/lib/analytics", async (importOriginal) => {
+  const { mockAnalyticsModule } = await import("@/test/analytics-mock");
+  return mockAnalyticsModule(importOriginal, { trackWebEvent: trackWebEventMock });
+});
 
 const PLACE: CheckoutPlace = {
   id: "p1",

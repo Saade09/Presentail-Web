@@ -17,10 +17,13 @@ vi.mock("@workspace/api-client-react", async (importOriginal) => {
 });
 
 // Mock analytics
-vi.mock("@/lib/analytics", () => ({
-  trackWebEvent: vi.fn(),
-  trackEvent: vi.fn(),
-}));
+vi.mock("@/lib/analytics", async (importOriginal) => {
+  const { mockAnalyticsModule } = await import("@/test/analytics-mock");
+  return mockAnalyticsModule(importOriginal, {
+    trackWebEvent: vi.fn(),
+    trackEvent: vi.fn(),
+  });
+});
 
 vi.mock("@/lib/gtag", () => ({
   fireGtagEvent: vi.fn(),

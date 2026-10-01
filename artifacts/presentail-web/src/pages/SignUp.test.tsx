@@ -22,9 +22,12 @@ vi.mock("@/lib/authScripts", () => ({
   loadAuthScripts: vi.fn(() => Promise.resolve()),
 }));
 
-vi.mock("@/lib/analytics", () => ({
-  trackEvent: vi.fn(),
-}));
+vi.mock("@/lib/analytics", async (importOriginal) => {
+  const { mockAnalyticsModule } = await import("@/test/analytics-mock");
+  return mockAnalyticsModule(importOriginal, {
+    trackEvent: vi.fn(),
+  });
+});
 
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: vi.fn(() => ({ login: vi.fn() })),

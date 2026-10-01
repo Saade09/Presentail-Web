@@ -22,7 +22,10 @@ vi.mock("@/lib/startupState", () => ({
 }));
 
 vi.mock("@/lib/fbPixel", () => ({ trackFbEvent: vi.fn() }));
-vi.mock("@/lib/analytics", () => ({ trackWebEvent: vi.fn() }));
+vi.mock("@/lib/analytics", async (importOriginal) => {
+  const { mockAnalyticsModule } = await import("@/test/analytics-mock");
+  return mockAnalyticsModule(importOriginal, { trackWebEvent: vi.fn() });
+});
 
 vi.mock("@/lib/useDisplayCurrency", () => ({
   useDisplayCurrency: vi.fn(() => ({ currencyCode: "USD" })),

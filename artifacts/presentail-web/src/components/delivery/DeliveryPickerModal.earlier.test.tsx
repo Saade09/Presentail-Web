@@ -31,10 +31,13 @@ vi.mock("@workspace/delivery", async (importActual) => {
   return { ...actual, getCountryHour: () => 10, isExpressDeliveryAvailable: () => true };
 });
 
-vi.mock("@/lib/analytics", () => ({
-  trackEvent: vi.fn(),
-  trackWebEvent: vi.fn(),
-}));
+vi.mock("@/lib/analytics", async (importOriginal) => {
+  const { mockAnalyticsModule } = await import("@/test/analytics-mock");
+  return mockAnalyticsModule(importOriginal, {
+    trackEvent: vi.fn(),
+    trackWebEvent: vi.fn(),
+  });
+});
 
 const mockSetSelection = vi.fn();
 const { mockSelection } = vi.hoisted(() => ({

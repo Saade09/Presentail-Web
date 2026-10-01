@@ -37,9 +37,12 @@ vi.mock("@/lib/trustpilot", () => ({
   TRUSTPILOT_PROFILE_URL: "https://www.trustpilot.com/review/presentail.com",
 }));
 
-vi.mock("@/lib/analytics", () => ({
-  trackEvent: mocks.trackEvent,
-}));
+vi.mock("@/lib/analytics", async (importOriginal) => {
+  const { mockAnalyticsModule } = await import("@/test/analytics-mock");
+  return mockAnalyticsModule(importOriginal, {
+    trackEvent: mocks.trackEvent,
+  });
+});
 
 describe("CampaignTrustpilotStrip", () => {
   beforeEach(() => {
