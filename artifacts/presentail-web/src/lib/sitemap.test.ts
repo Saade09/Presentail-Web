@@ -873,9 +873,9 @@ describe("buildSitemapXml — top-level route type coverage", () => {
         fr: { title: "Top 10 des fleurs", description: "Description française." },
       },
     },
-    // totalProductCount: 30 keeps every entity's ratio >= UNIQUENESS_RATIO_MIN (0.15):
-    // brand 5/30 = 0.167, occasion 5/30 = 0.167, category 12/30 = 0.40
-    totalProductCount: 30,
+    // No totalProductCount: buildSitemapXml no longer reads it. Brands, like
+    // occasions and categories, are gated on the absolute minimum count only
+    // (the old brand ratio vs. catalog total rejected every real brand).
   });
 
   it("includes the un-prefixed root URL /", () => {
@@ -911,7 +911,6 @@ describe("buildSitemapXml — top-level route type coverage", () => {
         { id: "tulips-bouquets", count: 12 },
       ],
       blogPosts: {},
-      totalProductCount: 30,
     });
 
     expect(xml).toContain("/category/bouquets");
@@ -1034,7 +1033,6 @@ describe("buildSitemapXml — excluded / noindex paths", () => {
         fr: { title: "Bonjour le monde", description: "Description française." },
       },
     },
-    totalProductCount: 30,
   });
 
   it("does not include /shop (canonical category/occasion clean paths used instead)", () => {
