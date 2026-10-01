@@ -8,11 +8,8 @@ import { Sheet, SheetClose, SheetContent, SheetTrigger } from "@/components/ui/s
 import {
   ChevronDown,
   ChevronRight,
-  Flower2,
-  Gift,
   Menu,
   MessageCircle,
-  PartyPopper,
   Search,
   ShoppingBag,
   ShoppingCart,

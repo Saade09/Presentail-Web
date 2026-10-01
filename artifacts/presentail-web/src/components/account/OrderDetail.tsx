@@ -1,4 +1,4 @@
-import { X, Package, MapPin, User, Phone, MessageSquare, CreditCard, ExternalLink, Calendar } from "lucide-react";
+import { X, Package, User, MessageSquare, CreditCard, ExternalLink, Calendar } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import type { MyOrder } from "@/lib/queries";
 import { buildOsProxyUrl } from "@/lib/imageUtils";

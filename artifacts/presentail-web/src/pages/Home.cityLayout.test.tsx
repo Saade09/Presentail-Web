@@ -110,13 +110,6 @@ const AR_LOCALE = {
   t: (key: string) => key,
 };
 
-const FR_LOCALE = {
-  language: "fr" as const,
-  dir: "ltr" as const,
-  cityName: (() => "") as unknown as (id: string) => string,
-  t: (key: string) => key,
-};
-
 /** True when `a` appears before `b` in document order. */
 function isBefore(a: Element, b: Element): boolean {
   return !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);

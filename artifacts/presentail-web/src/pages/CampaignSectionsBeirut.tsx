@@ -20,7 +20,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { useLocale } from "@/contexts/LocaleContext";
 import { useLocationSelection } from "@/contexts/LocationContext";
-import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { apiFetch } from "@/lib/api";
 import { ProductImage } from "@/components/ProductImage";
 import { SalePrice } from "@/components/SalePrice";

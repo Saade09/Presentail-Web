@@ -24,7 +24,6 @@ import {
   loadSignIn,
   loadSignUp,
   loadAccount,
-  loadFavorites,
   loadBrands,
   loadBrandDetail,
   loadAllOccasions,
@@ -289,7 +288,7 @@ function ScrollToTop() {
           "__scrollY_" + window.location.pathname,
           String(window.scrollY),
         );
-      } catch (_) {
+      } catch {
         // sessionStorage unavailable (e.g. private mode with storage blocked)
       }
     };
@@ -335,7 +334,7 @@ function ScrollToTop() {
           parseFloat(
             sessionStorage.getItem("__scrollY_" + pathname) ?? "0",
           ) || 0;
-      } catch (_) {
+      } catch {
         // sessionStorage unavailable
       }
       requestAnimationFrame(() => {
@@ -372,7 +371,6 @@ export function isCartRoute(path: string): boolean {
 }
 function ShopShell() {
   const [path] = useLocation();
-  const isMobile = useIsMobile();
   const isCheckoutPage =
     path.endsWith("/checkout") ||
     path.endsWith("/order-confirmed") ||
