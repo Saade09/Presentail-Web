@@ -12,6 +12,8 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // Builds dist/public once (if missing) so the serve.mjs suites can start it.
+    globalSetup: ["./src/test-global-setup.ts"],
     setupFiles: ["./src/test-setup.ts"],
     include: ["src/**/*.test.ts", "src/**/*.test.tsx", "*.test.mjs"],
     testTimeout: 10000,
