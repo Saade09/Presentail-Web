@@ -22,10 +22,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-
-const { isMirroredPath } = await import(
-  /* @vite-ignore */ "../../markdown.mjs"
-) as { isMirroredPath: (pathname: string) => boolean };
+import { isMirroredPath } from "../../markdown.mjs";
 
 describe("serve.mjs .md noindex — isMirroredPath gate for Batroun", () => {
   it("/en-lb/batroun is a mirrored path → serve.mjs emits X-Robots-Tag: noindex, follow on batroun.md", () => {

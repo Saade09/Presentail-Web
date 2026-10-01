@@ -1,6 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-// This is a plain Node ESM audit helper, intentionally without a TS facade.
-// @ts-ignore -- script modules have no declaration file
 import {
   crawlEmittedLinks,
   sameOriginAnchorTargets,

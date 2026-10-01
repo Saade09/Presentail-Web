@@ -6288,7 +6288,7 @@ describe("JSON-LD — FAQPage on category and occasion listing pages", () => {
       lang: "en",
     });
     expect(curated).toBeTruthy();
-    expect(faq.mainEntity).toHaveLength(curated.faqs.length);
+    expect(faq.mainEntity).toHaveLength(curated!.faqs.length);
     expect(faq.mainEntity[0].name).toContain("anniversary");
     expect(faq.mainEntity[0].name).toContain("Dubai");
   });
@@ -8726,7 +8726,7 @@ describe("Local SEO — nearby-area navigation links in <noscript> block", () =>
 
   it("Beirut nearby links do not include Beirut itself", () => {
     const { bodyHtml } = buildSeoHead("/en-lb/beirut", LOCAL_SEO_OPTS);
-    const anchors = (bodyHtml ?? "").match(/<a href="[^"]*\/en-lb\/([^"/]+)"/g) ?? [];
+    const anchors: string[] = (bodyHtml ?? "").match(/<a href="[^"]*\/en-lb\/([^"/]+)"/g) ?? [];
     const slugs = anchors.map((a) => {
       const m = a.match(/\/en-lb\/([^"/]+)"/);
       return m ? m[1] : "";

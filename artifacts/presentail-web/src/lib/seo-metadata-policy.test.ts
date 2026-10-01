@@ -10,7 +10,6 @@ import {
   buildStaticSeo,
   normalizeSeoText,
 } from "./seo.mjs";
-// @ts-expect-error plain ESM script helper
 import {
   findHreflangConsistencyIssues,
   validateSeoDocument,

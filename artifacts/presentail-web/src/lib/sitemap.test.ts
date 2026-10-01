@@ -12,7 +12,6 @@ import {
   SITEMAP_STATIC_PATHS,
   SITEMAP_CANONICAL_CITIES,
   SITEMAP_LANGS,
-// @ts-expect-error - mjs module without type declarations.
 } from "../../sitemap.mjs";
 
 const { DOMParser } = new JSDOM().window;
