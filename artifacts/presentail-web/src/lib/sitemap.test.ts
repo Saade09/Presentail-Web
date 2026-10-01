@@ -1,10 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { JSDOM } from "jsdom";
 import { BLOG_POSTS } from "@workspace/blog-content";
 
 import {
   buildSitemapXml,
   buildSitemapIndexXml,
+  deriveBrandsByCountry,
   generateSitemap,
   resolveSitemap,
   SITEMAP_RETRY_WINDOW_MS,
@@ -1498,5 +1499,118 @@ describe("brand pages — per-city brand counts", () => {
     expect(xml).toContain("/en-ae/dubai/brand/acme-flowers");
     expect(xml).toContain("/en-cy/nicosia/brand/acme-flowers");
     expect(xml).not.toContain("/brand/thin");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deriveBrandsByCountry — name→slug mapping behind the per-city brand counts
+// ---------------------------------------------------------------------------
+describe("deriveBrandsByCountry", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const HOUSE = "Presentail Flowers & Gifts";
+  const branded = (name: string, n: number) =>
+    Array.from({ length: n }, () => ({ brandNames: [HOUSE, name] }));
+
+  it("drops a display name shared by two brands instead of letting the last one win", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const result = deriveBrandsByCountry({
+      productsByCountry: { lb: [...branded("Apple", 8), ...branded("Hallab 1881", 3)] },
+      brandList: [
+        { slug: "apple", name: "Apple" },
+        { slug: "hallab-1881", name: "Hallab 1881" },
+        { slug: "dupe", name: "Apple" },
+      ],
+    });
+    expect(result).toEqual({ lb: [{ slug: "hallab-1881", count: 3 }] });
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toContain('"apple"');
+    expect(warn.mock.calls[0][0]).toContain("apple, dupe");
+  });
+
+  it("emits neither colliding slug in the sitemap", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fakeFetch = async (url: string) => {
+      if (url.includes("/api/woo/brands")) {
+        return {
+          brands: [
+            { slug: "apple", name: "Apple" },
+            { slug: "dupe", name: "Apple" },
+            { slug: "hallab-1881", name: "Hallab 1881" },
+          ],
+        };
+      }
+      if (url.includes("/api/woo/products")) {
+        return {
+          products: [...branded("Apple", 8), ...branded("Hallab 1881", 3)].map((p, i) => ({
+            slug: `p-${i}`,
+            ...p,
+          })),
+        };
+      }
+      if (url.includes("/api/catalog/metadata")) return { occasions: [], categories: [] };
+      return null;
+    };
+    const xml = await generateSitemap(ORIGIN, "/", fakeFetch, "http://localhost:80", "en");
+    expect(xml).not.toContain("/brand/apple<");
+    expect(xml).not.toContain("/brand/dupe<");
+    expect(xml).toContain("/en-lb/beirut/brand/hallab-1881<");
+  });
+
+  it("does not treat the same slug listed twice under one name as a collision", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const result = deriveBrandsByCountry({
+      productsByCountry: { lb: branded("Apple", 3) },
+      brandList: [
+        { slug: "apple", name: "Apple" },
+        { slug: "apple", name: "apple" },
+      ],
+    });
+    expect(result).toEqual({ lb: [{ slug: "apple", count: 3 }] });
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("matches names case- and whitespace-insensitively", () => {
+    const result = deriveBrandsByCountry({
+      productsByCountry: {
+        lb: [{ brandNames: ["apple"] }, { brandNames: ["  APPLE "] }, { brandNames: ["Apple"] }],
+      },
+      brandList: [{ slug: "apple", name: " Apple  " }],
+    });
+    expect(result).toEqual({ lb: [{ slug: "apple", count: 3 }] });
+  });
+
+  it("counts a product that lists the same brand twice once", () => {
+    const result = deriveBrandsByCountry({
+      productsByCountry: { lb: [{ brandNames: ["Apple", "apple", "Apple"] }] },
+      brandList: [{ slug: "apple", name: "Apple" }],
+    });
+    expect(result).toEqual({ lb: [{ slug: "apple", count: 1 }] });
+  });
+
+  it("drops the unmatched house name", () => {
+    const result = deriveBrandsByCountry({
+      productsByCountry: { lb: [{ brandNames: [HOUSE] }, { brandNames: [HOUSE] }], ae: [] },
+      brandList: [{ slug: "apple", name: "Apple" }],
+    });
+    expect(result).toEqual({ lb: [], ae: [] });
+  });
+
+  it("yields no counts for an empty or missing brand list", () => {
+    const productsByCountry = { lb: branded("Apple", 5), ae: [] };
+    expect(deriveBrandsByCountry({ productsByCountry, brandList: [] })).toEqual({ lb: [], ae: [] });
+    // No list at all → null, so buildSitemapXml falls back to the flat list.
+    expect(deriveBrandsByCountry({ productsByCountry, brandList: null })).toBeNull();
+    expect(deriveBrandsByCountry({ productsByCountry, brandList: undefined })).toBeNull();
+  });
+
+  it("tolerates products without brandNames", () => {
+    const result = deriveBrandsByCountry({
+      productsByCountry: { lb: [{}, { brandNames: null }, { brandNames: ["Apple"] }] },
+      brandList: [{ slug: "apple", name: "Apple" }],
+    });
+    expect(result).toEqual({ lb: [{ slug: "apple", count: 1 }] });
   });
 });

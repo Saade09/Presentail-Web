@@ -589,6 +589,87 @@ ${entries.join("\n")}
 </sitemapindex>`;
 }
 
+// Hub-city fetch config — must mirror SITEMAP_CANONICAL_CITIES / HUB_CITY.
+// Products are fetched per hub city so the sitemap only emits URLs for
+// products that are actually deliverable in each city (matching the
+// per-city isDeliverable() filter that the product API applies at request
+// time). This prevents submitting URLs that the product route would return
+// 410 Gone for because the product is not offered in that city.
+const HUB_CITY_FETCH = [
+  { country: "lb", city: "beirut",  countryCode: "LB" },
+  { country: "ae", city: "dubai",   countryCode: "AE" },
+  { country: "cy", city: "nicosia", countryCode: "CY" },
+];
+
+const hubCityProductsUrl = (apiBaseUrl, { countryCode, country, city }) =>
+  `${apiBaseUrl}/api/woo/products?lang=en&countryCode=${countryCode}&cityId=${country}-${city}`;
+
+// The brand name→slug list: /api/woo/brands when it answered, otherwise the
+// first catalog metadata response carrying brands, otherwise null (no list).
+const selectBrandList = (brandsData, metas) =>
+  brandsData !== null
+    ? brandsData?.brands ?? []
+    : metas.find((m) => Array.isArray(m?.brands))?.brands ?? null;
+
+const brandKey = (name) => (typeof name === "string" ? name.trim().toLowerCase() : "");
+
+/**
+ * Derive per-hub-city brand counts from the `brandNames` (display names) of
+ * each city's deliverable products. /api/woo/brands carries no count, and the
+ * metadata endpoint's brand counts are not country-aware (LB/AE/CY return
+ * identical values), so this is the only source that matches the per-city
+ * count seo-inject gates noindex on.
+ *
+ *  - Names match case- and surrounding-whitespace-insensitively.
+ *  - A product listing the same brand more than once counts once.
+ *  - Names with no matching brand slug are dropped — notably the house name
+ *    "Presentail Flowers & Gifts" that every product carries.
+ *  - A display name shared by brands with different slugs is ambiguous and
+ *    is dropped for all of them (with a console.warn). Letting the last
+ *    writer win would attribute the products to the wrong slug and emit a
+ *    URL seo-inject may serve noindex; omitting only costs a sitemap entry.
+ *
+ * @param {object} args
+ * @param {Record<string, Array<{ brandNames?: string[] }>>} args.productsByCountry
+ * @param {Array<{ slug?: string, name?: string }>|null|undefined} args.brandList
+ * @returns {Record<string, Array<{ slug: string, count: number }>>|null}
+ *   null when no brand list is available, so callers use the flat fallback.
+ */
+export function deriveBrandsByCountry({ productsByCountry, brandList }) {
+  if (!brandList) return null;
+
+  const slugsByName = new Map();
+  for (const b of brandList) {
+    const key = brandKey(b?.name);
+    if (!key || !b?.slug) continue;
+    if (!slugsByName.has(key)) slugsByName.set(key, new Set());
+    slugsByName.get(key).add(b.slug);
+  }
+  const slugByName = new Map();
+  for (const [key, slugs] of slugsByName) {
+    if (slugs.size === 1) {
+      slugByName.set(key, [...slugs][0]);
+    } else {
+      console.warn(
+        `[sitemap] brand display name "${key}" is shared by slugs ${[...slugs].join(", ")}; ` +
+          "omitting it from brand counts",
+      );
+    }
+  }
+
+  return Object.fromEntries(
+    Object.entries(productsByCountry ?? {}).map(([country, products]) => {
+      const counts = new Map();
+      for (const product of products ?? []) {
+        const names = Array.isArray(product?.brandNames) ? product.brandNames : [];
+        const slugs = new Set(names.map((n) => slugByName.get(brandKey(n))).filter(Boolean));
+        for (const slug of slugs) counts.set(slug, (counts.get(slug) ?? 0) + 1);
+      }
+      return [country, [...counts].map(([slug, count]) => ({ slug, count }))];
+    }),
+  );
+}
+
 /**
  * Fetch the live catalog and build one locale's sitemap XML.
  *
@@ -607,18 +688,6 @@ export async function generateSitemap(origin, basePath, fetchJson, apiBaseUrl, l
   // distrust. Blog posts carry their own real datePublished instead.
   const generatedAt = new Date().toISOString().slice(0, 10);
 
-  // Hub-city fetch config — must mirror SITEMAP_CANONICAL_CITIES / HUB_CITY.
-  // Products are fetched per hub city so the sitemap only emits URLs for
-  // products that are actually deliverable in each city (matching the
-  // per-city isDeliverable() filter that the product API applies at request
-  // time). This prevents submitting URLs that the product route would return
-  // 410 Gone for because the product is not offered in that city.
-  const HUB_CITY_FETCH = [
-    { country: "lb", city: "beirut",  countryCode: "LB" },
-    { country: "ae", city: "dubai",   countryCode: "AE" },
-    { country: "cy", city: "nicosia", countryCode: "CY" },
-  ];
-
   const [brandsData, ...perCityData] = await Promise.all([
     fetchJson(`${apiBaseUrl}/api/woo/brands`),
     // Fetch products AND catalog metadata (categories/occasions) per hub city
@@ -626,9 +695,7 @@ export async function generateSitemap(origin, basePath, fetchJson, apiBaseUrl, l
     // Products: city-filtered by isDeliverable() → prevents 410 product URLs.
     // Catalog metadata: per-country counts → prevents empty category/occasion URLs.
     ...HUB_CITY_FETCH.flatMap(({ countryCode, country, city }) => [
-      fetchJson(
-        `${apiBaseUrl}/api/woo/products?lang=en&countryCode=${countryCode}&cityId=${country}-${city}`,
-      ),
+      fetchJson(hubCityProductsUrl(apiBaseUrl, { countryCode, country, city })),
       fetchJson(`${apiBaseUrl}/api/catalog/metadata?countryCode=${countryCode}`),
     ]),
   ]);
@@ -681,40 +748,14 @@ export async function generateSitemap(origin, basePath, fetchJson, apiBaseUrl, l
     HUB_CITY_FETCH.map(({ country }, i) => [country, cityMetas[i]?.categories ?? []]),
   );
 
-  // Build per-country brand counts by tallying the `brandNames` (display
-  // names) of each hub city's deliverable products. /api/woo/brands carries
-  // no count, and the metadata endpoint's brand counts are not country-aware
-  // (LB/AE/CY return identical values), so this is the only source that
-  // matches the per-city count seo-inject gates noindex on. Names with no
-  // matching brand slug are dropped — notably the house name
-  // "Presentail Flowers & Gifts" that every product carries. When no brand
+  // Build per-country brand counts from the `brandNames` of each hub city's
+  // deliverable products (see deriveBrandsByCountry). When no brand
   // name→slug list is available at all, brandsByCountry stays null so the
   // flat `brands` fallback applies.
-  const brandKey = (name) => (typeof name === "string" ? name.trim().toLowerCase() : "");
-  const brandNameSource =
-    brandsData !== null
-      ? brandsData?.brands ?? []
-      : cityMetas.find((m) => Array.isArray(m?.brands))?.brands ?? null;
-  let brandsByCountry = null;
-  if (brandNameSource) {
-    const slugByName = new Map();
-    for (const b of brandNameSource) {
-      const key = brandKey(b?.name);
-      if (key && b?.slug) slugByName.set(key, b.slug);
-    }
-    brandsByCountry = Object.fromEntries(
-      HUB_CITY_FETCH.map(({ country }) => {
-        const counts = new Map();
-        for (const product of productsByCountry[country]) {
-          const slugs = new Set(
-            product.brandNames.map((n) => slugByName.get(brandKey(n))).filter(Boolean),
-          );
-          for (const slug of slugs) counts.set(slug, (counts.get(slug) ?? 0) + 1);
-        }
-        return [country, [...counts].map(([slug, count]) => ({ slug, count }))];
-      }),
-    );
-  }
+  const brandsByCountry = deriveBrandsByCountry({
+    productsByCountry,
+    brandList: selectBrandList(brandsData, cityMetas),
+  });
 
   // Keep flat fallback lists from LB metadata for any backward-compat path.
   const products = normalizeProducts(lbData);
@@ -835,6 +876,7 @@ if (_isMain) {
 
     // Attempt to fetch catalog data when an API base is configured.
     let products = [], brands = [], occasions = [], categories = [];
+    let brandsByCountry = null;
     if (apiBase) {
       const fetchJson = async (url) => {
         try {
@@ -845,15 +887,24 @@ if (_isMain) {
           return null;
         }
       };
-      const [productsData, brandsData, catalogData] = await Promise.all([
+      const [productsData, brandsData, catalogData, ...hubProducts] = await Promise.all([
         fetchJson(`${apiBase}/api/woo/products?lang=en&countryCode=LB`),
         fetchJson(`${apiBase}/api/woo/brands`),
         fetchJson(`${apiBase}/api/catalog/metadata`),
+        // Per-hub-city products, fetched as generateSitemap fetches them, so
+        // the city-brand counts match what the sitemap actually emits.
+        ...HUB_CITY_FETCH.map((hub) => fetchJson(hubCityProductsUrl(apiBase, hub))),
       ]);
       products = productsData?.products ?? [];
       brands = brandsData?.brands ?? [];
       occasions = catalogData?.occasions ?? [];
       categories = catalogData?.categories ?? [];
+      brandsByCountry = deriveBrandsByCountry({
+        productsByCountry: Object.fromEntries(
+          HUB_CITY_FETCH.map(({ country }, i) => [country, hubProducts[i]?.products ?? []]),
+        ),
+        brandList: selectBrandList(brandsData, [catalogData]),
+      });
     }
 
     buildSitemapXml({
@@ -861,6 +912,7 @@ if (_isMain) {
       basePath: "/",
       products,
       brands,
+      brandsByCountry,
       occasions,
       categories,
       reportRef,
