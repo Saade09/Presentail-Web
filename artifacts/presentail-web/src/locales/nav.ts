@@ -10,18 +10,29 @@ export const navStrings: Dict = {
   "nav.shop": { en: "Shop", ar: "تسوّق" },
   "nav.occasions": { en: "Occasions", ar: "المناسبات" },
   "nav.brands": { en: "Brands", ar: "العلامات" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey/descriptionKey menu config at components/homepage/MainNavbar.tsx:76
   "nav.flowersPlants": { en: "Flowers & Plants", ar: "الزهور والنباتات" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey/descriptionKey menu config at components/homepage/MainNavbar.tsx:92
   "nav.gifts": { en: "Gifts", ar: "الهدايا" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey/descriptionKey menu config at components/homepage/MainNavbar.tsx:108
   "nav.shopAll": { en: "Shop All", ar: "تسوّق الكل" },
   "nav.myAccount": { en: "My Account", ar: "حسابي" },
   "nav.contactUs": { en: "Contact Us", ar: "تواصل معنا" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey/descriptionKey menu config at components/homepage/MainNavbar.tsx:69
   "nav.occasionsDescription": { en: "Find a gift for every moment", ar: "اعثر على هدية لكل مناسبة" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey/descriptionKey menu config at components/homepage/MainNavbar.tsx:77
   "nav.flowersPlantsDescription": { en: "Fresh flowers and lasting plants", ar: "زهور نضرة ونباتات تدوم" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey/descriptionKey menu config at components/homepage/MainNavbar.tsx:85
   "nav.balloonsDescription": { en: "Make every celebration float", ar: "أضف البهجة إلى كل احتفال" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey/descriptionKey menu config at components/homepage/MainNavbar.tsx:93
   "nav.giftsDescription": { en: "Thoughtful gifts for every occasion", ar: "هدايا مميزة لكل مناسبة" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey/descriptionKey menu config at components/homepage/MainNavbar.tsx:101
   "nav.brandsDescription": { en: "Explore our trusted brands", ar: "اكتشف علاماتنا الموثوقة" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey/descriptionKey menu config at components/homepage/MainNavbar.tsx:109
   "nav.shopAllDescription": { en: "Browse every gift in one place", ar: "تصفّح جميع الهدايا في مكان واحد" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey/descriptionKey menu config at components/homepage/MainNavbar.tsx:800
   "nav.myAccountDescription": { en: "View orders and saved favorites", ar: "اعرض طلباتك ومفضلاتك المحفوظة" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey/descriptionKey menu config at components/homepage/MainNavbar.tsx:800
   "nav.signInDescription": { en: "Sign in to manage your account", ar: "سجّل الدخول لإدارة حسابك" },
   "nav.contactUsDescription": { en: "Chat with us on WhatsApp", ar: "تحدث معنا عبر واتساب" },
   "nav.searchAria": { en: "Search", ar: "بحث" },
@@ -43,22 +54,37 @@ export const navStrings: Dict = {
   "search.searching": { en: "Searching…", ar: "جارٍ البحث..." },
   "search.productsHeading": { en: "Products", ar: "المنتجات" },
   "search.viewAllProducts": { en: "View all products", ar: "عرض جميع المنتجات" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey/descriptionKey menu config at components/homepage/MainNavbar.tsx:202
   "nav.viewAllFlowers": { en: "Shop all Flowers & Plants", ar: "تسوّق كل الزهور والنباتات" },
   "nav.viewAllOccasions": { en: "View all Occasions", ar: "عرض جميع المناسبات" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey/descriptionKey menu config at components/homepage/MainNavbar.tsx:235
   "nav.viewAllGifts": { en: "Shop all Gifts", ar: "تسوّق جميع الهدايا" },
   "nav.viewAllBrands": { en: "View all brands", ar: "عرض جميع العلامات التجارية" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey/descriptionKey menu config at components/homepage/MainNavbar.tsx:233
   "nav.electronics": { en: "Electronics", ar: "إلكترونيات" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey/descriptionKey menu config at components/homepage/MainNavbar.tsx:84
   "nav.balloons": { en: "Balloons", ar: "البالونات" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey/descriptionKey menu config at components/homepage/MainNavbar.tsx:219
   "nav.viewAllBalloons": { en: "Shop all Balloons", ar: "تسوّق جميع البالونات" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey/descriptionKey menu config at components/homepage/MainNavbar.tsx:208
   "nav.birthdayBalloons": { en: "Birthday Balloons", ar: "بالونات عيد الميلاد" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey/descriptionKey menu config at components/homepage/MainNavbar.tsx:209
   "nav.balloonBouquets": { en: "Balloon Bouquets", ar: "باقات البالونات" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey/descriptionKey menu config at components/homepage/MainNavbar.tsx:210
   "nav.numberLetterBalloons": { en: "Number & Letter Balloons", ar: "بالونات الأرقام والحروف" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey/descriptionKey menu config at components/homepage/MainNavbar.tsx:211
   "nav.balloonArrangements": { en: "Balloon Arrangements", ar: "تنسيقات البالونات" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey/descriptionKey menu config at components/homepage/MainNavbar.tsx:212
   "nav.balloonArches": { en: "Balloon Arches", ar: "أقواس البالونات" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey/descriptionKey menu config at components/homepage/MainNavbar.tsx:213
   "nav.newBabyBalloons": { en: "New Baby Balloons", ar: "بالونات المولود" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey/descriptionKey menu config at components/homepage/MainNavbar.tsx:214
   "nav.loveAnniversaryBalloons": { en: "Love & Anniversary", ar: "الحب والذكرى السنوية" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey/descriptionKey menu config at components/homepage/MainNavbar.tsx:215
   "nav.kidsCharacterBalloons": { en: "Kids & Character", ar: "الأطفال والشخصيات" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey/descriptionKey menu config at components/homepage/MainNavbar.tsx:216
   "nav.personalizedBalloons": { en: "Personalized Balloons", ar: "بالونات مخصصة" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey/descriptionKey menu config at components/homepage/MainNavbar.tsx:217
   "nav.roomDeco": { en: "Room Deco", ar: "ديكور الغرفة" },
 };
 

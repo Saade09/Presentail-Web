@@ -61,7 +61,9 @@ export const productStrings: Dict = {
   "product.cyg.yourGift": { en: "Your bouquet", ar: "باقتك" },
   "product.cyg.add": { en: "+ Add", ar: "+ أضف" },
   "product.cyg.added": { en: "✓ Added", ar: "✓ تمت الإضافة" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via ternary t(cond ? a : b) at components/product/CompleteYourGift.tsx:339
   "product.cyg.item": { en: "{count} item", ar: "{count} عنصر" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via ternary t(cond ? a : b) at components/product/CompleteYourGift.tsx:339
   "product.cyg.items": { en: "{count} items", ar: "{count} عناصر" },
   "product.cyg.addToCart": { en: "Add bouquet to cart", ar: "أضف الباقة إلى السلة" },
   "product.cyg.addItemsToCart": { en: "Add {count} items to cart", ar: "أضف {count} عناصر إلى السلة" },
@@ -83,7 +85,9 @@ export const productStrings: Dict = {
   // ── Inherited delivery summary (cart-reuse States 2 & 3) ──
   "product.delivery.whenShouldItArrive": { en: "WHEN SHOULD IT ARRIVE?", ar: "متى يجب أن يصل؟" },
   "product.delivery.header": { en: "DELIVERY", ar: "التوصيل" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via ternary t(cond ? a : b) at components/product/InheritedDeliverySummary.tsx:49
   "product.delivery.expressTitle": { en: "Express delivery", ar: "توصيل سريع" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via ternary t(cond ? a : b) at components/product/InheritedDeliverySummary.tsx:49
   "product.delivery.scheduledTitle": { en: "Scheduled delivery", ar: "توصيل مجدوَل" },
   "product.delivery.change": { en: "Change", ar: "تغيير" },
   "product.delivery.changeAria": { en: "Change delivery method, date or time", ar: "تغيير طريقة التوصيل أو التاريخ أو الوقت" },

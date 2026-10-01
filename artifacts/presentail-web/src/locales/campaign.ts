@@ -37,7 +37,6 @@ export const campaignStrings: Dict = {
   "campaign.bestSellers.viewAll": { en: "View all →", ar: "عرض الكل →" },
   "campaign.pill.romantic": { en: "Romantic", ar: "رومانسي" },
   "campaign.pill.under": { en: "Under {amount}", ar: "أقل من {amount}" },
-  "campaign.reviews.title": { en: "Verified Customer Reviews", ar: "تقييمات عملاء موثّقة" },
   "campaign.stickyCta": {
     en: "Shop Flowers Available Today",
     ar: "تسوّق الزهور المتوفرة اليوم",
@@ -133,24 +132,28 @@ export const campaignStrings: Dict = {
     en: "Available today",
     ar: "متاح اليوم",
   },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey from QUICK_FILTER map at lib/campaignLanding.ts:118
   "campaign.redesign.quickFilters.under60": {
     en: "Under $60",
     ar: "أقل من 60 دولاراً",
     fr: "Moins de 60 $",
     el: "Κάτω από $60",
   },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey from QUICK_FILTER map at lib/campaignLanding.ts:119
   "campaign.redesign.quickFilters.priceRange": {
     en: "$60–$100",
     ar: "60–100 دولار",
     fr: "60–100 $",
     el: "$60–$100",
   },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey from QUICK_FILTER map at lib/campaignLanding.ts:114
   "campaign.redesign.quickFilters.underAed250": {
     en: "Under AED 250",
     ar: "أقل من 250 درهماً",
     fr: "Moins de 250 AED",
     el: "Κάτω από 250 AED",
   },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey from QUICK_FILTER map at lib/campaignLanding.ts:115
   "campaign.redesign.quickFilters.aed250to500": {
     en: "AED 250–500",
     ar: "250–500 درهم",
@@ -638,7 +641,6 @@ export const campaignStringsFr: Record<string, string> = {
   "campaign.bestSellers.viewAll": "Voir tout →",
   "campaign.pill.romantic": "Romantique",
   "campaign.pill.under": "Moins de {amount}",
-  "campaign.reviews.title": "Avis clients vérifiés",
   "campaign.stickyCta": "Voir les fleurs disponibles aujourd'hui",
   "campaign.redesign.hero.titleSameDay": "Livraison de fleurs le jour même à {city}",
   "campaign.redesign.hero.titleNeutral": "Livraison de fleurs à {city}",
@@ -729,19 +731,7 @@ export const campaignStringsFr: Record<string, string> = {
   "campaign.v2.address.step3.body": "Vous recevez un suivi en direct et un message dès que la livraison est remise — même si vous commandez depuis l'étranger.",
 
   // ── Pass 2A: reviews section ──────────────────────────────────────────────
-  "campaign.v2.reviews.heading": "Ce que disent les gens",
   "campaign.v2.reviews.readAll": "Lire tous les avis",
-  "campaign.v2.reviews.aggregate": "4,8 sur 5 d'après 1 240 avis vérifiés sur Trustpilot",
-  "campaign.v2.reviews.fiveStars": "5 étoiles sur 5",
-  "campaign.v2.reviews.abroad.quote": "Je commandais depuis Londres et je ne savais pas comment organiser une livraison à ma sœur à Beyrouth sans qu'elle le sache. L'équipe l'a contactée directement, a recueilli l'adresse et a livré le jour même. Une expérience parfaitement fluide du début à la fin.",
-  "campaign.v2.reviews.abroad.reviewer": "Sarah M.",
-  "campaign.v2.reviews.abroad.product": "Plum Florals",
-  "campaign.v2.reviews.speed.quote": "J'ai commandé à midi et les fleurs étaient devant la porte de ma mère à 15 h. Elles étaient exactement comme sur les photos — aucun remplacement, aucune surprise. C'est vraiment la livraison de fleurs la plus rapide que j'aie utilisée.",
-  "campaign.v2.reviews.speed.reviewer": "Rami K.",
-  "campaign.v2.reviews.speed.product": "Boîte de chocolats classique",
-  "campaign.v2.reviews.tracking.quote": "J'ai reçu une photo dès que la livraison est arrivée. Ma petite amie ne savait pas que j'avais tout organisé depuis Dubaï. Les mises à jour de suivi ont rendu l'expérience personnelle, même à cette distance.",
-  "campaign.v2.reviews.tracking.reviewer": "Omar H.",
-  "campaign.v2.reviews.tracking.product": "Le coffret d'anniversaire",
 
   // ── Redesign: new sections (fr) ───────────────────────────────────────────
   "campaign.redesign.location.delivering": "Livraison vers :",
@@ -816,7 +806,6 @@ export const campaignStringsEl: Record<string, string> = {
   "campaign.bestSellers.viewAll": "Δείτε όλα →",
   "campaign.pill.romantic": "Ρομαντικό",
   "campaign.pill.under": "Κάτω από {amount}",
-  "campaign.reviews.title": "Επαληθευμένες κριτικές πελατών",
   "campaign.stickyCta": "Δείτε τα λουλούδια που είναι διαθέσιμα σήμερα",
 
   // ── Beirut paid-search hero variant (v2) ──
@@ -861,10 +850,7 @@ export const campaignStringsEl: Record<string, string> = {
   "campaign.v2.address.step3.body": "Λαμβάνετε ζωντανή παρακολούθηση και ένα μήνυμα τη στιγμή που παραδίδεται — ακόμα κι αν παραγγέλνετε από το εξωτερικό.",
 
   // ── Pass 2A: reviews section ──────────────────────────────────────────────
-  "campaign.v2.reviews.heading": "Τι λέει ο κόσμος",
   "campaign.v2.reviews.readAll": "Διαβάστε όλες τις κριτικές",
-  "campaign.v2.reviews.aggregate": "4,8 στα 5 από 1.240 επαληθευμένες κριτικές στο Trustpilot",
-  "campaign.v2.reviews.fiveStars": "5 στα 5 αστέρια",
 
   // ── Beirut quick-shop filters (lb-beirut only — Cyprus fallback stubs) ──────
   "campaign.redesign.flowers.titleQuickShop": "Λουλούδια διαθέσιμα σήμερα",

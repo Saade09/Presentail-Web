@@ -144,6 +144,7 @@ export const shopStrings: Dict = {
   "shop.occ.condolences": { en: "Condolences", ar: "عزاء" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   // OS occasion slug is "funeral"; label kept as "Condolences" for UX appropriateness.
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey list at pages/BestSellers.tsx:60
   "shop.occ.funeral": { en: "Condolences", ar: "عزاء" },
   // eslint-disable-next-line presentail/no-orphan-translation-key
   "shop.occ.colleague": { en: "Colleague", ar: "زميل" },
@@ -174,37 +175,60 @@ export const shopStrings: Dict = {
   "shop.plants.outdoorSection": { en: "Outdoor Plants", ar: "نباتات خارجية" },
 
   "shop.bearSize.label": { en: "Bear Size:", ar: "حجم الدب:" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey list at lib/bearSizes.ts:14
   "shop.bearSize.all": { en: "All Bears", ar: "كل الدببة" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey list at lib/bearSizes.ts:15
   "shop.bearSize.small": { en: "Small Bears", ar: "دببة صغيرة" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey list at lib/bearSizes.ts:16
   "shop.bearSize.medium": { en: "Medium Bears", ar: "دببة متوسطة" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey list at lib/bearSizes.ts:17
   "shop.bearSize.lifeSize": { en: "Life-Size Bears", ar: "دببة بالحجم الطبيعي" },
 
   "shop.anniversaryFor.label": { en: "Shop Anniversary Gifts For:", ar: "تسوّق هدايا الذكرى لـ:" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via tabs labelKey list at components/AnniversaryGenderTabs.tsx:17
   "shop.anniversaryFor.all": { en: "All", ar: "الكل" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey list at lib/anniversaryGender.ts:13
   "shop.anniversaryFor.her": { en: "For Her", ar: "لها" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey list at lib/anniversaryGender.ts:19
   "shop.anniversaryFor.him": { en: "For Him", ar: "له" },
 
   "shop.loveRomanceFor.label": { en: "Shop Love & Romance Gifts For:", ar: "تسوّق هدايا الحب والرومانسية لـ:" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via tabs labelKey list at components/LoveRomanceGenderTabs.tsx:17
   "shop.loveRomanceFor.all": { en: "All", ar: "الكل" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey list at lib/loveRomanceGender.ts:13
   "shop.loveRomanceFor.her": { en: "For Her", ar: "لها" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey list at lib/loveRomanceGender.ts:19
   "shop.loveRomanceFor.him": { en: "For Him", ar: "له" },
 
   "shop.newbornFor.label": { en: "Shop New Born Gifts For:", ar: "تسوّق هدايا المولود الجديد لـ:" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via tabs labelKey list at components/NewbornGenderTabs.tsx:13
   "shop.newbornFor.all": { en: "All", ar: "الكل" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey list at lib/newbornGender.ts:14
   "shop.newbornFor.babyBoy": { en: "Baby Boy", ar: "مولود ذكر" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey list at lib/newbornGender.ts:20
   "shop.newbornFor.babyGirl": { en: "Baby Girl", ar: "مولودة أنثى" },
 
   "shop.birthdayFor.label": { en: "Who are you shopping for?", ar: "لمن تتسوّق؟" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via tabs labelKey list at components/BirthdayRecipientTabs.tsx:17
   "shop.birthdayFor.all": { en: "Everyone", ar: "الجميع" },
   "shop.birthdayFor.contextHeading": { en: "Birthday Gifts for {recipient}", ar: "هدايا عيد الميلاد لـ {recipient}" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey list at lib/birthdayRecipients.ts:13
   "shop.birthdayFor.mom": { en: "Mom", ar: "الأم" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey list at lib/birthdayRecipients.ts:31
   "shop.birthdayFor.dad": { en: "Dad", ar: "الأب" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey list at lib/birthdayRecipients.ts:55
   "shop.birthdayFor.teta": { en: "Teta", ar: "تيتا" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey list at lib/birthdayRecipients.ts:61
   "shop.birthdayFor.jedo": { en: "Jedo", ar: "جدو" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey list at lib/birthdayRecipients.ts:25
   "shop.birthdayFor.girlfriend": { en: "Girlfriend", ar: "الصديقة" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey list at lib/birthdayRecipients.ts:43
   "shop.birthdayFor.boyfriend": { en: "Boyfriend", ar: "الصديق" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey list at lib/birthdayRecipients.ts:19
   "shop.birthdayFor.wife": { en: "Wife", ar: "الزوجة" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey list at lib/birthdayRecipients.ts:37
   "shop.birthdayFor.husband": { en: "Husband", ar: "الزوج" },
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- selected at runtime via labelKey list at lib/birthdayRecipients.ts:49
   "shop.birthdayFor.kids": { en: "Kids", ar: "الأطفال" },
 
   "shop.filter.priceTitle": { en: "Price", ar: "السعر" },

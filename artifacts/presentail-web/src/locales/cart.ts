@@ -8,7 +8,6 @@ export const cartStrings: Dict = {
   "cart.title": { en: "Cart", ar: "السلة" },
   "cart.deliverySummary": { en: "Delivery Summary", ar: "ملخص التسليم" },
   "cart.orderSummary": { en: "Order Summary", ar: "ملخص الطلب" },
-  "cart.subtotal": { en: "Subtotal", ar: "المجموع الفرعي" },
   "cart.total": { en: "Total", ar: "الإجمالي" },
   "cart.items_one": { en: "Items (1)", ar: "العناصر (1)" },
   "cart.items_other": { en: "Items ({n})", ar: "العناصر ({n})" },
@@ -108,7 +107,6 @@ export const cartStrings: Dict = {
   "cart.promoCodeError": { en: "Could not validate promo code. Please try again.", ar: "تعذّر التحقق من الرمز الترويجي. يرجى المحاولة مجدداً." },
   "cart.deliveryFree": { en: "Free", ar: "مجاني" },
   "cart.deliveryTbd": { en: "Calculated at checkout", ar: "يُحسب عند الدفع" },
-  "cart.lateNightFee": { en: "Late night fee", ar: "رسوم التوصيل الليلي المتأخر" },
   // Order Summary — muted component breakdown beneath composite delivery rows
   // no-translate — {base} and {upgrade}/{fee} are replaced with FormattedPrice nodes at render time
   "cart.midnightComponents": { en: "Includes {base} base delivery + {upgrade} midnight upgrade", ar: "يشمل {base} توصيل أساسي + {upgrade} ترقية منتصف الليل" },
@@ -179,7 +177,6 @@ export const cartStringsFr: Record<string, string> = {
   "cart.title": "Panier",
   "cart.deliverySummary": "Résumé de livraison",
   "cart.orderSummary": "Récapitulatif de la commande",
-  "cart.subtotal": "Sous-total",
   "cart.total": "Total",
   "cart.items_one": "Articles (1)",
   "cart.items_other": "Articles ({n})",
@@ -267,7 +264,6 @@ export const cartStringsFr: Record<string, string> = {
   "cart.promoCodeError": "Impossible de valider le code promo. Veuillez réessayer.",
   "cart.deliveryFree": "Gratuit",
   "cart.deliveryTbd": "Calculé à la caisse",
-  "cart.lateNightFee": "Frais de livraison tardive",
   "cart.midnightComponents": "Comprend {base} livraison de base + {upgrade} surclassement minuit",
   "cart.lateNightComponents": "Comprend {base} livraison de base + {fee} soirée tardive",
   // Contextual three-state free-delivery card (cart page)
@@ -332,7 +328,6 @@ export const cartStringsEl: Record<string, string> = {
   "cart.title": "Καλάθι",
   "cart.deliverySummary": "Σύνοψη παράδοσης",
   "cart.orderSummary": "Σύνοψη παραγγελίας",
-  "cart.subtotal": "Μερικό σύνολο",
   "cart.total": "Σύνολο",
   "cart.items_one": "Προϊόντα (1)",
   "cart.items_other": "Προϊόντα ({n})",
@@ -409,7 +404,6 @@ export const cartStringsEl: Record<string, string> = {
   "cart.promoCodeError": "Δεν ήταν δυνατή η επικύρωση του κωδικού προσφοράς. Παρακαλώ προσπαθήστε ξανά.",
   "cart.deliveryFree": "Δωρεάν",
   "cart.deliveryTbd": "Υπολογίζεται κατά την ολοκλήρωση",
-  "cart.lateNightFee": "Χρέωση βραδινής παράδοσης",
   "cart.midnightComponents": "Περιλαμβάνει {base} βασική παράδοση + {upgrade} αναβάθμιση μεσάνυχτα",
   "cart.lateNightComponents": "Περιλαμβάνει {base} βασική παράδοση + {fee} χρέωση αργά βράδυ",
   // Contextual three-state free-delivery card (cart page)

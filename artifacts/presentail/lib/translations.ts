@@ -516,10 +516,15 @@ const EN = {
   cartTotal: "Total", // no-translate — French loan word, identical in EN and FR
   cartStickyItemSingular: "item",
   cartStickyItemPlural: "items",
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- read by computeStickyDeliveryPromise in lib/delivery/src/index.ts (outside the rule's artifacts/presentail scan root), called from components/FullCartView.tsx:319
   cartStickyDeliveryToday: "Delivery today",
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- read by computeStickyDeliveryPromise in lib/delivery/src/index.ts (outside the rule's artifacts/presentail scan root), called from components/FullCartView.tsx:319
   cartStickyDeliveryTonight: "Delivery tonight",
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- read by computeStickyDeliveryPromise in lib/delivery/src/index.ts (outside the rule's artifacts/presentail scan root), called from components/FullCartView.tsx:319
   cartStickyDeliveryTomorrow: "Delivery tomorrow",
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- read by computeStickyDeliveryPromise in lib/delivery/src/index.ts (outside the rule's artifacts/presentail scan root), called from components/FullCartView.tsx:319
   cartStickyDeliveryDate: "Delivery {date}",
+  // eslint-disable-next-line presentail/no-orphan-translation-key -- read by computeStickyDeliveryPromise in lib/delivery/src/index.ts (outside the rule's artifacts/presentail scan root), called from components/FullCartView.tsx:319
   cartStickyArrivesBy: "Arrives by {time}",
   cartStickySelectTime: "Select delivery time",
   cartStickyCheckoutSecure: "Checkout securely",
@@ -644,7 +649,6 @@ const EN = {
   checkoutDayTomorrow: "Tom",
   dateStripMoreLabel: "More",
   checkoutPayCard: "Credit / Debit Card",
-  checkoutCardTemporarilyUnavailable: "Card payment is temporarily unavailable.",
   checkoutPayByCard: "Pay by card",
   checkoutPayApplePay: "Apple Pay", // no-translate — brand name, identical across all locales
   checkoutPayGooglePay: "Google Pay", // no-translate — brand name, identical across all locales
@@ -1661,7 +1665,6 @@ const AR: typeof EN = {
   checkoutDayTomorrow: "غداً",
   dateStripMoreLabel: "المزيد",
   checkoutPayCard: "بطاقة ائتمان / خصم",
-  checkoutCardTemporarilyUnavailable: "الدفع بالبطاقة غير متاح مؤقتاً.",
   checkoutPayByCard: "ادفع بالبطاقة",
   checkoutPayApplePay: "Apple Pay", // no-translate — brand name
   checkoutPayGooglePay: "Google Pay", // no-translate — brand name
@@ -2673,7 +2676,6 @@ const FR: typeof EN = {
   checkoutDayTomorrow: "Dem.",
   dateStripMoreLabel: "Plus",
   checkoutPayCard: "Carte de crédit / débit",
-  checkoutCardTemporarilyUnavailable: "Le paiement par carte est temporairement indisponible.",
   checkoutPayByCard: "Payer par carte",
   checkoutPayApplePay: "Apple Pay", // no-translate — brand name
   checkoutPayGooglePay: "Google Pay", // no-translate — brand name
