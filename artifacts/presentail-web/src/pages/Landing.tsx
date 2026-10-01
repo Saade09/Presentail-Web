@@ -173,10 +173,6 @@ export default function Landing({ initialCountryCode = null }: LandingProps) {
   const selectedRow = selectedCountryCode ? rows.find((r) => r.code === selectedCountryCode) : null;
   const selectedLabel = selectedRow ? countryName(selectedRow.code, selectedRow.name) : "";
 
-  const activeCities = selectedRow ? selectedRow.cities.filter((c) => c.isActive !== false) : [];
-  const unavailableCities = selectedRow ? selectedRow.cities.filter((c) => c.isActive === false) : [];
-  const hasBothGroups = activeCities.length > 0 && unavailableCities.length > 0;
-
   const description = selectedCountryCode
     ? t("locationPicker.chooseAreaDescription")
     : null;

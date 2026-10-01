@@ -195,7 +195,6 @@ describe("Cart — Proceed to Checkout button", () => {
 
   it("flag ON: signed-out shopper goes straight to /checkout — no popup, no ?guest=1", async () => {
     mockFrictionlessEnabled.mockReturnValue(true);
-    const user = userEvent.setup();
     const { rerender } = renderWithProviders(<Cart />, {
       auth: { user: null, isLoading: false, token: null },
       cart: CART_ABOVE_THRESHOLD,

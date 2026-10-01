@@ -34,13 +34,6 @@ type Props = {
    * Falls back to the flat `timeSlots` only when this prop is omitted.
    */
   slotsByDay?: Record<string, TimeSlot[]>;
-  /**
-   * When true the standard district delivery fee is waived for this order (cart
-   * total meets the free-delivery threshold and freeDeliveryEnabled is on). Used
-   * to determine whether zero-extraFee slots are labelled "Free" or remain silent.
-   * Defaults to false so the label is conservative when data hasn't loaded yet.
-   */
-  freeDeliveryMet?: boolean;
   onChange: (args: {
     mode: "today_slot" | "schedule";
     date: string;
@@ -71,7 +64,6 @@ export function ScheduleInlinePanel({
   initialSlotId,
   timeSlots: propTimeSlots,
   slotsByDay: propSlotsByDay,
-  freeDeliveryMet = false,
   onChange,
   onUserInteracted,
 }: Props) {

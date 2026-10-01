@@ -387,11 +387,9 @@ describe("SignIn — CompleteProfileDialog fires handleAuthSuccess exactly once"
     } as Response);
 
     // Capture the callbacks passed to CompleteProfileDialog
-    let completeFn: ((update?: any) => void) = () => {};
     let openChangeFn: ((v: boolean) => void) = () => {};
 
     mockCompleteProfileDialog.mockImplementation((props: any) => {
-      completeFn = props.onComplete;
       openChangeFn = props.onOpenChange;
       return null;
     });

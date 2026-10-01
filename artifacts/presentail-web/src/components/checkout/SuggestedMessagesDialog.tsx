@@ -75,8 +75,6 @@ export function SuggestedMessagesDialog({
     onOpenChange(false);
   };
 
-  const titleId = "suggested-messages-title";
-
   const inner = (
     <>
       {/* Language toggle */}

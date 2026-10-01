@@ -148,10 +148,6 @@ function seedSessionStorage() {
   sessionStorage.setItem(PENDING_ORDER_KEY, JSON.stringify(STASHED_PAYLOAD));
 }
 
-function clearSessionStorage() {
-  sessionStorage.removeItem(PENDING_ORDER_KEY);
-}
-
 /**
  * Find the POST /api/pixel/event call among all fetch() invocations and parse
  * its request body. Returns null when no such call was recorded.

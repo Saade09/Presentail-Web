@@ -924,7 +924,6 @@ export default function ProductDetail() {
                       initialDate={deliverySelection.date}
                       initialSlotLabel={deliverySelection.slotLabel}
                       initialSlotId={deliverySelection.slotId}
-                      freeDeliveryMet={freeDeliveryMet}
                        onChange={({ mode, date, slotLabel, slotId, serviceType, cityId: selectedCityId }) => {
                         deliverySelection.setSelection({
                           mode,

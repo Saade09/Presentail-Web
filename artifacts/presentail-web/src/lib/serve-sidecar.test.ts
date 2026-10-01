@@ -128,7 +128,7 @@ describe("serve.mjs — sidecar file blocking", () => {
     // path must NOT be intercepted by it.  The file does not exist in dist so
     // the server will still return a 404, but via the non-locale path guard
     // (HTML body) — NOT via the sidecar blocker (plain-text "Not Found" body).
-    const { status, body } = await get(serverPort, "/assets/index-abc123.js");
+    const { body } = await get(serverPort, "/assets/index-abc123.js");
     expect(body).not.toBe("Not Found");
   });
 

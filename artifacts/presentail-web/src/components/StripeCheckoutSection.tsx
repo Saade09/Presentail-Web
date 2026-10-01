@@ -1,4 +1,4 @@
-import { Elements, useStripe, useElements, PaymentElement } from "@stripe/react-stripe-js";
+import { Elements, useStripe, useElements } from "@stripe/react-stripe-js";
 import type { Stripe, StripeElements, StripeElementsOptions } from "@stripe/stripe-js";
 import { useEffect } from "react";
 import { StripeCardFields, type SavedPaymentMethod } from "@/components/StripeCardFields";
@@ -95,8 +95,6 @@ function StripeInner({
   usePaymentElement,
   onPaymentElementReady,
   initializationStatus,
-  initializationFailure,
-  onRetryInitialization,
   showInitializationStatus,
 }: InnerProps) {
   const stripe = useStripe();
@@ -182,7 +180,6 @@ export function StripeCheckoutSection({
   paymentAmount,
   paymentCurrency,
   initializationStatus,
-  initializationFailure,
   onRetryInitialization,
   showInitializationStatus = showCardFields,
 }: Props) {
@@ -236,8 +233,6 @@ export function StripeCheckoutSection({
             usePaymentElement={usePaymentElement}
             onPaymentElementReady={onPaymentElementReady}
             initializationStatus={initializationStatus}
-            initializationFailure={initializationFailure}
-            onRetryInitialization={onRetryInitialization}
           />
         </Elements>
       ) : null}

@@ -24,7 +24,7 @@ import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
 import { useLocationSelection } from "@/contexts/LocationContext";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
 import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
-import { expressSurchargeForCountry, formatPromiseDateLabel, freeDeliveryThresholdUsd, getLocalIso, isExpressDeliveryAvailable, isMidnightSlot, timeSlotsForCountry } from "@workspace/delivery";
+import { expressSurchargeForCountry, formatPromiseDateLabel, freeDeliveryThresholdUsd, getLocalIso, isExpressDeliveryAvailable, isMidnightSlot } from "@workspace/delivery";
 import { buildExpressPromise, useDeliveryPromise, useExpressQuoteAnchor } from "@/components/delivery/deliveryPromise";
 import { useMidnightSlotValidation } from "@/components/delivery/useMidnightSlotValidation";
 import { ExpressUpgradeCard } from "@/components/delivery/ExpressUpgradeCard";

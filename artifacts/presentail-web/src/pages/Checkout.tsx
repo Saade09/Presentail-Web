@@ -6,7 +6,6 @@ import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LazyWebPhoneField } from "@/components/LazyWebPhoneField";
-import { Textarea } from "@/components/ui/textarea";
 import DeliveryDetailsField, { flattenPlaceAddress, type CheckoutPlace, type PlaceDistrictNotice } from "@/components/checkout/DeliveryDetailsField";
 import { CARD_MESSAGE_KEY, CARD_TO_KEY, CARD_FROM_KEY, CARD_QR_LINK_KEY, COUPON_STORAGE_KEY, COUPON_DISCOUNT_KEY, ORDER_NOTE_KEY } from "./Cart";
 
@@ -41,7 +40,6 @@ import { useDisplayCurrency } from "@/lib/useDisplayCurrency";
 import { useIpDetectedCountry } from "@/lib/useIpDetectedCountry";
 
 import { FormattedPrice } from "@/components/FormattedPrice";
-import { SalePrice } from "@/components/SalePrice";
 import { useDeliveryConfig } from "@/components/product/useDeliveryConfig";
 import { DeliveryPickerModal, type DeliveryPickerSelection } from "@/components/delivery/DeliveryPickerModal";
 import { useDeliverySelection } from "@/contexts/DeliverySelectionContext";
@@ -84,7 +82,6 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { SavedAddressChooser, type CheckoutSavedAddress } from "@/components/checkout/SavedAddressChooser";
 import {
   dayLabels,
-  expressSurchargeForCountry,
   firstAvailableDay,
   formatDeliveryRow,
   freeDeliveryThresholdUsd,
@@ -93,7 +90,6 @@ import {
   isExpressDeliveryAvailable,
   isMidnightSlot,
   slotTimeRangeForLabel,
-  timeSlotsForCountry,
 } from "@workspace/delivery";
 import { checkStaleSlotSelection } from "@/components/delivery/staleSlotCheck";
 import {
@@ -103,7 +99,7 @@ import {
   webVisiblePayMethods,
   type WebPaymentMethodId,
 } from "./checkoutPayMethods";
-import { calcCheckoutFees, activeCurrencyForCountry } from "./checkoutFees";
+import { calcCheckoutFees } from "./checkoutFees";
 import {
   classifyDistrictChange,
   feesDiffer,
@@ -207,19 +203,6 @@ function stripeDeclineMsg(
 // Configurable via VITE_STRIPE_MERCHANT_COUNTRY (default "US").
 const STRIPE_MERCHANT_COUNTRY: string =
   (import.meta.env.VITE_STRIPE_MERCHANT_COUNTRY as string | undefined) || "US";
-
-// Maps the active display-currency to its most likely Stripe merchant country.
-// Mirrors the mobile checkout's countryFromCurrency / resolveCountryCode pattern.
-function countryFromCurrency(currencyCode?: string): string | undefined {
-  if (currencyCode === "AED") return "AE";
-  if (currencyCode === "EUR") return "CY";
-  if (currencyCode === "USD") return "LB";
-  return undefined;
-}
-
-function resolveCheckoutCountry(selectedCountryCode?: string | null, currencyCode?: string): string {
-  return selectedCountryCode || countryFromCurrency(currencyCode) || "LB";
-}
 
 // Module-level Stripe promise caches — lazily initialised via dynamic import so
 // @stripe/stripe-js is NOT bundled into the eagerly-evaluated checkout chunk,
@@ -659,7 +642,7 @@ function CheckoutForm() {
     !frictionlessCheckout && !authLoading && !user && !guestAcked;
   const { toast } = useToast();
   const { t, dir, cityName, language } = useLocale();
-  const { countryCode, country, city: locationCity } = useLocationSelection();
+  const { countryCode, city: locationCity } = useLocationSelection();
   const { currencyCode } = useDisplayCurrency();
   const { data: fxRatesData } = useFxRates();
   const { country: ipCountry, settled: ipCountrySettled } = useIpDetectedCountry();
@@ -1253,7 +1236,6 @@ function CheckoutForm() {
   // (or, for signed-in users with a saved phone, until the profile number is
   // parsed). Null routes to Stripe.
   const [senderPhoneCountry, setSenderPhoneCountry] = useState<string | null>(null);
-  const [senderPhoneDialCode, setSenderPhoneDialCode] = useState<string | null>(null);
   const [deliveryPickerOpen, setDeliveryPickerOpen] = useState(false);
 
   // ── District-change revalidation state ────────────────────────────────────
@@ -1687,7 +1669,6 @@ function CheckoutForm() {
     const cityOk = selectedCityData?.expressAvailable === true;
     return timeOk && cityOk;
   }, [countryCode, now, selectedCityData]);
-  const expressSurcharge = expressSurchargeForCountry(countryCode);
 
   // Quote-anchored express delivery promise (desktop sidebar panel).
   // The "Arrives by" deadline is computed ONCE when express is selected (or
@@ -2413,16 +2394,13 @@ function CheckoutForm() {
         try {
           const parsed = m.parsePhoneNumber(profilePhone);
           setSenderPhoneCountry(parsed?.country ?? null);
-          setSenderPhoneDialCode(parsed?.countryCallingCode ? String(parsed.countryCallingCode) : null);
         } catch {
           setSenderPhoneCountry(null);
-          setSenderPhoneDialCode(null);
         }
       })
       .catch(() => {
         if (!cancelled) {
           setSenderPhoneCountry(null);
-          setSenderPhoneDialCode(null);
         }
       });
     return () => {
@@ -3231,12 +3209,6 @@ function CheckoutForm() {
     paypalPayment.isPending ||
     tabbyPayment.isPending ||
     cardProcessing;
-
-  // Active display currency derived from the active country. Used both
-  // by the payment-method picker (to hide unavailable methods) and by
-  // the submit handler (to route AED + wallet through Mamo's hosted page,
-  // mirroring mobile checkout).
-  const activeCurrency = activeCurrencyForCountry(countryCode ?? "LB");
 
   // orderId is generated once per checkout attempt and threaded through the
   // payment session creation AND the WC order payload so the server can bind
@@ -5326,9 +5298,8 @@ function CheckoutForm() {
                           errorMessage={t("checkout.phoneInvalidNumber")}
                           data-testid="input-sender-phone"
                           onValidityChange={setSenderPhoneValid}
-                          onCountryChange={(country, dialCode) => {
+                          onCountryChange={(country) => {
                             setSenderPhoneCountry(country ?? null);
-                            setSenderPhoneDialCode(dialCode ?? null);
                           }}
                         />
                       ) : (
@@ -5839,9 +5810,7 @@ function CheckoutForm() {
             effectiveFreeDeliveryEnabled={effectiveFreeDeliveryEnabled}
             effectiveFreeDeliveryThresholdUsd={effectiveFreeDeliveryThresholdUsd}
             deliveryMode={deliveryMode}
-            deliveryRowText={deliveryRowText}
             deliveryPromise={deliveryPromise}
-            selectedDistrict={_selectedDistrict}
             couponApplied={couponApplied}
             couponOpen={couponOpen}
             couponInput={couponInput}

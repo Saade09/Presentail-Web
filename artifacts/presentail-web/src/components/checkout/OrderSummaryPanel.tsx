@@ -38,14 +38,12 @@ export type OrderSummaryPanelProps = {
   effectiveFreeDeliveryEnabled: boolean | undefined;
   effectiveFreeDeliveryThresholdUsd: number | undefined;
   deliveryMode: "express" | "schedule";
-  deliveryRowText: string | null;
   /** Desktop sidebar delivery-promise panel payload (express quote-anchored
    *  "Arrives by" time, or the standard "Arrives [day · window]" text). */
   deliveryPromise?:
     | { type: "express"; arrivesBy: string | null }
     | { type: "standard"; when: string | null; arrival?: string | null }
     | null;
-  selectedDistrict: string;
   couponApplied: boolean;
   couponOpen: boolean;
   couponInput: string;
@@ -108,9 +106,7 @@ export function OrderSummaryPanel({
   effectiveFreeDeliveryEnabled,
   effectiveFreeDeliveryThresholdUsd,
   deliveryMode,
-  deliveryRowText,
   deliveryPromise = null,
-  selectedDistrict,
   couponApplied,
   couponOpen,
   couponInput,
