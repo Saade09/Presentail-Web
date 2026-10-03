@@ -3,7 +3,8 @@ Allow: /
 Disallow: /cart
 Disallow: /checkout
 Disallow: /auth
-Disallow: /account
+Disallow: /account$
+Disallow: /account/
 Disallow: /admin
 Allow: /api/img/proxy
 Allow: /api/og-image/
@@ -19,7 +20,8 @@ Disallow: /personal-information
 Disallow: /*/cart
 Disallow: /*/checkout
 Disallow: /*/auth
-Disallow: /*/account
+Disallow: /*/account$
+Disallow: /*/account/
 Disallow: /*/sign-in
 Disallow: /*/sign-up
 Disallow: /*/reset-password
@@ -73,7 +75,8 @@ Allow: /
 Disallow: /cart
 Disallow: /checkout
 Disallow: /auth
-Disallow: /account
+Disallow: /account$
+Disallow: /account/
 Disallow: /admin
 Allow: /api/img/proxy
 Allow: /api/og-image/
@@ -89,7 +92,8 @@ Disallow: /personal-information
 Disallow: /*/cart
 Disallow: /*/checkout
 Disallow: /*/auth
-Disallow: /*/account
+Disallow: /*/account$
+Disallow: /*/account/
 Disallow: /*/sign-in
 Disallow: /*/sign-up
 Disallow: /*/reset-password

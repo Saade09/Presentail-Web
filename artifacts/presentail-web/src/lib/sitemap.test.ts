@@ -1018,8 +1018,8 @@ describe("buildSitemapXml — excluded / noindex paths", () => {
     totalProductCount: 30,
   });
 
-  it("does not include /shop (canonical category/occasion clean paths used instead)", () => {
-    expect(xmlFull).not.toContain("/shop");
+  it("does not include legacy /shop?category= / ?occasion= URLs (clean paths used instead)", () => {
+    expect(xmlFull).not.toMatch(/\/shop\?/);
   });
 
   const NOINDEX_GROUP_B = ["/privacy", "/terms", "/careers", "/partner"];
