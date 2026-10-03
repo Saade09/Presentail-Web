@@ -6112,7 +6112,10 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
         const siteUrl = `${siteOrigin}${cleanBase}`;
         const indexLines = [
           `<meta name="description" content="${escapeAttr(blogSeo.description)}" />`,
-          `<meta name="robots" content="noindex, follow" />`,
+          // The en/ar/fr hubs are indexable and listed in the sitemaps; must
+          // agree with resolveXRobotsTag(). /el/blog 301s to /en/blog in
+          // serve.mjs and stays noindex if reached directly.
+          `<meta name="robots" content="${["en", "ar", "fr"].includes(blogLang) ? "index, follow" : "noindex, follow"}" />`,
           `<link rel="canonical" href="${escapeAttr(blogIndexHref)}" />`,
           ...["en", "ar", "fr"].map((alternateLang) =>
             `<link rel="alternate" hreflang="${alternateLang}" href="${escapeAttr(alternateHref(alternateLang))}" />`),
