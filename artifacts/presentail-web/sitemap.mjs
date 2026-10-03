@@ -48,8 +48,9 @@ export const SITEMAP_CANONICAL_CITIES = HUB_CITY;
 //   Includes policy pages: /shipping-policy, /return-policy, /account-deletion.
 // Group B pages (privacy, terms, careers, partner) are noindex and
 // excluded from the sitemap entirely to avoid wasting crawl budget.
-// The noindex blog index (/blog) is excluded; published articles are emitted
-// separately below at their language-only canonical URLs.
+// The city-prefixed blog index (/blog) is excluded; the blog hubs and
+// published articles are emitted separately below at their language-only
+// canonical URLs.
 // Policy pages (shipping/return/account-deletion) are listed separately as
 // hub-city-only entries so there is one canonical per language×country rather
 // than one per language×country×city (which creates hundreds of duplicate-title
@@ -520,7 +521,7 @@ export function buildSitemapXml({
     lastmod = generatedAt,
     alternateLangs = SITEMAP_BLOG_LANGS,
   ) => {
-    // `rest` is "/:slug" for an article.
+    // `rest` is "/:slug" for an article, or "" for the blog hub.
     const loc = `${origin}${cleanBase}/${lang}/blog${rest}`;
     const alternates = alternateLangs.map((altLang) => {
       const href = `${origin}${cleanBase}/${altLang}/blog${rest}`;
@@ -538,6 +539,8 @@ export function buildSitemapXml({
 
   // Blog URLs exist in EN/AR/FR only — skip the section for the Greek child.
   if (SITEMAP_BLOG_LANGS.includes(lang)) {
+    const blogPostEntries = [];
+    let latestBlogPostDate = null;
     // Blog articles: /{lang}/blog/:slug
     for (const [slug, langs] of Object.entries(blogPostsSource)) {
       if (!slug) continue;
@@ -554,7 +557,10 @@ export function buildSitemapXml({
       // it to prioritise recrawling recently updated content.
       const datePublished =
         langs?.en?.datePublished ?? Object.values(langs ?? {})[0]?.datePublished ?? null;
-      urls.push(
+      if (datePublished && (!latestBlogPostDate || datePublished > latestBlogPostDate)) {
+        latestBlogPostDate = datePublished;
+      }
+      blogPostEntries.push(
         urlEntryBlog(
           `/${encoded}`,
           datePublished ?? generatedAt,
@@ -562,6 +568,10 @@ export function buildSitemapXml({
         ),
       );
     }
+    // Blog hub: bare /{lang}/blog only (indexable, self-canonical, en/ar/fr +
+    // x-default cluster). Paginated hub URLs, if ever added, stay out of the
+    // sitemap. Its lastmod is the newest article listed for this language.
+    urls.push(urlEntryBlog("", latestBlogPostDate ?? generatedAt), ...blogPostEntries);
   }
 
   return `<?xml version="1.0" encoding="UTF-8"?>
