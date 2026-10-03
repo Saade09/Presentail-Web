@@ -47,6 +47,7 @@ import { resolveGmcLocaleOnlyCheckoutRedirect } from "./gmc-checkout-route.mjs";
 export { getCrawlerProductCurrencyOverride } from "./crawler-product-currency.mjs";
 import { getCrawlerProductCurrencyOverride } from "./crawler-product-currency.mjs";
 import { STOREFRONT_SECURITY_HEADERS } from "./serve-security.mjs";
+import { resolveLegacyBlogRedirectPath } from "./legacy-blog-redirect.mjs";
 
 // seo-inject.mjs and sidecar-cache.mjs are loaded via guarded dynamic import
 // below so a missing or corrupt file produces a structured Slack alert rather
@@ -2209,6 +2210,19 @@ const server = http.createServer(async (req, res) => {
         const rest = pathname.startsWith(`${base}/`)
           ? pathname.slice(base.length)
           : "";
+
+        // /country/blog/* and /country/blogs/* → /en/blog or /en/blog/:slug.
+        // Query strings are dropped: no legacy blog param has a meaning on
+        // the current blog, and forwarding them creates duplicate URLs.
+        const legacyBlogTarget = resolveLegacyBlogRedirectPath(rest);
+        if (legacyBlogTarget) {
+          res.writeHead(301, {
+            location: `${BASE_PATH}${legacyBlogTarget}`,
+            "cache-control": "public, max-age=31536000, immutable",
+          });
+          res.end();
+          return;
+        }
 
         let countryRedirectTarget;
 
