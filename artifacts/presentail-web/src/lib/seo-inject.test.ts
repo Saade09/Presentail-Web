@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 // @ts-expect-error - mjs import without types; the module is plain JS.
-import { injectSeoTagsAsync, buildSeoHead, buildProductHead, buildBlogPostHead, parseDimsFromBuffer, initImageDimsDb, genericSeoCache, getCachedGenericSeo, setCachedGenericSeo, collectJsonLdProblems, stripTrackingParams, extractSlugFor, SEO_FALLBACK_CRITICAL_CSS, __setShopCategorySlugsForTest, __setHomepageTaxonomySlugsForTest, __resetSeoFailureAggregationForTest, appendUniqueImagePreload } from "../../seo-inject.mjs";
+import { injectSeoTagsAsync, buildSeoHead, buildProductHead, buildBlogPostHead, parseDimsFromBuffer, initImageDimsDb, genericSeoCache, getCachedGenericSeo, setCachedGenericSeo, collectJsonLdProblems, stripTrackingParams, extractSlugFor, SEO_FALLBACK_CRITICAL_CSS, __setShopCategorySlugsForTest, __setHomepageTaxonomySlugsForTest, __resetSeoFailureAggregationForTest, appendUniqueImagePreload, isSameOriginCatalogProductImagePath } from "../../seo-inject.mjs";
 
 import { BLOG_POSTS, getBlogPostLanguages } from "@workspace/blog-content";
 import { FAQ_COPY } from "../data/faqsCopy.js";
@@ -292,6 +292,98 @@ describe("injectSeoTagsAsync — /product/<slug>", () => {
     const productNodes = allNodes.filter((n: { "@type": string }) => n["@type"] === "Product");
     expect(productNodes.length).toBeGreaterThan(0);
     expect(productNodes[0].image).toBe(cdnUrl);
+  });
+});
+
+describe("injectSeoTagsAsync — product LCP image preload", () => {
+  const HIGH_IMAGE_PRELOAD_RE =
+    /<link\b(?=[^>]*\brel="preload")(?=[^>]*\bas="image")(?=[^>]*\bfetchpriority="high")[^>]*>/g;
+
+  function highImagePreloads(html: string) {
+    return html.match(HIGH_IMAGE_PRELOAD_RE) ?? [];
+  }
+
+  function productJsonLdImage(html: string) {
+    const nodes = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)]
+      .map(([, content]) => JSON.parse(content))
+      .flatMap((g) => g["@graph"] ?? [g]);
+    return nodes.find((n: { "@type": string }) => n["@type"] === "Product")?.image;
+  }
+
+  async function renderProduct(slug: string, product: Record<string, unknown>) {
+    mockFetchOnce({ ok: true, product: { name: "Lcp Product", description: "", priceValue: 50, ...product } });
+    return injectSeoTagsAsync(HTML, `/en-lb/beirut/product/${slug}`, OPTS);
+  }
+
+  it("preloads the same-origin catalog product image used by the Product JSON-LD", async () => {
+    const out = await renderProduct("lcp-catalog-image--899", {
+      image: { uri: "/api/catalog/product-image/899/0" },
+    });
+    const preloads = highImagePreloads(out);
+    expect(preloads).toEqual([
+      '<link rel="preload" as="image" fetchpriority="high" href="/api/catalog/product-image/899/0">',
+    ]);
+    // Content type is negotiated by the API, so webp must not be asserted.
+    expect(preloads[0]).not.toContain("type=");
+    expect(productJsonLdImage(out)).toBe("/api/catalog/product-image/899/0");
+  });
+
+  it("falls back to images[] for the catalog preload when image is missing", async () => {
+    const out = await renderProduct("lcp-catalog-images-array", {
+      images: [{ uri: "/api/catalog/product-image/42/0" }, { uri: "/api/catalog/product-image/42/1" }],
+    });
+    const preloads = highImagePreloads(out);
+    expect(preloads).toHaveLength(1);
+    expect(preloads[0]).toContain('href="/api/catalog/product-image/42/0"');
+  });
+
+  it("keeps the responsive OS storage preload for os.presentail.com images", async () => {
+    const out = await renderProduct("lcp-os-storage-image", {
+      image: { uri: "https://os.presentail.com/api/storage/public-objects/rose.jpg" },
+    });
+    const preloads = highImagePreloads(out);
+    expect(preloads).toHaveLength(1);
+    expect(preloads[0]).toContain('href="/api/img/proxy?url=');
+    expect(preloads[0]).toContain("imagesrcset=");
+  });
+
+  it("emits no product preload (unchanged fallback) when no image resolves", async () => {
+    const out = await renderProduct("lcp-no-image", {});
+    expect(out).not.toContain('<link rel="preload" as="image"');
+  });
+
+  it("does not preload untrusted or non-matching image URLs", async () => {
+    for (const [slug, uri] of [
+      ["lcp-untrusted-cdn", "https://cdn.test/rose.jpg"],
+      ["lcp-untrusted-absolute", "https://evil.test/api/catalog/product-image/1/0"],
+      ["lcp-untrusted-query", "/api/catalog/product-image/1/0?u=https://evil.test"],
+      ["lcp-untrusted-traversal", "/api/catalog/product-image/../img/proxy"],
+    ]) {
+      const out = await renderProduct(slug, { image: { uri } });
+      expect(out).not.toContain('<link rel="preload" as="image"');
+    }
+  });
+
+  it("leaves non-product pages unchanged: homepage keeps exactly its banner preload", async () => {
+    const out = await injectSeoTagsAsync(HTML, "/en-lb/beirut", {
+      ...OPTS,
+      firstBannerImageUrl: "https://os.presentail.com/api/storage/public-objects/banner.jpg",
+    });
+    const preloads = highImagePreloads(out);
+    expect(preloads).toHaveLength(1);
+    expect(preloads[0]).not.toContain("product-image");
+  });
+});
+
+describe("isSameOriginCatalogProductImagePath", () => {
+  it("accepts only relative numeric catalog product image paths", () => {
+    expect(isSameOriginCatalogProductImagePath("/api/catalog/product-image/899/0")).toBe(true);
+    expect(isSameOriginCatalogProductImagePath("/api/catalog/product-image/899")).toBe(true);
+    expect(isSameOriginCatalogProductImagePath("https://presentail.com/api/catalog/product-image/899/0")).toBe(false);
+    expect(isSameOriginCatalogProductImagePath("/api/catalog/product-image/899/0?w=1")).toBe(false);
+    expect(isSameOriginCatalogProductImagePath("/api/catalog/product-image/abc/0")).toBe(false);
+    expect(isSameOriginCatalogProductImagePath("/api/catalog/brand-image/1")).toBe(false);
+    expect(isSameOriginCatalogProductImagePath(null)).toBe(false);
   });
 });
 

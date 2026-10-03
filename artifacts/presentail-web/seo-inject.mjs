@@ -362,6 +362,18 @@ export function buildTrustedOsImageProxyUrl(rawUrl, width, format = "webp") {
   }
 }
 
+const CATALOG_PRODUCT_IMAGE_PATH_RE = /^\/api\/catalog\/product-image\/\d+(?:\/\d+)?$/;
+
+/**
+ * True for a same-origin relative catalog product image path such as
+ * `/api/catalog/product-image/899/0`. Absolute URLs, query strings and
+ * non-numeric segments are rejected so only our own endpoint can become an
+ * LCP preload hint.
+ */
+export function isSameOriginCatalogProductImagePath(rawUrl) {
+  return typeof rawUrl === "string" && CATALOG_PRODUCT_IMAGE_PATH_RE.test(rawUrl);
+}
+
 function escapeHtml(s) {
   return String(s)
     .replace(/&/g, "&amp;")
@@ -6629,7 +6641,7 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
       // bundle executes — improving LCP on product detail pages.
       //
       // Only emitted for OS storage images (os.presentail.com/api/storage/…)
-      // to prevent injecting arbitrary external URLs as preload hints (SSRF
+      // or same-origin /api/catalog/product-image/… paths, to prevent injecting arbitrary external URLs as preload hints (SSRF
       // risk via the /api/img/proxy endpoint). The responsive preload uses the
       // same srcset widths and sizes as the ProductDetail gallery component so
       // the browser reuses the preloaded bytes and does not issue a second fetch.
@@ -6655,6 +6667,18 @@ export async function injectSeoTagsAsync(html, pathname, opts = {}) {
           result = {
             ...result,
             headSnippet: appendUniqueImagePreload(result.headSnippet, _pdpHref, _pdpPreloadTag),
+          };
+        } else if (isSameOriginCatalogProductImagePath(_prodImageUri)) {
+          // Same-origin catalog product image (/api/catalog/product-image/{id}/{index}).
+          // ProductGallery renders this path as a plain <img src> with no srcset,
+          // so the bare path is exactly what the browser will request. The API
+          // negotiates the response format, so no `type` is asserted here.
+          const _pdpPreloadTag =
+            `<link rel="preload" as="image" fetchpriority="high"` +
+            ` href="${escapeAttr(_prodImageUri)}">`;
+          result = {
+            ...result,
+            headSnippet: appendUniqueImagePreload(result.headSnippet, _prodImageUri, _pdpPreloadTag),
           };
         }
       }
