@@ -19,8 +19,8 @@
  *   sign-in, sign-up, reset-password (mapped to key "auth" by detectRouteKey).
  * Keep in sync with public/robots.txt Disallow entries.
  *
- * Blog articles remain indexable, while the canonical language-only blog
- * indexes are handled separately in resolveXRobotsTag().
+ * Blog articles and the canonical language-only blog hubs (/en|ar|fr/blog)
+ * are public and fall through to the normal resolveXRobotsTag() rules.
  */
 export const PRIVATE_ROUTE_RE =
   /(?:^|\/)(?:cart|checkout|order-confirmed|auth|sign-in|sign-up|reset-password|account|personal-information|favorites|privacy|terms|careers|partner)(?:\/|$)/;
@@ -198,11 +198,9 @@ export const CANONICAL_PRODUCTION_HOST = "presentail.com"; // i18n-ignore — ca
 // `terms` token would otherwise match PRIVATE_ROUTE_RE. Check before the
 // private-path guard so only these exact canonical URLs escape the noindex.
 const CYPRUS_CANONICAL_POLICY_RE = /^\/cyprus\/(?:terms|shipping-policy|refund-policy)(?:\/)?$/;
-const CANONICAL_BLOG_INDEX_RE = /^\/(?:en|ar|fr)\/blog\/?$/;
 
 export function resolveXRobotsTag(host, pathname, search, curatedFilterPages = []) {
   if (CYPRUS_CANONICAL_POLICY_RE.test(pathname)) return host === CANONICAL_PRODUCTION_HOST ? "index, follow" : null;
-  if (CANONICAL_BLOG_INDEX_RE.test(pathname)) return "noindex, follow";
   if (isPrivatePath(pathname)) return "noindex";
   if (hasUtmParams(search)) return "noindex";
   if (hasFilterParams(search) && !isCuratedFilterPage(pathname, search || "", curatedFilterPages)) return "noindex, follow";

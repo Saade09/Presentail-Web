@@ -260,7 +260,7 @@ describe("serve.mjs — meta robots noindex in HTML body for private pages", () 
 });
 
 // ---------------------------------------------------------------------------
-// Blog post pages must remain indexable — only the listing is noindex
+// Blog post pages and the canonical en/ar/fr blog listings are indexable
 // ---------------------------------------------------------------------------
 
 describe("serve.mjs — blog post pages are indexable (not noindex)", () => {
@@ -275,7 +275,7 @@ describe("serve.mjs — blog post pages are indexable (not noindex)", () => {
   });
 
   it.each(["en", "ar", "fr"])(
-    "noindexes the canonical %s blog listing in both headers and HTML",
+    "indexes the canonical %s blog listing in both headers and HTML",
     async (lang) => {
       const { status, robotsHeader, body } = await get(
         serverPort,
@@ -283,8 +283,9 @@ describe("serve.mjs — blog post pages are indexable (not noindex)", () => {
         { host: "presentail.com" },
       );
       expect(status).toBe(200);
-      expect(robotsHeader).toBe("noindex, follow");
-      expect(body).toContain('<meta name="robots" content="noindex, follow"');
+      expect(robotsHeader).toBe("index, follow");
+      expect(body).toContain('<meta name="robots" content="index, follow"');
+      expect(body).not.toContain('<meta name="robots" content="noindex');
     },
   );
 

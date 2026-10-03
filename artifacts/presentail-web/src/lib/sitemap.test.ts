@@ -186,11 +186,13 @@ describe("buildSitemapXml — per-locale generation", () => {
     expect(xml).not.toContain("%23");
   });
 
-  it("excludes the noindex blog indexes from every locale sitemap", () => {
+  it("lists each indexable blog hub in its own locale sitemap only (never el)", () => {
     for (const lang of ["en", "ar", "fr"]) {
-      expect(xmlByLocale[lang]).not.toContain(
-        `<loc>${ORIGIN}/${lang}/blog</loc>`,
-      );
+      for (const other of ["en", "ar", "fr"]) {
+        const loc = `<loc>${ORIGIN}/${other}/blog</loc>`;
+        if (other === lang) expect(xmlByLocale[lang]).toContain(loc);
+        else expect(xmlByLocale[lang]).not.toContain(loc);
+      }
     }
     expect(xmlByLocale.el).not.toContain(`<loc>${ORIGIN}/el/blog</loc>`);
   });
@@ -478,9 +480,9 @@ describe("buildSitemapXml", () => {
     expect(urlNodes.length).toBeGreaterThan(0);
     for (const url of urlNodes) {
       const loc = url.getElementsByTagName("loc")[0]?.textContent ?? "";
-      // Blog articles carry a real datePublished and are allowed a <lastmod>;
-      // everything else must omit the field.
-      if (loc.includes("/blog/")) continue;
+      // Blog articles carry a real datePublished and are allowed a <lastmod>,
+      // as is the blog hub (newest article date); everything else must omit it.
+      if (loc.includes("/blog/") || loc.endsWith("/blog")) continue;
       expect(url.getElementsByTagName("lastmod").length, `no lastmod on ${loc}`).toBe(0);
     }
   });
@@ -505,7 +507,8 @@ describe("buildSitemapXml", () => {
     for (const url of Array.from(doc.getElementsByTagName("url"))) {
       const loc = url.getElementsByTagName("loc")[0]?.textContent ?? "";
       const lastmod = url.getElementsByTagName("lastmod")[0]?.textContent;
-      if (loc.includes("/blog/dated-post")) {
+      // The hub's lastmod is the newest dated article it lists.
+      if (loc.includes("/blog/dated-post") || loc === `${ORIGIN}/en/blog`) {
         expect(lastmod).toBe("2025-03-15");
       } else {
         expect(lastmod).toBeUndefined();
@@ -1030,10 +1033,11 @@ describe("buildSitemapXml — excluded / noindex paths", () => {
     });
   }
 
-  it("does not include canonical or old city-prefixed blog indexes", () => {
-    expect(xmlFull).not.toContain(`${ORIGIN}/en/blog<`);
-    expect(xmlFull).not.toContain(`href="${ORIGIN}/ar/blog"`);
-    expect(xmlFull).not.toContain(`href="${ORIGIN}/fr/blog"`);
+  it("includes the canonical blog hub but not old city-prefixed blog indexes", () => {
+    expect(xmlFull).toContain(`<loc>${ORIGIN}/en/blog</loc>`);
+    expect(xmlFull).toContain(`hreflang="ar" href="${ORIGIN}/ar/blog"`);
+    expect(xmlFull).toContain(`hreflang="fr" href="${ORIGIN}/fr/blog"`);
+    expect(xmlFull).not.toContain(`${ORIGIN}/el/blog`);
     expect(xmlFull).not.toContain(`${ORIGIN}/en-lb/beirut/blog<`);
     expect(xmlFull).not.toContain(`${ORIGIN}/en-ae/dubai/blog<`);
     expect(xmlFull).not.toContain(`${ORIGIN}/en-cy/nicosia/blog<`);

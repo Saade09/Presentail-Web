@@ -6935,7 +6935,7 @@ describe("JSON-LD — required-field guardrail over representative routes", () =
     const out = await injectSeoTagsAsync(HTML, "/fr/blog", OPTS);
 
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(out).toContain('<meta name="robots" content="noindex, follow"');
+    expect(out).toContain('<meta name="robots" content="index, follow"');
     expect(out).toContain('"@graph"');
     const blocks = assertAllJsonLdValid(out, "French blog index");
     const blog = byType(blocks, "Blog");
