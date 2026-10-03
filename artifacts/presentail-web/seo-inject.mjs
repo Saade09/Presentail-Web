@@ -4041,27 +4041,66 @@ function buildNearbyCityLinks({ country, currentCity, lang, origin, cleanBase })
 }
 
 /**
+ * Resolve an image reference to an absolute URL on `siteRoot` (the same
+ * `${origin}${cleanBase}` used for Product.url / @id / breadcrumbs).
+ * schema.org and Google ignore relative image URLs, and OS catalog images
+ * arrive as site-relative paths such as "/api/catalog/product-image/897/0".
+ *  - "https://…" / "http://…" → unchanged
+ *  - "//host/path"             → "https://host/path"
+ *  - "/path" or "path"         → `${siteRoot}/path`
+ *  - null / undefined / ""     → null (callers omit the field)
+ */
+export function toAbsoluteImageUrl(value, siteRoot) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (trimmed.startsWith("//")) return `https:${trimmed}`;
+  const root = String(siteRoot ?? "").replace(/\/$/, "");
+  return `${root}${trimmed.startsWith("/") ? "" : "/"}${trimmed}`;
+}
+
+/**
+ * Apply toAbsoluteImageUrl to a JSON-LD `image` value that may be a single
+ * string or an array of strings. Returns undefined when nothing usable
+ * remains so callers can omit the field entirely.
+ */
+export function absolutizeImageField(image, siteRoot) {
+  if (Array.isArray(image)) {
+    const urls = image
+      .map((entry) => toAbsoluteImageUrl(entry, siteRoot))
+      .filter(Boolean);
+    return urls.length > 0 ? urls : undefined;
+  }
+  return toAbsoluteImageUrl(image, siteRoot) ?? undefined;
+}
+
+/**
  * ItemList JSON-LD for category / occasion listing pages — emits the first
  * (≤10) products with position, name, canonical product URL and image so
  * search engines understand the page lists products and can deep-link each one.
  * `items` is an array of `{ name, slug, image }`; `locBase` is the locale+city
- * base URL used to build each product's clean URL (`{locBase}/product/{slug}`).
+ * base URL used to build each product's clean URL (`{locBase}/product/{slug}`);
+ * `siteRoot` is the origin+basePath used to absolutize relative item images.
  */
-function buildItemListSchema(items, listName, locBase) {
+function buildItemListSchema(items, listName, locBase, siteRoot) {
   return {
     "@context": "https://schema.org",
     "@type": "ItemList",
     ...(listName ? { name: listName } : {}),
     numberOfItems: items.length,
-    itemListElement: items.map((it, i) => ({
-      "@type": "ListItem",
-      position: i + 1,
-      name: it.name,
-      ...(it.slug && locBase
-        ? { url: `${locBase}/product/${encodeURIComponent(it.slug)}` }
-        : {}),
-      ...(it.image ? { image: it.image } : {}),
-    })),
+    itemListElement: items.map((it, i) => {
+      const image = absolutizeImageField(it.image, siteRoot);
+      return {
+        "@type": "ListItem",
+        position: i + 1,
+        name: it.name,
+        ...(it.slug && locBase
+          ? { url: `${locBase}/product/${encodeURIComponent(it.slug)}` }
+          : {}),
+        ...(image ? { image } : {}),
+      };
+    }),
   };
 }
 
@@ -4359,7 +4398,11 @@ function buildEntityHead({
     `<meta property="og:locale" content="${escapeAttr((country && OG_LOCALE_COUNTRY[lang]?.[country]) || OG_LOCALE[lang] || "en_US")}" />`,
   );
   lines.push(`<meta property="og:url" content="${escapeAttr(canonicalHref)}" />`);
-  const effectiveImageUrl = imageUrl || `${origin}${cleanBase}/opengraph.jpg?v=2`;
+  // og:image / twitter:image must be absolute for crawlers; entity images may
+  // arrive as site-relative OS paths.
+  const effectiveImageUrl =
+    toAbsoluteImageUrl(imageUrl, `${origin}${cleanBase}`) ||
+    `${origin}${cleanBase}/opengraph.jpg?v=2`;
   const effectiveImageAlt = imageAlt || "Presentail — Luxury Flower & Gift Delivery"; // i18n-ignore — brand tagline used as OG image alt fallback
   lines.push(`<meta property="og:image" content="${escapeAttr(effectiveImageUrl)}" />`);
   lines.push(`<meta property="og:image:secure_url" content="${escapeAttr(effectiveImageUrl)}" />`);
@@ -4695,12 +4738,15 @@ export function buildProductHead({
   const schemaAvailability = inStock
     ? "https://schema.org/InStock"
     : "https://schema.org/OutOfStock";
+  // OS product images are site-relative ("/api/catalog/product-image/…");
+  // Product.image must be absolute on the same origin as Product.url.
+  const productSchemaImage = absolutizeImageField(rawProductImageUrl, siteRoot);
   const productSchema = {
     "@context": "https://schema.org",
     "@type": "Product",
     name: rawName || "Presentail",
     ...(rawDesc ? { description: clampDescription(stripHtml(rawDesc), 300) } : {}),
-    ...(rawProductImageUrl ? { image: rawProductImageUrl } : {}),
+    ...(productSchemaImage ? { image: productSchemaImage } : {}),
     ...(sku ? { sku } : {}),
     ...(mpn ? { mpn } : {}),
     url: canonicalUrl,
@@ -5459,7 +5505,7 @@ function buildShopEntityHead({
   const graphNodes = [buildBreadcrumbListSchema(crumbItems)];
   // ItemList — first (≤10) products (name + URL + image) on the listing page.
   if (Array.isArray(items) && items.length > 0) {
-    graphNodes.push(buildItemListSchema(items, displayName || altText, locBase));
+    graphNodes.push(buildItemListSchema(items, displayName || altText, locBase, siteRoot));
   }
   // CollectionPage + Service nodes for curated city-category AND curated occasion pages.
   // These carry hand-written unique content so they deserve richer structured
