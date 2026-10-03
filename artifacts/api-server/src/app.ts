@@ -24,6 +24,7 @@ import {
   resolveHttpLogLevel,
 } from "./lib/httpLoggingPolicy";
 import imgProxyRouter from "./routes/imgProxy";
+import { universalNoindexMiddleware } from "./lib/noindexPolicy";
 
 const app: Express = express();
 const httpLoggingConfig = getHttpLoggingConfig();
@@ -52,10 +53,14 @@ app.use((_req, res, next) => {
 // handlers, static assets, and all API routes. This keeps the ops.presentail.com
 // admin deployment out of Google's index. The header is also harmless on pure
 // JSON API responses (Googlebot does not index raw API payloads).
-app.use((_req, res, next) => {
-  res.setHeader("X-Robots-Tag", "noindex, nofollow");
-  next();
-});
+//
+// Exemption: this server also backs the public storefront's /api routes, and
+// the apex robots.txt Allows the public product-image endpoints that Product
+// JSON-LD and og:image reference. Those image responses skip the header, but
+// only on the canonical public host (presentail.com / www) — the exemption is
+// host-scoped so ops.presentail.com, Replit previews and any unknown or
+// missing Host still fail closed to noindex. See lib/noindexPolicy.ts.
+app.use(universalNoindexMiddleware);
 
 // robots.txt — served at the root so that ops.presentail.com/robots.txt
 // instructs all compliant crawlers (including Googlebot) to disallow the entire
