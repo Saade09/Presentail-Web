@@ -7,7 +7,7 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
-import { buildLocaleLogoPreloadTags } from "./logo-preloads.mjs";
+import { injectLocaleLogoPreloads } from "./logo-preloads.mjs";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { performance } from "node:perf_hooks";
@@ -885,10 +885,7 @@ try {
 function injectLogoPreloads(html, pathname = "/") {
   if (!logoManifest) return html;
   try {
-    return html.replace(
-      "</head>",
-      `    ${buildLocaleLogoPreloadTags(logoManifest, BASE_PATH, pathname)}\n  </head>`,
-    );
+    return injectLocaleLogoPreloads(html, logoManifest, BASE_PATH, pathname);
   } catch (err) {
     console.warn(`WARN: Logo preloads: ${err.message}`);
     return html;
