@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 // @ts-expect-error - mjs import without types; the module is plain JS.
-import { injectSeoTagsAsync, buildSeoHead, buildProductHead, buildBlogPostHead, parseDimsFromBuffer, initImageDimsDb, genericSeoCache, getCachedGenericSeo, setCachedGenericSeo, collectJsonLdProblems, stripTrackingParams, extractSlugFor, SEO_FALLBACK_CRITICAL_CSS, __setShopCategorySlugsForTest, __setHomepageTaxonomySlugsForTest, __resetSeoFailureAggregationForTest, appendUniqueImagePreload } from "../../seo-inject.mjs";
+import { injectSeoTagsAsync, buildSeoHead, buildProductHead, buildBlogPostHead, parseDimsFromBuffer, initImageDimsDb, genericSeoCache, getCachedGenericSeo, setCachedGenericSeo, collectJsonLdProblems, stripTrackingParams, extractSlugFor, SEO_FALLBACK_CRITICAL_CSS, __setShopCategorySlugsForTest, __setHomepageTaxonomySlugsForTest, __resetSeoFailureAggregationForTest, appendUniqueImagePreload, toAbsoluteImageUrl, absolutizeImageField } from "../../seo-inject.mjs";
 
 import { BLOG_POSTS, getBlogPostLanguages } from "@workspace/blog-content";
 import { FAQ_COPY } from "../data/faqsCopy.js";
@@ -91,6 +91,116 @@ describe("entity route slug extraction", () => {
       expect(extractSlugFor(prefix, `${prefix}/rose/page/2`)).toBeNull();
     });
   }
+});
+
+describe("absolute image URLs in JSON-LD and OG tags", () => {
+  const SITE = "https://presentail.test";
+
+  it("toAbsoluteImageUrl resolves relative, keeps absolute, upgrades protocol-relative", () => {
+    expect(toAbsoluteImageUrl("/api/catalog/product-image/897/0", SITE)).toBe(
+      "https://presentail.test/api/catalog/product-image/897/0",
+    );
+    expect(toAbsoluteImageUrl("api/catalog/product-image/897/0", `${SITE}/`)).toBe(
+      "https://presentail.test/api/catalog/product-image/897/0",
+    );
+    expect(toAbsoluteImageUrl("https://cdn.test/a.jpg", SITE)).toBe("https://cdn.test/a.jpg");
+    expect(toAbsoluteImageUrl("http://cdn.test/a.jpg", SITE)).toBe("http://cdn.test/a.jpg");
+    expect(toAbsoluteImageUrl("//cdn.test/a.jpg", SITE)).toBe("https://cdn.test/a.jpg");
+  });
+
+  it("toAbsoluteImageUrl returns null for missing values", () => {
+    for (const value of [null, undefined, "", "   ", 42]) {
+      expect(toAbsoluteImageUrl(value, SITE)).toBeNull();
+    }
+  });
+
+  it("absolutizeImageField handles strings, arrays and missing values", () => {
+    expect(absolutizeImageField("/api/og-image/product/x", SITE)).toBe(
+      "https://presentail.test/api/og-image/product/x",
+    );
+    expect(
+      absolutizeImageField(
+        ["/api/catalog/product-image/897/0", "https://cdn.test/b.jpg", "//cdn.test/c.jpg", "", null],
+        SITE,
+      ),
+    ).toEqual([
+      "https://presentail.test/api/catalog/product-image/897/0",
+      "https://cdn.test/b.jpg",
+      "https://cdn.test/c.jpg",
+    ]);
+    expect(absolutizeImageField([], SITE)).toBeUndefined();
+    expect(absolutizeImageField([null, ""], SITE)).toBeUndefined();
+    expect(absolutizeImageField(null, SITE)).toBeUndefined();
+    expect(absolutizeImageField(undefined, SITE)).toBeUndefined();
+    expect(absolutizeImageField("", SITE)).toBeUndefined();
+  });
+
+  function productNode(headSnippet: string) {
+    const blocks = [...headSnippet.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)]
+      .map(([, content]) => JSON.parse(content));
+    return blocks
+      .flatMap((g) => g["@graph"] ?? [g])
+      .find((n: { "@type": string }) => n["@type"] === "Product");
+  }
+
+  function head(image: unknown, extra: Record<string, unknown> = {}) {
+    return buildProductHead({
+      product: { id: "ferrero", name: "Ferrero Rocher", description: "", priceValue: 30, inStock: true, ...(image === undefined ? {} : { image }) },
+      lang: "en", basePath: "", origin: SITE,
+      pathname: "/en-lb/beirut/product/ferrero", countryCode: "LB",
+      country: "lb", city: "beirut",
+      ...extra,
+    }).headSnippet as string;
+  }
+
+  it("emits a relative OS product image as an absolute Product.image on the canonical origin", () => {
+    const snippet = head({ uri: "/api/catalog/product-image/897/0" });
+    const product = productNode(snippet);
+    expect(product.image).toBe("https://presentail.test/api/catalog/product-image/897/0");
+    expect(product.url.startsWith("https://presentail.test/")).toBe(true);
+    // og:image / twitter:image (raw photo fallback when no branded card) are absolute too.
+    expect(snippet).toContain(
+      '<meta property="og:image" content="https://presentail.test/api/catalog/product-image/897/0" />',
+    );
+    expect(snippet).toContain(
+      '<meta name="twitter:image" content="https://presentail.test/api/catalog/product-image/897/0" />',
+    );
+    expect(snippet).not.toMatch(/"image":"\//);
+  });
+
+  it("leaves an already-absolute Product.image unchanged", () => {
+    expect(productNode(head({ uri: "https://cdn.test/velvet.jpg" })).image).toBe(
+      "https://cdn.test/velvet.jpg",
+    );
+  });
+
+  it("resolves a protocol-relative Product.image to https", () => {
+    expect(productNode(head({ uri: "//cdn.test/velvet.jpg" })).image).toBe(
+      "https://cdn.test/velvet.jpg",
+    );
+  });
+
+  it("falls back to images[] and absolutizes it", () => {
+    const snippet = buildProductHead({
+      product: {
+        id: "ferrero", name: "Ferrero Rocher", description: "", priceValue: 30, inStock: true,
+        images: [{ uri: "" }, { uri: "/api/catalog/product-image/897/1" }],
+      },
+      lang: "en", basePath: "", origin: SITE,
+      pathname: "/en-lb/beirut/product/ferrero", countryCode: "LB",
+      country: "lb", city: "beirut",
+    }).headSnippet as string;
+    expect(productNode(snippet).image).toBe(
+      "https://presentail.test/api/catalog/product-image/897/1",
+    );
+  });
+
+  it("omits Product.image when the product has no image", () => {
+    const snippet = head(undefined);
+    expect(productNode(snippet)).not.toHaveProperty("image");
+    expect(snippet).not.toContain("undefined");
+    expect(snippet).not.toContain("/null");
+  });
 });
 
 describe("injectSeoTagsAsync — /product/<slug>", () => {
