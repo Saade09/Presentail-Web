@@ -41,9 +41,9 @@ export const SITEMAP_BLOG_LANGS = ["en", "ar", "fr"];
 // sitemap URLs can never disagree about which city is the hub.
 export const SITEMAP_CANONICAL_CITIES = HUB_CITY;
 // Static sub-paths included for every lang / country / city combination.
-// /shop is intentionally omitted — category and occasion clean paths
-// (/category/<slug>, /occasion/<slug>) are emitted dynamically below so
-// crawlers discover the canonical destinations without following a redirect.
+// The bare /shop listing is emitted separately (SITEMAP_SHOP_PATH below);
+// its legacy ?category= / ?occasion= variants 301 to the clean
+// /category/<slug> and /occasion/<slug> paths and are never listed.
 // Group A pages (city-specific, indexable) are included per city × lang.
 //   Includes policy pages: /shipping-policy, /return-policy, /account-deletion.
 // Group B pages (privacy, terms, careers, partner) are noindex and
@@ -64,6 +64,12 @@ export const SITEMAP_STATIC_PATHS = [
 export const SITEMAP_POLICY_PATHS = [
   "/shipping-policy", "/return-policy", "/account-deletion",
 ];
+
+// Full-catalog listing — indexable and self-canonical at every city (its
+// stock/delivery content is city-specific), so it is emitted for every
+// lang / country / city combination like SITEMAP_STATIC_PATHS. Kept as a
+// separate constant so the static-path entries keep their existing order.
+export const SITEMAP_SHOP_PATH = "/shop";
 
 export function escXml(s) {
   return String(s)
@@ -261,6 +267,15 @@ export function buildSitemapXml({
         const priority = subpath === "/" ? "0.9" : "0.7";
         urls.push(urlEntryWithAlternates(priority, "weekly", country, city, rest));
       }
+    }
+  }
+
+  // 1a. Shop listing — one <url> per country × city, same lang/city source and
+  // hreflang cluster as the static pages above.
+  for (const [country, cities] of Object.entries(SITEMAP_CITIES)) {
+    if (skipCountryForLang(country)) continue;
+    for (const city of cities) {
+      urls.push(urlEntryWithAlternates("0.7", "weekly", country, city, SITEMAP_SHOP_PATH));
     }
   }
 
