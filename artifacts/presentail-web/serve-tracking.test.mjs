@@ -616,9 +616,9 @@ describe("serve.mjs Section 7 — /flowers vanity redirect", () => {
 // ---------------------------------------------------------------------------
 // Tracking-param stripping in Section 8 Location headers
 //
-// The redirect handler appends stripTrackingParams(url.search) to every
-// Section 8 Location.  These tests verify utm_* and other tracking params
-// never appear in the outbound Location header.
+// The redirect handler appends filterLegacyRedirectSearch(url.search) to every
+// Section 8 Location. Its allow-list is empty, so these tests verify tracking
+// params and other legacy junk never appear in the outbound Location header.
 // ---------------------------------------------------------------------------
 
 describe("serve.mjs Section 8 — tracking params stripped from Location headers", () => {
@@ -659,14 +659,19 @@ describe("serve.mjs Section 8 — tracking params stripped from Location headers
     expect(location).not.toContain("fbclid");
   });
 
-  it("preserves non-tracking query params in the Section 8 Location header", async () => {
+  it("drops non-allow-listed query params from the Section 8 Location header", async () => {
     const { status, location } = await get(
       serverPort,
       "/lebanon?utm_source=google&ref=newsletter",
     );
     expect(status).toBe(301);
-    expect(location).toBe("/en-lb/beirut?ref=newsletter");
-    expect(location).not.toContain("utm_");
+    expect(location).toBe("/en-lb/beirut");
+  });
+
+  it("drops WordPress nsl_bypass_cache from the Section 8 Location header", async () => {
+    const { status, location } = await get(serverPort, "/lebanon/?nsl_bypass_cache=1");
+    expect(status).toBe(301);
+    expect(location).toBe("/en-lb/beirut");
   });
 
   it("strips gclid from /dubai redirect Location", async () => {

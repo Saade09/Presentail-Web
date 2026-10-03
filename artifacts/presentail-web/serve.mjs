@@ -40,6 +40,11 @@ import {
   stripTrackingParamsFromReqUrl,
 } from "./serve-tracking.mjs";
 import {
+  buildRequestOrigin,
+  filterLegacyRedirectSearch,
+  normalizeOrigin,
+} from "./serve-redirect-url.mjs";
+import {
   WindowedKeyRateLimiter,
   buildProductLifecycle410Event,
 } from "./server-analytics-policy.mjs";
@@ -109,9 +114,11 @@ const INTERNAL_API_BASE_URL = resolveInternalApiBaseUrl();
 // redirect target. When unset the default "https://presentail.com" is used.
 // Setting it to an empty string is not recommended — the guards fall back to
 // the hardcoded string anyway.
-const WWW_REDIRECT_TARGET_ORIGIN = (
-  process.env.WEB_CANONICAL_REDIRECT_TARGET_ORIGIN ?? "https://presentail.com"
-).trim();
+// normalizeOrigin drops a default port so the Location never reads
+// "https://presentail.com:443/…".
+const WWW_REDIRECT_TARGET_ORIGIN = normalizeOrigin(
+  process.env.WEB_CANONICAL_REDIRECT_TARGET_ORIGIN ?? "https://presentail.com",
+);
 
 // ---------------------------------------------------------------------------
 // product_lifecycle_410 analytics event recorder.
@@ -1453,8 +1460,10 @@ const server = http.createServer(async (req, res) => {
     }
 
     const host = req.headers["x-forwarded-host"]?.toString() ?? req.headers.host ?? "localhost";
-    const url = new URL(req.url ?? "/", `${proto}://${host}`);
-    const origin = `${proto}://${host}`;
+    // The proxy can forward "presentail.com:443"; drop default ports so
+    // absolute redirect Locations and canonical Link headers carry no port.
+    const origin = buildRequestOrigin(proto, host);
+    const url = new URL(req.url ?? "/", origin);
 
     // Strip BASE_PATH prefix for both asset lookup and SEO parsing so
     // canonical/hreflang reflect the locale path, not the deploy prefix.
@@ -2186,8 +2195,10 @@ const server = http.createServer(async (req, res) => {
     // equivalents in a single hop. Sub-paths with /product/, /product-category/,
     // and /product-tag/ are mapped using the WC_CATEGORY_SLUG_MAP and
     // WC_TAG_SLUG_MAP defined in sections 5–6 above.
-    // All redirect targets are built with BASE_PATH prefix and strip tracking
-    // params from the outbound Location header.
+    // All redirect targets are built with BASE_PATH prefix. Query strings are
+    // reduced to LEGACY_REDIRECT_ALLOWED_PARAMS (currently empty, so dropped):
+    // WordPress leftovers such as ?nsl_bypass_cache= otherwise create
+    // duplicate crawlable variants of the canonical city page.
     const COUNTRY_PREFIX_CONFIG = [
       { prefixes: ["lebanon"],      locale: "en-lb", city: "beirut" },
       { prefixes: ["cyprus"],       locale: "en-cy", city: "nicosia" },
@@ -2245,7 +2256,7 @@ const server = http.createServer(async (req, res) => {
         }
 
         res.writeHead(301, {
-          location: countryRedirectTarget + stripTrackingParams(url.search),
+          location: countryRedirectTarget + filterLegacyRedirectSearch(url.search),
           "cache-control": "public, max-age=31536000, immutable",
         });
         res.end();

@@ -195,6 +195,84 @@ describe("serve.mjs — bare language utility routes", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Proxied Host headers carrying the default :443 port
+// ---------------------------------------------------------------------------
+
+function getWithHeaders(
+  port: number,
+  urlPath: string,
+  headers: Record<string, string>,
+): Promise<{ status: number; location?: string; link?: string }> {
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      { host: "127.0.0.1", port, path: urlPath, headers },
+      (res) => {
+        res.resume();
+        res.on("end", () =>
+          resolve({
+            status: res.statusCode ?? 0,
+            location: res.headers["location"] as string | undefined,
+            link: res.headers["link"] as string | undefined,
+          }),
+        );
+      },
+    );
+    req.on("error", reject);
+    req.end();
+  });
+}
+
+describe("serve.mjs — no :443 in server-built URLs", () => {
+  it("redirects http www.presentail.com:443 straight to the portless apex", async () => {
+    const { status, location } = await getWithHeaders(serverPort, "/", {
+      host: "www.presentail.com:443",
+      "x-forwarded-proto": "http",
+    });
+    expect(status).toBe(301);
+    expect(location).toBe("https://presentail.com/");
+  });
+
+  it("keeps the www → apex path and query (tracking stripped)", async () => {
+    const { status, location } = await getWithHeaders(
+      serverPort,
+      "/en-lb/beirut/shop?utm_source=x&sort=asc",
+      { host: "www.presentail.com:443", "x-forwarded-proto": "https" },
+    );
+    expect(status).toBe(301);
+    expect(location).toBe("https://presentail.com/en-lb/beirut/shop?sort=asc");
+  });
+
+  it("omits :443 from the canonical Link header when Host carries the port", async () => {
+    const { status, link } = await getWithHeaders(serverPort, "/en-lb/beirut/shop", {
+      host: "presentail.com:443",
+      "x-forwarded-proto": "https",
+    });
+    expect(status).toBe(200);
+    expect(link).toContain("<https://presentail.com/en-lb/beirut/shop>; rel=\"canonical\"");
+    expect(link).not.toContain(":443");
+  });
+});
+
+describe("serve.mjs — legacy country-prefix redirects drop junk query params", () => {
+  it.each([
+    ["/lebanon/?nsl_bypass_cache=6a1f", "/en-lb/beirut"],
+    ["/lebanon?nsl_bypass_cache=1&orderby=price", "/en-lb/beirut"],
+    ["/dubai/product-category/flowers?min_price=1&max_price=9&_cr=1", "/en-ae/dubai/category/hand-bouquets"],
+    ["/cyprus/product/rose?filter_color=red&currency=EUR", "/en-cy/nicosia/product/rose"],
+  ])("redirects %s to %s with no query string", async (source, expectedLocation) => {
+    const { status, location } = await get(serverPort, source);
+    expect(status).toBe(301);
+    expect(location).toBe(expectedLocation);
+  });
+
+  it("still forwards the query on the deliberately query-preserving bare-language redirect", async () => {
+    const { status, location } = await get(serverPort, "/ar?source=footer");
+    expect(status).toBe(301);
+    expect(location).toBe("/ar-lb/beirut?source=footer");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Rows 21–24, 19–20: WP infrastructure paths → 410 Gone
 // ---------------------------------------------------------------------------
 
